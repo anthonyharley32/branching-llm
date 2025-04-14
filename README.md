@@ -1,3 +1,16 @@
+# SuperGrok
+
+An advanced AI chat application with a minimalist interface and conversation branching, inspired by Grok.
+
+Built with React, Vite, TypeScript, and Tailwind CSS.
+
+## Development
+
+```bash
+npm install
+npm run dev
+```
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
