@@ -1,4 +1,4 @@
-# SuperGrok
+# LearningLLM
 
 An advanced AI chat application with a minimalist interface and conversation branching, inspired by Grok.
 

@@ -213,8 +213,8 @@ describe('ConversationContext', () => {
 
     // Wait for the save useEffects triggered by state change
     await waitFor(() => {
-        expect(localStorageMock.getItem('supergrok_conversation')).toEqual(JSON.stringify(expectedConv));
-        expect(localStorageMock.getItem('supergrok_activeMessageId')).toEqual(expectedActiveId);
+        expect(localStorageMock.getItem('LearningLLM_conversation')).toEqual(JSON.stringify(expectedConv));
+        expect(localStorageMock.getItem('LearningLLM_activeMessageId')).toEqual(expectedActiveId);
     });
   });
 
@@ -227,8 +227,8 @@ describe('ConversationContext', () => {
          messages: { 'msg-a': msg1 },
          createdAt: Date.now()
      };
-     localStorageMock.setItem('supergrok_conversation', JSON.stringify(initialConv));
-     localStorageMock.setItem('supergrok_activeMessageId', 'msg-a');
+     localStorageMock.setItem('LearningLLM_conversation', JSON.stringify(initialConv));
+     localStorageMock.setItem('LearningLLM_activeMessageId', 'msg-a');
 
     const { result } = renderHook(() => useConversation(), { wrapper });
     
@@ -246,8 +246,8 @@ describe('ConversationContext', () => {
   });
   
    it('should handle invalid JSON data in localStorage', async () => {
-      localStorageMock.setItem('supergrok_conversation', 'invalid json');
-      localStorageMock.setItem('supergrok_activeMessageId', 'some-id');
+      localStorageMock.setItem('LearningLLM_conversation', 'invalid json');
+      localStorageMock.setItem('LearningLLM_activeMessageId', 'some-id');
       
       const { result } = renderHook(() => useConversation(), { wrapper });
       
@@ -257,14 +257,14 @@ describe('ConversationContext', () => {
       });
       
       expect(result.current.activeMessageId).toBeNull();
-      expect(localStorageMock.getItem('supergrok_conversation')).toBeNull(); // Should be removed
-      expect(localStorageMock.getItem('supergrok_activeMessageId')).toBeNull(); // Should be removed
+      expect(localStorageMock.getItem('LearningLLM_conversation')).toBeNull(); // Should be removed
+      expect(localStorageMock.getItem('LearningLLM_activeMessageId')).toBeNull(); // Should be removed
       expect(console.error).toHaveBeenCalledWith('Error loading from localStorage:', expect.any(SyntaxError)); // Log error during load
    });
 
    it('should handle partially invalid data in localStorage (e.g., structurally wrong object)', async () => {
-      localStorageMock.setItem('supergrok_conversation', JSON.stringify({ id: 'bad-conv', messages: null })); // Missing/invalid messages
-      localStorageMock.setItem('supergrok_activeMessageId', 'some-id');
+      localStorageMock.setItem('LearningLLM_conversation', JSON.stringify({ id: 'bad-conv', messages: null })); // Missing/invalid messages
+      localStorageMock.setItem('LearningLLM_activeMessageId', 'some-id');
       
       const { result } = renderHook(() => useConversation(), { wrapper });
       
@@ -273,8 +273,8 @@ describe('ConversationContext', () => {
       });
       
       expect(result.current.activeMessageId).toBeNull();
-      expect(localStorageMock.getItem('supergrok_conversation')).toBeNull(); 
-      expect(localStorageMock.getItem('supergrok_activeMessageId')).toBeNull(); 
+      expect(localStorageMock.getItem('LearningLLM_conversation')).toBeNull(); 
+      expect(localStorageMock.getItem('LearningLLM_activeMessageId')).toBeNull(); 
       expect(console.warn).toHaveBeenCalledWith('Invalid conversation data found in localStorage');
    });
 

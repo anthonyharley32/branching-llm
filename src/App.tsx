@@ -21,7 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 // --- Constants ---
 const GUEST_MESSAGE_LIMIT = 1000;
-const GUEST_MESSAGE_COUNT_KEY = 'supergrok_guest_message_count';
+const GUEST_MESSAGE_COUNT_KEY = 'LearningLLM_guest_message_count';
 
 function AppContent() {
   const { user, isLoading: isAuthLoading, session, signOut } = useAuth();
@@ -38,9 +38,19 @@ function AppContent() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<LLMError | null>(null)
   const [guestMessageCount, setGuestMessageCount] = useState<number>(0); // State for guest count
-  const [branchParentId, setBranchParentId] = useState<string | null>(null); // State for branched view
-  const [branchId, setBranchId] = useState<string | null>(null); // Store the branch ID for filtering
-  const [branchSourceText, setBranchSourceText] = useState<string | null>(null); // State for source text
+  
+  // Replace single branchParentId with a branch navigation stack
+  const [branchStack, setBranchStack] = useState<{
+    parentId: string;
+    branchId: string | null;
+    sourceText: string | null;
+  }[]>([]);
+  
+  // Computed properties based on the branch stack
+  const branchParentId = branchStack.length > 0 ? branchStack[branchStack.length - 1].parentId : null;
+  const branchId = branchStack.length > 0 ? branchStack[branchStack.length - 1].branchId : null;
+  const branchSourceText = branchStack.length > 0 ? branchStack[branchStack.length - 1].sourceText : null;
+  
   const [streamingAiNodeId, setStreamingAiNodeId] = useState<string | null>(null); // Track the ID of the AI message being streamed
 
   // State to trigger LLM call after user message is added
@@ -195,12 +205,12 @@ function AppContent() {
           b.createdAt.getTime() - a.createdAt.getTime()
         );
         
-        const branchId = branchStarterMessages[0].metadata?.branchId;
+        const currentBranchId = branchStarterMessages[0].metadata?.branchId;
         
-        if (branchId) {
+        if (currentBranchId) {
           // Add branch metadata to maintain branch context
-          metadata = { branchId };
-          console.log(`Adding message to branch: ${branchId}`);
+          metadata = { branchId: currentBranchId };
+          console.log(`Adding message to branch: ${currentBranchId}`);
         }
       }
     }
@@ -225,20 +235,49 @@ function AppContent() {
       path: addResult.messagePath,
       metadata // Pass branch metadata to ensure LLM response stays in the branch
     });
-
-    // LLM call moved to useEffect triggered by pendingLlmCall
   }
 
   // Handler for when a branch is successfully created in ChatMessage
   const handleBranchCreated = (branchResult: AddMessageResult, sourceText: string, isNewBranch: boolean) => {
     if (branchResult.newNode.parentId) { 
-      setBranchParentId(branchResult.newNode.parentId);
+      // Add debug logs for branch creation
+      console.log("DEBUG handleBranchCreated:");
+      console.log("- newNode:", {
+        id: branchResult.newNode.id, 
+        role: branchResult.newNode.role,
+        parentId: branchResult.newNode.parentId,
+        metadata: branchResult.newNode.metadata,
+        content: branchResult.newNode.content.substring(0, 30) + "..."
+      });
+      
+      // Log current branch stack
+      console.log("- Current branch stack:", branchStack);
+      
+      // If we can, check for the parent
+      const parentNode = conversation?.messages?.[branchResult.newNode.parentId];
+      console.log("- parentNode:", parentNode ? {
+        id: parentNode.id,
+        role: parentNode.role,
+        parentId: parentNode.parentId,
+        metadata: parentNode.metadata,
+      } : "null");
+      
       // Store the branch ID from the node metadata
       const currentBranchId = branchResult.newNode.metadata?.branchId || null;
-      setBranchId(currentBranchId);
       
+      // Get truncated text for display
       const truncatedText = sourceText.length > 60 ? sourceText.substring(0, 57) + '...' : sourceText;
-      setBranchSourceText(truncatedText);
+      
+      // Add this branch to the stack
+      const newBranchInfo = {
+        parentId: branchResult.newNode.parentId,
+        branchId: currentBranchId,
+        sourceText: truncatedText
+      };
+      
+      // Update the branch stack (keeping previous branch history)
+      setBranchStack(prev => [...prev, newBranchInfo]);
+      
       console.log(`Entering branch view. Parent: ${branchResult.newNode.parentId}, BranchId: ${currentBranchId}, Source: "${truncatedText}"`);
       
       // Store branch node ID directly for simpler access
@@ -304,22 +343,49 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
 
   // Handler for clicking the back button in branch view
   const handleGoBack = () => {
-    if (branchParentId) {
-      console.log("Going back to parent:", branchParentId);
-      setActiveMessageId(branchParentId); // Navigate back in context
-      setBranchParentId(null);
-      setBranchId(null); // Clear branch ID when going back
-      setBranchSourceText(null);
+    // With branch stack, going back is simply popping the top item off the stack
+    if (branchStack.length > 0) {
+      // Log the current state before we change it
+      console.log("Going back from current branch:", branchStack[branchStack.length - 1]);
+      
+      // Get the parent ID from the current branch (top of stack)
+      const currentBranchParentId = branchStack[branchStack.length - 1].parentId;
+      
+      // Set active message ID to the parent we're returning to
+      setActiveMessageId(currentBranchParentId);
+      
+      if (branchStack.length > 1) {
+        // If we have more than one branch in the stack, we're going back to a previous branch
+        console.log("Going back to previous branch:", branchStack[branchStack.length - 2]);
+        
+        // Remove the top branch from the stack (keeping the rest of the branch history)
+        setBranchStack(prev => prev.slice(0, -1));
+      } else {
+        // If we only have one branch, we're exiting branch view entirely
+        console.log("Exiting branch view");
+        setBranchStack([]);
+      }
     } else {
-      console.warn('handleGoBack called but no branchParentId set');
+      console.warn('handleGoBack called but branch stack is empty');
     }
   };
 
   // --- Filter messages for display ---
   let displayedMessages = currentMessages;
   if (branchParentId) {
+    console.log("DEBUG FILTER MESSAGES:");
+    console.log("- branchStack:", branchStack);
+    console.log("- Current branch (top of stack):", branchStack[branchStack.length - 1]);
+    console.log("- activeMessageId:", activeMessageId);
+    
     // Find any branch messages that have the branch parent
     const branchParentNode = conversation?.messages?.[branchParentId];
+    console.log("- branchParentNode:", branchParentNode ? {
+      id: branchParentNode.id,
+      role: branchParentNode.role,
+      parentId: branchParentNode.parentId,
+      metadata: branchParentNode.metadata,
+    } : "null");
     
     if (branchParentNode) {
       // Get all messages in the conversation
@@ -331,16 +397,26 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
         console.log(`Filtering messages with branchId: ${branchId}`);
         
         // Get the branch starter node (direct child of parent with this branch ID)
+        // This is the message with isBranchStart that initiates a branch
         const branchStarter = allMessages.find(msg => 
           msg.parentId === branchParentId && 
-          msg.metadata?.branchId === branchId
+          msg.metadata?.branchId === branchId &&
+          msg.metadata?.isBranchStart === true
         );
         
         if (branchStarter) {
           console.log(`Found branch starter node: ${branchStarter.id}`);
+          console.log("- branchStarter:", {
+            id: branchStarter.id,
+            role: branchStarter.role,
+            parentId: branchStarter.parentId,
+            metadata: branchStarter.metadata,
+          });
           
-          // Get all descendants of the branch starter node
-          // Plus any messages that explicitly have this branch ID in metadata
+          // Include messages that belong to this branch:
+          // 1. Include the branch starter
+          // 2. Include direct and indirect descendants of the branch starter
+          // 3. Include messages explicitly tagged with the same branchId
           branchMessages = allMessages.filter(msg => {
             // Include the branch starter itself
             if (msg.id === branchStarter.id) return true;
@@ -349,10 +425,14 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
             if (msg.metadata?.branchId === branchId) return true;
             
             // Include messages that are descendants of the branch starter
+            // by walking up the parentId chain
             let currentId = msg.parentId;
             while (currentId) {
               // If we reach the branch starter, this message is part of this branch
               if (currentId === branchStarter.id) return true;
+              
+              // Stop if we reach the branch parent (don't go past it)
+              if (currentId === branchParentId) break;
               
               // Move up the tree
               currentId = conversation?.messages?.[currentId]?.parentId || null;
@@ -360,8 +440,26 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
             
             return false;
           });
+          
+          // Debug the branch structure
+          console.log("BRANCH STRUCTURE:");
+          const messageStructure = branchMessages.map(msg => ({
+            id: msg.id,
+            role: msg.role,
+            parentId: msg.parentId,
+            content: msg.content.substring(0, 20) + "...",
+            isBranchStart: msg.metadata?.isBranchStart,
+            branchId: msg.metadata?.branchId
+          }));
+          console.log(messageStructure);
         } else {
           console.warn(`Could not find branch starter node with branchId: ${branchId}`);
+          
+          // Fallback to just using branchId for filtering (less reliable)
+          branchMessages = allMessages.filter(msg => 
+            msg.metadata?.branchId === branchId || 
+            msg.parentId === branchParentId
+          );
         }
       } 
       
@@ -377,7 +475,7 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
           // Check if this is a direct child of the parent
           if (msg.parentId === branchParentId) return true;
           
-          // Or check if it's a child of any direct child
+          // Or check if it's a descendant of any direct child by walking up the parent chain
           let parentId = msg.parentId;
           while (parentId) {
             const parent = conversation?.messages?.[parentId];
@@ -399,6 +497,7 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
       if (branchMessages.length > 0) {
         displayedMessages = branchMessages;
         console.log(`Found ${branchMessages.length} messages in branch`);
+        console.log("- Branch messages IDs:", branchMessages.map(m => m.id));
       } else {
         console.warn("No messages found in branch. It may be newly created.");
         displayedMessages = []; // Empty until AI response comes back
@@ -407,6 +506,8 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
       console.warn("Could not find branch parent in conversation.");
       displayedMessages = [];
     }
+  } else {
+    console.log("Not in branch view. Using currentMessages:", currentMessages.map(m => m.id));
   }
   // --- End Filter ---
 
@@ -441,17 +542,14 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
     },
   };
 
-  // Determine a key for animation based on branch state, not every message change
-  const animationKey = branchParentId ? `branch-${branchParentId}` : 'main';
-
   return (
     <div className="flex flex-col h-screen w-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
       <header className="h-16 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 shrink-0 relative">
         {/* Left Side: Show logo title */}
         {/* Back button moved to main content area */}
-        {!branchParentId && (
+        {branchStack.length === 0 && (
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold">SuperGrok</h1>
+            <h1 className="text-lg font-semibold">LearningLLM</h1>
           </div>
         )}
 
@@ -459,7 +557,7 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
 
         {/* Right Side: Auth Controls (always show unless back button logic changes this) */}
         {/* Currently shows when not in branch view - this seems correct */}
-        {!branchParentId && (
+        {branchStack.length === 0 && (
             <div className="flex items-center gap-4">
                 {/* Guest Limit Warning */}
                 {guestLimitWarning && (
@@ -502,7 +600,7 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
       <AnimatePresence mode="wait">
         {/* Add relative positioning to main for the absolute back button */}
         <motion.main
-          key={animationKey}
+          key={branchParentId ? `branch-${branchParentId}-${branchId}` : 'main'}
           className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col space-y-0 w-full max-w-4xl mx-auto relative" // Added relative
           variants={animationVariants}
           initial="initial"
@@ -510,11 +608,10 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
           exit="exit"
         >
           {/* Moved Back Button Here */}
-          {branchParentId && (
+          {branchStack.length > 0 && (
             <button
               onClick={handleGoBack}
-              // Positioned top-left within the main scrollable area
-              className="absolute top-2 left-2 z-10 p-2 rounded-md text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 shadow hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-blue-500 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              className="absolute top-4 left-4 z-10 text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 rounded-full p-1"
               aria-label="Go back"
               title="Go back"
             >
@@ -522,13 +619,27 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
             </button>
           )}
 
-          {/* Moved "Based off of" text inside main area */}
-          {branchParentId && (
-            // Added padding-top to prevent overlap with absolute back button
+          {/* Show breadcrumb-style navigation for nested branches */}
+          {branchStack.length > 0 && (
             <div className="text-sm italic text-gray-500 dark:text-gray-400 text-center mb-4 pt-10 flex-shrink-0">
-              Based off of: "{branchSourceText}"
+              {branchStack.length > 1 ? (
+                <div className="flex flex-wrap justify-center items-center gap-1">
+                  <span>Branches:</span>
+                  {branchStack.map((branch, index) => (
+                    <React.Fragment key={`branch-${index}`}>
+                      {index > 0 && <span className="mx-1">→</span>}
+                      <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
+                        {branch.sourceText || `Branch ${index + 1}`}
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </div>
+              ) : (
+                <div>Based off of: "{branchSourceText}"</div>
+              )}
             </div>
           )}
+
           {/* Pass filtered messages */}
           <ChatThread
             messages={displayedMessages}

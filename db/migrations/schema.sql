@@ -1,4 +1,4 @@
--- Schema Initialization Script for SuperGrok
+-- Schema Initialization Script for LearningLLM
 -- This script is idempotent and can be run multiple times to reset the database
 
 -- =====================================

@@ -1,6 +1,6 @@
-# SuperGrok Database Schema
+# LearningLLM Database Schema
 
-This document outlines the database schema for the SuperGrok application, describing the tables, relationships, and key concepts.
+This document outlines the database schema for the LearningLLM application, describing the tables, relationships, and key concepts.
 
 ## Entity Relationship Diagram
 

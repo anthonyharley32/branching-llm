@@ -5,8 +5,10 @@
 
 import { LLMProvider } from './config';
 
-// Key storage in localStorage
-const KEY_STORAGE_PREFIX = 'supergrok_llm_key_';
+/**
+ * Prefix for storing keys in local storage to avoid collisions.
+ */
+const KEY_STORAGE_PREFIX = 'LearningLLM_llm_key_';
 
 // Store API key securely
 export function storeApiKey(provider: LLMProvider, apiKey: string): void {

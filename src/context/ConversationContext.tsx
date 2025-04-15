@@ -33,8 +33,9 @@ const getChildrenOfNode = (messages: Record<string, MessageNode>, parentId: stri
 
 // --- End Helper Functions ---
 
-const LOCAL_STORAGE_CONVERSATION_KEY = 'supergrok_conversation';
-const LOCAL_STORAGE_ACTIVE_ID_KEY = 'supergrok_activeMessageId';
+// --- Constants for local storage ---
+const LOCAL_STORAGE_CONVERSATION_KEY = 'LearningLLM_conversation';
+const LOCAL_STORAGE_ACTIVE_ID_KEY = 'LearningLLM_activeMessageId';
 
 // Type for the return value of addMessage, including the path for the API call
 export interface AddMessageResult {

@@ -422,12 +422,16 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
                  console.log(`Entering existing branch with content: "${branchNode.content.substring(0, 30)}..."`);
                  onBranchCreated(result, source.text, false);
                }}
-               className="flex items-center justify-center"
+               className="group flex items-center justify-center p-1 transition-transform duration-150 ease-in-out hover:scale-130"
                title="View branch created from this text"
              >
-               <FiGitBranch 
-                 className="text-gray-400 dark:text-gray-500 h-3 w-3 hover:text-blue-500" 
-               />
+               <div 
+                 className="w-3.5 h-3.5 border border-gray-400 dark:border-gray-500 rounded-full 
+                            transition-colors duration-150 ease-in-out 
+                            group-hover:bg-gray-500 group-hover:border-gray-500"
+               >
+                 {/* Empty div serves as the circle */}
+               </div>
              </div>
            ))}
            
