@@ -12,7 +12,7 @@ import { useConversation, AddMessageResult } from '../context/ConversationContex
 
 interface ChatMessageProps {
   message: MessageNode;
-  onBranchCreated: (result: AddMessageResult, sourceText: string) => void;
+  onBranchCreated: (result: AddMessageResult, sourceText: string, isNewBranch: boolean) => void;
 }
 
 // Custom function to pre-process KaTeX format to ensure proper rendering
@@ -37,8 +37,58 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
 
   const [selectedText, setSelectedText] = useState<string>('');
   const messageContentRef = useRef<HTMLDivElement>(null);
-  const [selectionPosition, setSelectionPosition] = useState<{ top: number; right: number } | null>(null);
-  const { createBranch, hasChildren } = useConversation();
+  const [selectionPosition, setSelectionPosition] = useState<{ 
+    top: number; 
+    right: number;
+    selectionStart?: number;
+    selectionEnd?: number;
+  } | null>(null);
+  const { createBranch, hasChildren, conversation } = useConversation();
+
+  // Helper function to get all text nodes inside an element
+  const getAllTextNodes = (element: Node): Text[] => {
+    const textNodes: Text[] = [];
+    const walker = document.createTreeWalker(
+      element, 
+      NodeFilter.SHOW_TEXT, 
+      null
+    );
+    
+    let node;
+    while (node = walker.nextNode()) {
+      textNodes.push(node as Text);
+    }
+    return textNodes;
+  };
+
+  // Helper to find a DOM node containing the text
+  const findNodeWithText = (container: HTMLElement, searchText: string): {node: Text, offset: number} | null => {
+    if (!searchText) return null;
+    
+    const allTextNodes = getAllTextNodes(container);
+    // Try to find an exact match first
+    for (const node of allTextNodes) {
+      if (node.textContent && node.textContent.includes(searchText)) {
+        return {
+          node,
+          offset: node.textContent.indexOf(searchText)
+        };
+      }
+    }
+    
+    // If no exact match, try a fuzzy match with the beginning portion
+    const searchStart = searchText.substring(0, Math.min(40, searchText.length)).trim();
+    for (const node of allTextNodes) {
+      if (node.textContent && node.textContent.includes(searchStart)) {
+        return {
+          node,
+          offset: node.textContent.indexOf(searchStart)
+        };
+      }
+    }
+    
+    return null;
+  };
 
   // Specific classes for user messages (Grok style)
   const userBubbleClasses = 'bg-gray-100 text-gray-800 px-4 py-2 rounded-lg max-w-xs md:max-w-md lg:max-w-lg break-words self-end';
@@ -48,6 +98,71 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
 
   // --- Check if this message is a branch point --- 
   const isBranchPoint = !isUser && hasChildren(message.id);
+
+  // Updated branchSources state type to include metadata
+  const [branchSources, setBranchSources] = useState<{
+    text: string, 
+    childId: string,
+    metadata?: Record<string, any>
+  }[]>([]);
+  
+  // Find branch sources when message loads or changes
+  useEffect(() => {
+    if (!isUser && isBranchPoint && conversation?.messages) {
+      // Find all children of this message
+      const childNodes = Object.values(conversation.messages)
+        .filter(msg => msg.parentId === message.id);
+      
+      // Collect selected text that triggered branches
+      const sources = childNodes
+        .map(child => ({ 
+          text: child.metadata?.selectedText || '', 
+          childId: child.id,
+          metadata: child.metadata // Store full metadata
+        }))
+        .filter(source => source.text.trim().length > 0);
+      
+      setBranchSources(sources);
+    }
+  }, [isUser, isBranchPoint, message.id, conversation?.messages]);
+
+  // After render, position branch indicators based on actual DOM positions
+  useEffect(() => {
+    if (isBranchPoint && messageContentRef.current && branchSources.length > 0) {
+      // Small delay to ensure markdown has fully rendered
+      const timer = setTimeout(() => {
+        branchSources.forEach((source, index) => {
+          const indicator = document.getElementById(`branch-indicator-${message.id}-${index}`);
+          if (!indicator) return;
+          
+          // Find the text node containing the selected text
+          const result = findNodeWithText(messageContentRef.current!, source.text);
+          
+          if (result) {
+            try {
+              // Create a range to get the bounding rectangle of the text
+              const range = document.createRange();
+              range.setStart(result.node, result.offset);
+              range.setEnd(result.node, result.offset + Math.min(source.text.length, result.node.textContent!.length - result.offset));
+              
+              const rect = range.getBoundingClientRect();
+              const messageRect = messageContentRef.current!.getBoundingClientRect();
+              
+              // Position the indicator at the right side, aligned with text start
+              indicator.style.top = `${rect.top - messageRect.top}px`;
+              console.log(`Positioned branch indicator for "${source.text.substring(0, 20)}..." at ${rect.top - messageRect.top}px`);
+            } catch (e) {
+              console.error('Error positioning branch indicator:', e);
+            }
+          } else {
+            console.log(`Could not find text node for: "${source.text.substring(0, 20)}..."`);
+          }
+        });
+      }, 100); // Small delay to ensure rendering is complete
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isBranchPoint, branchSources, message.content, message.id]);
 
   // Handle text selection within this specific message
   const handleSelection = () => {
@@ -68,6 +183,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
         // Update state only if the selected text actually changed
         if (text && text !== selectedText) {
           setSelectedText(text);
+          
           // Calculate position for the button
           const rect = range.getBoundingClientRect();
           const messageRect = messageContentRef.current.getBoundingClientRect();
@@ -84,7 +200,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
           // Always vertically center with the text line
           setSelectionPosition({
             top: rect.top + (rect.height / 2) - messageRect.top + window.scrollY, // Center for all selections
-            right: maxRightPosition // Position at the right edge with safety margin
+            right: maxRightPosition, // Position at the right edge with safety margin
           });
           return; // Found valid selection, exit
         } else if (!text && selectedText) {
@@ -182,12 +298,18 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
     const currentSelectedText = selectedText; // Capture before clearing
     console.log(`Attempting to branch from message ${message.id} with text: "${currentSelectedText}"`);
     
-    const branchResult = createBranch(message.id, currentSelectedText);
+    // Create branch with metadata including selection offsets
+    const branchResult = createBranch(
+      message.id, 
+      currentSelectedText, 
+      selectionPosition?.selectionStart, 
+      selectionPosition?.selectionEnd
+    );
     
     if (branchResult) {
         console.log(`Branch initiated, new node ID: ${branchResult.newNode.id}`);
         // Call the callback prop with the result and the source text
-        onBranchCreated(branchResult, currentSelectedText); 
+        onBranchCreated(branchResult, currentSelectedText, true);
     } else {
         console.error('Branch creation failed in component.');
     }
@@ -234,13 +356,62 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
              >
                {preprocessMarkdown(message.content)}
              </ReactMarkdown>
-           {/* Render Branch Point Indicator Icon */}
-           {isBranchPoint && (
-             <FiGitBranch 
-               className="absolute bottom-1 right-1 text-gray-400 dark:text-gray-500 h-3 w-3" 
-               title="This message has branches"
-             />
-           )}
+           
+           {/* Branch indicators for text that has been branched from */}
+           {isBranchPoint && branchSources.map((source, index) => (
+             <div 
+               key={`branch-${index}`}
+               id={`branch-indicator-${message.id}-${index}`}
+               style={{
+                 position: 'absolute',
+                 right: '0px',
+                 top: '0px', // Initial position, will be updated by useEffect
+                 cursor: 'pointer'
+               }}
+               onClick={() => {
+                 // In-line simplified path finding to avoid external dependency
+                 let messagePath: MessageNode[] = [];
+                 let branchNode: MessageNode | null = null;
+                 
+                 if (conversation?.messages && source.childId) {
+                   // Get the actual branch node with its content
+                   branchNode = conversation.messages[source.childId];
+                   
+                   // Walk up parent links to build path
+                   let currentId: string | null = source.childId;
+                   const tempPath: MessageNode[] = [];
+                   
+                   while (currentId && conversation.messages[currentId]) {
+                     tempPath.push(conversation.messages[currentId]);
+                     currentId = conversation.messages[currentId].parentId;
+                   }
+                   
+                   // Reverse to get root-to-target order
+                   messagePath = tempPath.reverse();
+                 }
+                 
+                 if (!branchNode) {
+                   console.error("Failed to find branch node", source.childId);
+                   return;
+                 }
+                 
+                 // Make sure we pass the complete branch node with its content
+                 const result = {
+                   newNode: branchNode,
+                   messagePath
+                 } as AddMessageResult;
+                 
+                 console.log(`Entering existing branch with content: "${branchNode.content.substring(0, 30)}..."`);
+                 onBranchCreated(result, source.text, false);
+               }}
+               className="flex items-center justify-center"
+               title="View branch created from this text"
+             >
+               <FiGitBranch 
+                 className="text-gray-400 dark:text-gray-500 h-3 w-3 hover:text-blue-500" 
+               />
+             </div>
+           ))}
            
            {/* Floating branch button that appears next to selection */}
            {!isUser && selectedText && selectionPosition && (

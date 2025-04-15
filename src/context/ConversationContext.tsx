@@ -52,7 +52,7 @@ interface ConversationContextType {
   currentBranchNodes: MessageNode[]; // Children of the active node + the active node itself? Or just children? Let's start with path.
   addMessage: (messageData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'>, parentId?: string | null) => AddMessageResult | null;
   selectBranch: (messageId: string) => void;
-  createBranch: (sourceMessageId: string, selectedText: string) => AddMessageResult | null;
+  createBranch: (sourceMessageId: string, selectedText: string, selectionStart?: number, selectionEnd?: number) => AddMessageResult | null;
   hasChildren: (messageId: string) => boolean;
   updateMessageContent: (messageId: string, contentChunk: string) => void;
 }
@@ -132,7 +132,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     const initialMessage: MessageNode = {
       id: rootId,
       role: 'system',
-      content: 'Conversation started.',
+      content: '', // Empty content instead of "Conversation started."
       createdAt: new Date(),
       parentId: null,
     };
@@ -295,7 +295,12 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   }, [activeMessageId, isLoading, conversation]); // Add conversation as dependency
 
   // Updated createBranch to align with MessageNode using createdAt
-  const createBranch = useCallback((sourceMessageId: string, selectedText: string): AddMessageResult | null => {
+  const createBranch = useCallback((
+    sourceMessageId: string, 
+    selectedText: string,
+    selectionStart?: number,
+    selectionEnd?: number
+  ): AddMessageResult | null => {
      if (isLoading || !conversation) {
         console.warn('Cannot create branch: context not ready or conversation missing.');
         return null;
@@ -306,6 +311,9 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     }
     console.log(`Creating branch from message ${sourceMessageId} with text: "${selectedText}"`);
 
+    // Generate a unique branch ID
+    const branchId = `branch-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    
     const userNode: MessageNode = conversation.messages[sourceMessageId];
 
     // 2. Create the initial AI response node as a child of the user node
@@ -315,13 +323,20 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
       content: '', // Set to empty string - subsequent LLM call should populate this
       parentId: userNode.id,
       createdAt: new Date(),
+      metadata: {
+        branchId: branchId,  // Add branch ID to message metadata
+        selectedText: selectedText,
+        selectionStart: selectionStart !== undefined ? selectionStart : null,
+        selectionEnd: selectionEnd !== undefined ? selectionEnd : null,
+        isBranchStart: true
+      }
     };
 
     // Add the new AI node as a child of the *source* message (the one branched from)
     const addResult = addMessage(aiNode, sourceMessageId);
 
     if (addResult) {
-      console.log(`Branch created. New active node: ${addResult.newNode.id}. Path length: ${addResult.messagePath.length}`);
+      console.log(`Branch created. New active node: ${addResult.newNode.id}. Path length: ${addResult.messagePath.length}. Branch ID: ${branchId}`);
       return addResult;
     } else {
       console.error('Failed to add the branching message.');

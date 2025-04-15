@@ -31,18 +31,24 @@ function AppContent() {
     activeMessageId,
     setActiveMessageId,
     selectBranch,
-    updateMessageContent
+    updateMessageContent,
+    conversation
   } = useConversation();
 
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<LLMError | null>(null)
   const [guestMessageCount, setGuestMessageCount] = useState<number>(0); // State for guest count
   const [branchParentId, setBranchParentId] = useState<string | null>(null); // State for branched view
+  const [branchId, setBranchId] = useState<string | null>(null); // Store the branch ID for filtering
   const [branchSourceText, setBranchSourceText] = useState<string | null>(null); // State for source text
   const [streamingAiNodeId, setStreamingAiNodeId] = useState<string | null>(null); // Track the ID of the AI message being streamed
 
   // State to trigger LLM call after user message is added
-  const [pendingLlmCall, setPendingLlmCall] = useState<{parentId: string; path: MessageNode[]} | null>(null);
+  const [pendingLlmCall, setPendingLlmCall] = useState<{
+    parentId: string; 
+    path: MessageNode[];
+    metadata?: Record<string, any>;
+  } | null>(null);
 
   // Load guest message count from localStorage on initial load if not logged in
   useEffect(() => {
@@ -69,7 +75,7 @@ function AppContent() {
   useEffect(() => {
     if (!pendingLlmCall) return;
 
-    const { parentId: aiParentId, path: messagePath } = pendingLlmCall;
+    const { parentId: aiParentId, path: messagePath, metadata } = pendingLlmCall;
     let tempAiNodeId: string | null = null; // Temporary ID within this async scope
 
     const executeStream = async () => {
@@ -84,6 +90,7 @@ function AppContent() {
               const firstChunkData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'> = {
                 role: 'assistant',
                 content: chunk,
+                metadata // Pass through branch metadata if present
               };
               const newAiResult = addMessage(firstChunkData, aiParentId);
               if (newAiResult) {
@@ -161,9 +168,37 @@ function AppContent() {
     }
     // --- End Guest Rate Limit Check ---
 
+    // If we're in a branch view, add the branch metadata to the message
+    let metadata = undefined;
+    
+    if (branchParentId && conversation?.messages) {
+      // Find the branch starter message to get its branchId
+      const branchStarterMessages = Object.values(conversation.messages)
+        .filter((msg: MessageNode) => 
+          msg.parentId === branchParentId && 
+          msg.metadata?.isBranchStart === true
+        );
+        
+      if (branchStarterMessages.length > 0) {
+        // Sort by createdAt to get the most recently selected branch
+        branchStarterMessages.sort((a: MessageNode, b: MessageNode) => 
+          b.createdAt.getTime() - a.createdAt.getTime()
+        );
+        
+        const branchId = branchStarterMessages[0].metadata?.branchId;
+        
+        if (branchId) {
+          // Add branch metadata to maintain branch context
+          metadata = { branchId };
+          console.log(`Adding message to branch: ${branchId}`);
+        }
+      }
+    }
+
     const userMessageData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'> = {
       role: 'user',
       content: text,
+      metadata
     };
     const addResult = addMessage(userMessageData);
 
@@ -175,18 +210,83 @@ function AppContent() {
     }
 
     // --- Set state to trigger LLM call via useEffect --- 
-    setPendingLlmCall({ parentId: addResult.newNode.id, path: addResult.messagePath });
+    setPendingLlmCall({ 
+      parentId: addResult.newNode.id,
+      path: addResult.messagePath,
+      metadata // Pass branch metadata to ensure LLM response stays in the branch
+    });
 
     // LLM call moved to useEffect triggered by pendingLlmCall
   }
 
   // Handler for when a branch is successfully created in ChatMessage
-  const handleBranchCreated = (branchResult: AddMessageResult, sourceText: string) => {
+  const handleBranchCreated = (branchResult: AddMessageResult, sourceText: string, isNewBranch: boolean) => {
     if (branchResult.newNode.parentId) { 
       setBranchParentId(branchResult.newNode.parentId);
+      // Store the branch ID from the node metadata
+      const currentBranchId = branchResult.newNode.metadata?.branchId || null;
+      setBranchId(currentBranchId);
+      
       const truncatedText = sourceText.length > 60 ? sourceText.substring(0, 57) + '...' : sourceText;
       setBranchSourceText(truncatedText);
-      console.log(`Entering branch view. Parent: ${branchResult.newNode.parentId}, Source: "${truncatedText}"`);
+      console.log(`Entering branch view. Parent: ${branchResult.newNode.parentId}, BranchId: ${currentBranchId}, Source: "${truncatedText}"`);
+      
+      // Store branch node ID directly for simpler access
+      const branchNodeId = branchResult.newNode.id;
+      console.log(`Branch node ID: ${branchNodeId}`);
+      
+      console.log(`Is new branch (from callback): ${isNewBranch}`);
+      
+      // Only generate a response if this is a new branch (using the passed flag)
+      if (isNewBranch) {
+        // Get the parent message for context
+        const parentMessage = conversation?.messages?.[branchResult.newNode.parentId];
+        const parentContent = parentMessage ? parentMessage.content : '';
+        const parentRole = parentMessage ? parentMessage.role : 'user';
+        
+        // Create a more focused message path for the LLM to respond specifically to the selected text
+        // Include system messages, parent message for context, and a synthetic user message with the selected text
+        const focusedPath = currentMessages
+          .filter(msg => msg.role === 'system')
+          .concat([
+            // Add parent message for context if it exists and isn't a system message
+            ...(parentMessage && parentRole !== 'system' ? [{
+              id: 'context-parent-msg',
+              role: parentRole as 'user' | 'assistant', // Type cast to prevent TS errors
+              content: parentContent,
+              parentId: null,
+              createdAt: new Date(),
+              metadata: { isContextMessage: true }
+            } as MessageNode] : []),
+            // Add the focused message about the selected text
+            {
+              id: 'synthetic-user-msg',
+              role: 'user',
+              content: `Regarding this highlighted text: "${sourceText}"
+${sourceText.length > 100 ? 'Consider the broader context from which this was selected.' : ''}`, 
+              parentId: null,
+              createdAt: new Date(),
+              metadata: branchResult.newNode.metadata // Use the same metadata
+            } as MessageNode
+          ]);
+        
+        console.log(`Creating branch with ${focusedPath.length} messages, including parent context`);
+        
+        // When a branch is created, immediately set up an LLM call to generate content
+        // with the focused message path so it responds to the selected text
+        setPendingLlmCall({ 
+          parentId: branchNodeId, 
+          path: focusedPath,
+          metadata: branchResult.newNode.metadata // Use the same metadata from the branch node
+        });
+      } else {
+        console.log(`Navigating to existing branch with content: "${branchResult.newNode.content.substring(0, 30)}..."`);
+        // For existing branches, just navigate to the branch without generating new content
+        // Ensure we activate the correct message ID when navigating to an existing branch
+        if (branchNodeId !== activeMessageId) {
+            setActiveMessageId(branchNodeId);
+        }
+      }
     } else {
       console.error("Branch created but newNode lacks parentId?", branchResult.newNode);
     }
@@ -198,6 +298,7 @@ function AppContent() {
       console.log("Going back to parent:", branchParentId);
       setActiveMessageId(branchParentId); // Navigate back in context
       setBranchParentId(null);
+      setBranchId(null); // Clear branch ID when going back
       setBranchSourceText(null);
     } else {
       console.warn('handleGoBack called but no branchParentId set');
@@ -207,21 +308,96 @@ function AppContent() {
   // --- Filter messages for display ---
   let displayedMessages = currentMessages;
   if (branchParentId) {
-    const parentIndex = currentMessages.findIndex(msg => msg.id === branchParentId);
-    if (parentIndex !== -1) {
-      const firstBranchChildIndex = currentMessages.findIndex(msg => msg.parentId === branchParentId);
-      if (firstBranchChildIndex !== -1) {
-          // Get all messages from the first child onwards
-          displayedMessages = currentMessages.slice(firstBranchChildIndex);
+    // Find any branch messages that have the branch parent
+    const branchParentNode = conversation?.messages?.[branchParentId];
+    
+    if (branchParentNode) {
+      // Get all messages in the conversation
+      const allMessages = Object.values(conversation?.messages || {});
+      let branchMessages: MessageNode[] = [];
+      
+      // If we have a specific branch ID, use it for precise filtering
+      if (branchId) {
+        console.log(`Filtering messages with branchId: ${branchId}`);
+        
+        // Get the branch starter node (direct child of parent with this branch ID)
+        const branchStarter = allMessages.find(msg => 
+          msg.parentId === branchParentId && 
+          msg.metadata?.branchId === branchId
+        );
+        
+        if (branchStarter) {
+          console.log(`Found branch starter node: ${branchStarter.id}`);
+          
+          // Get all descendants of the branch starter node
+          // Plus any messages that explicitly have this branch ID in metadata
+          branchMessages = allMessages.filter(msg => {
+            // Include the branch starter itself
+            if (msg.id === branchStarter.id) return true;
+            
+            // Include messages explicitly tagged with this branch ID
+            if (msg.metadata?.branchId === branchId) return true;
+            
+            // Include messages that are descendants of the branch starter
+            let currentId = msg.parentId;
+            while (currentId) {
+              // If we reach the branch starter, this message is part of this branch
+              if (currentId === branchStarter.id) return true;
+              
+              // Move up the tree
+              currentId = conversation?.messages?.[currentId]?.parentId || null;
+            }
+            
+            return false;
+          });
+        } else {
+          console.warn(`Could not find branch starter node with branchId: ${branchId}`);
+        }
+      } 
+      
+      // If no branch ID or no messages found with branch ID, fall back to parent-based filtering
+      if (branchMessages.length === 0) {
+        console.log("Using fallback parent-based filtering");
+        
+        // Show all direct children of the branch parent
+        branchMessages = allMessages.filter(msg => {
+          // Skip the parent itself
+          if (msg.id === branchParentId) return false;
+          
+          // Check if this is a direct child of the parent
+          if (msg.parentId === branchParentId) return true;
+          
+          // Or check if it's a child of any direct child
+          let parentId = msg.parentId;
+          while (parentId) {
+            const parent = conversation?.messages?.[parentId];
+            if (!parent) break;
+            
+            if (parent.parentId === branchParentId) return true;
+            parentId = parent.parentId;
+          }
+          
+          return false;
+        });
+      }
+      
+      // Sort by createdAt to ensure proper order
+      branchMessages.sort((a: MessageNode, b: MessageNode) => {
+        return a.createdAt.getTime() - b.createdAt.getTime();
+      });
+      
+      if (branchMessages.length > 0) {
+        displayedMessages = branchMessages;
+        console.log(`Found ${branchMessages.length} messages in branch`);
       } else {
-          console.warn("Could not find first child of branch parent, showing empty.");
-          displayedMessages = []; 
+        console.warn("No messages found in branch. It may be newly created.");
+        displayedMessages = []; // Empty until AI response comes back
       }
     } else {
-        console.warn("Could not find branch parent in current messages path, showing empty.");
-        displayedMessages = [];
+      console.warn("Could not find branch parent in conversation.");
+      displayedMessages = [];
     }
-  } 
+  }
   // --- End Filter ---
 
   // Determine guest limit warning
