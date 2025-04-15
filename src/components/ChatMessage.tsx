@@ -108,23 +108,41 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
   
   // Find branch sources when message loads or changes
   useEffect(() => {
+    let sources: { text: string; childId: string; metadata?: Record<string, any>; }[] = []; // Default to empty
+
     if (!isUser && isBranchPoint && conversation?.messages) {
       // Find all children of this message
       const childNodes = Object.values(conversation.messages)
         .filter(msg => msg.parentId === message.id);
       
-      // Collect selected text that triggered branches
-      const sources = childNodes
+      // *** Add Logging Here ***
+      console.log(`[Effect ${message.id}] Checking children:`, childNodes.map(c => ({id: c.id, role: c.role, meta: c.metadata})));
+
+      // Filter children to find those created via text selection (metadata check)
+      // Reassign sources if conditions met and valid sources found
+      sources = childNodes
         .map(child => ({ 
           text: child.metadata?.selectedText || '', 
           childId: child.id,
           metadata: child.metadata // Store full metadata
         }))
-        .filter(source => source.text.trim().length > 0);
-      
-      setBranchSources(sources);
+        .filter(source => {
+          // *** Add Logging Here ***
+          const hasText = source.text.trim().length > 0;
+          console.log(`[Effect ${message.id}] Filtering child ${source.childId}: hasSelectedText=${hasText}, text="${source.text}"`);
+          return hasText;
+        }); // Only include if selectedText exists
+        
+        // *** Add Logging Here ***
+        console.log(`[Effect ${message.id}] Calculated sources:`, sources);
     }
-  }, [isUser, isBranchPoint, message.id, conversation?.messages]);
+    
+    // Unconditionally set the state based on the calculated sources for this specific message
+    // This ensures it's cleared if the if condition was false or if sources calculated to []
+    setBranchSources(sources);
+
+    // Dependencies: Run when message, context, or children status change
+  }, [isUser, isBranchPoint, message.id, conversation?.messages]); // Removed branchSources.length dependency
 
   // After render, position branch indicators based on actual DOM positions
   useEffect(() => {
@@ -358,7 +376,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
              </ReactMarkdown>
            
            {/* Branch indicators for text that has been branched from */}
-           {isBranchPoint && branchSources.map((source, index) => (
+           {branchSources.length > 0 && branchSources.map((source, index) => (
              <div 
                key={`branch-${index}`}
                id={`branch-indicator-${message.id}-${index}`}

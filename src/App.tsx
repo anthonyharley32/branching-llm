@@ -87,10 +87,20 @@ function AppContent() {
           onChunk: (chunk) => {
             if (!tempAiNodeId) {
               // First chunk: Create the AI message node
+              
+              // --- Prepare metadata for the actual AI response node ---
+              // Only include branchId if it exists in the pendingMetadata
+              const responseMetadata: Record<string, any> = {};
+              if (metadata?.branchId) {
+                responseMetadata.branchId = metadata.branchId;
+              }
+              // Optionally add other relevant metadata, but EXCLUDE selectedText, isBranchStart, etc.
+              // ---------------------------------------------------------
+              
               const firstChunkData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'> = {
                 role: 'assistant',
                 content: chunk,
-                metadata // Pass through branch metadata if present
+                metadata: responseMetadata // Use the cleaned metadata
               };
               const newAiResult = addMessage(firstChunkData, aiParentId);
               if (newAiResult) {
