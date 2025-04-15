@@ -1,36 +1,41 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
+import { MessageNode } from '../types/conversation';
 import ChatMessage from './ChatMessage';
-import { Message } from '../types/chat';
+import { AddMessageResult } from '../context/ConversationContext';
 
 interface ChatThreadProps {
-  messages: Message[];
+  messages: MessageNode[];
   isLoading: boolean;
+  onBranchCreated: (result: AddMessageResult, sourceText: string) => void;
 }
 
-const ChatThread: React.FC<ChatThreadProps> = ({ messages, isLoading }) => {
+const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, onBranchCreated }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading]); // Scroll when messages change or loading state changes
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   return (
     <div className="flex-grow overflow-y-auto p-4 space-y-4">
-      {messages.map((msg) => (
-        <ChatMessage key={msg.id} message={msg} />
+      {messages.map((msg, index) => (
+        <ChatMessage 
+          key={msg.id || `msg-${index}`} 
+          message={msg}
+          onBranchCreated={onBranchCreated}
+        />
       ))}
       {isLoading && (
-        <div className="flex justify-start">
-          <div className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 self-start">
-            <span className="animate-pulse">...</span> {/* Simple loading indicator */}
-          </div>
+        <div className="flex justify-center items-center p-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
         </div>
       )}
-      <div ref={messagesEndRef} /> {/* Anchor for scrolling */}    
+      {messages.length === 0 && !isLoading && (
+        <div className="text-center text-gray-500 dark:text-gray-400 pt-10">
+          Start the conversation!
+        </div>
+      )}
+      <div ref={messagesEndRef} />
     </div>
   );
 };

@@ -1,18 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageNode } from '../types/conversation';
-import { useConversation } from '../context/ConversationContext';
+import { useConversation, AddMessageResult } from '../context/ConversationContext';
+import { FiGitBranch } from 'react-icons/fi'; // Import branch icon
 // TODO: Import store hook when needed for branch creation
 // import { useChatStore } from '../store/useChatStore';
 
 interface ChatMessageProps {
   message: MessageNode;
+  onBranchCreated: (result: AddMessageResult, sourceText: string) => void;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, onBranchCreated }) => {
   const isUser = message.role === 'user';
   const [selectedText, setSelectedText] = useState<string>('');
   const messageContentRef = useRef<HTMLDivElement>(null);
-  const { createBranch } = useConversation();
+  const { createBranch, hasChildren } = useConversation();
 
   // Specific classes for user messages (Grok style)
   const userBubbleClasses = 'bg-gray-100 text-gray-800 px-4 py-2 rounded-lg max-w-xs md:max-w-md lg:max-w-lg break-words self-end';
@@ -20,6 +22,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   // Minimal classes for AI messages (plain text with adjusted leading)
   const aiTextClasses = 'text-gray-800 px-4 py-2 max-w-prose break-words self-start leading-relaxed relative'; // Added relative positioning possibility
 
+  // --- Check if this message is a branch point --- 
+  const isBranchPoint = !isUser && hasChildren(message.id);
 
   // Handle text selection within this specific message
   const handleSelection = () => {
@@ -96,15 +100,19 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 
   const handleBranchClick = () => {
     if (!selectedText || isUser || !message.id) return;
-    console.log(`Attempting to branch from message ${message.id} with text: "${selectedText}"`);
-    // --- Use the createBranch function from context --- 
-    const newNode = createBranch(message.id, selectedText);
-    if (newNode) {
-        console.log(`Branch initiated, new node ID: ${newNode.id}`);
+    const currentSelectedText = selectedText; // Capture before clearing
+    console.log(`Attempting to branch from message ${message.id} with text: "${currentSelectedText}"`);
+    
+    const branchResult = createBranch(message.id, currentSelectedText);
+    
+    if (branchResult) {
+        console.log(`Branch initiated, new node ID: ${branchResult.newNode.id}`);
+        // Call the callback prop with the result and the source text
+        onBranchCreated(branchResult, currentSelectedText); 
     } else {
         console.error('Branch creation failed in component.');
     }
-    // -------------------------------------------------
+    
     setSelectedText(''); // Clear selection state
     window.getSelection()?.removeAllRanges(); // Clear visual selection
   };
@@ -116,11 +124,18 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
       <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
         <div
           ref={messageContentRef}
-          className={isUser ? userBubbleClasses : aiTextClasses}
+          className={`${isUser ? userBubbleClasses : aiTextClasses} ${isBranchPoint ? 'relative pr-6' : ''}`}
           // onMouseUp={handleSelection} // Handled by global listener now
         >
           {/* Render message content */}
           {message.content}
+          {/* Render Branch Point Indicator Icon */} 
+          {isBranchPoint && (
+            <FiGitBranch 
+              className="absolute bottom-1 right-1 text-gray-400 dark:text-gray-500 h-3 w-3" 
+              title="This message has branches"
+            />
+          )}
         </div>
         {/* Render Branch button conditionally below the AI message */}
         {!isUser && selectedText && (

@@ -4,6 +4,9 @@
 -- =====================================
 -- DESTRUCTIVE ACTIONS - CAUTION
 -- =====================================
+-- Drop the foreign key constraint first to break the dependency cycle
+ALTER TABLE conversations DROP CONSTRAINT IF EXISTS fk_root_message;
+
 -- Drop existing tables if they exist (order matters for foreign key constraints)
 DROP TABLE IF EXISTS conversation_messages;
 DROP TABLE IF EXISTS conversation_branches;
@@ -58,7 +61,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 -- Conversations
 CREATE TABLE IF NOT EXISTS conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE NULL,
   title TEXT NOT NULL,
   description TEXT,
   metadata JSONB DEFAULT '{}'::JSONB,
@@ -92,13 +95,6 @@ CREATE TABLE IF NOT EXISTS conversation_messages (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
-
--- After creating all tables, set the root_message_id foreign key constraint
-ALTER TABLE conversations
-ADD CONSTRAINT fk_root_message
-FOREIGN KEY (root_message_id) 
-REFERENCES conversation_messages(id) 
-ON DELETE SET NULL;
 
 -- =====================================
 -- INDEXES
@@ -172,10 +168,10 @@ CREATE POLICY profiles_delete_own ON user_profiles
 
 -- Conversations policies
 CREATE POLICY conversations_select_own ON conversations 
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
   
 CREATE POLICY conversations_insert_own ON conversations 
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
   
 CREATE POLICY conversations_update_own ON conversations 
   FOR UPDATE USING (auth.uid() = user_id);
@@ -189,7 +185,7 @@ CREATE POLICY branches_select_own ON conversation_branches
     EXISTS (
       SELECT 1 FROM conversations 
       WHERE conversations.id = conversation_branches.conversation_id 
-      AND conversations.user_id = auth.uid()
+      AND (conversations.user_id = auth.uid() OR conversations.user_id IS NULL)
     )
   );
   
@@ -198,7 +194,7 @@ CREATE POLICY branches_insert_own ON conversation_branches
     EXISTS (
       SELECT 1 FROM conversations 
       WHERE conversations.id = conversation_branches.conversation_id 
-      AND conversations.user_id = auth.uid()
+      AND (conversations.user_id = auth.uid() OR conversations.user_id IS NULL)
     )
   );
   
@@ -226,7 +222,7 @@ CREATE POLICY messages_select_own ON conversation_messages
     EXISTS (
       SELECT 1 FROM conversations 
       WHERE conversations.id = conversation_messages.conversation_id 
-      AND conversations.user_id = auth.uid()
+      AND (conversations.user_id = auth.uid() OR conversations.user_id IS NULL)
     )
   );
   
@@ -235,7 +231,7 @@ CREATE POLICY messages_insert_own ON conversation_messages
     EXISTS (
       SELECT 1 FROM conversations 
       WHERE conversations.id = conversation_messages.conversation_id 
-      AND conversations.user_id = auth.uid()
+      AND (conversations.user_id = auth.uid() OR conversations.user_id IS NULL)
     )
   );
   

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, Dispa
 // Assuming types are defined here - adjust path if needed
 import { Conversation, MessageNode } from '../types/conversation'; 
 import { v4 as uuidv4 } from 'uuid'; // Need uuid for generating IDs
+import { useAuth } from './AuthContext'; // Import useAuth hook
 
 // --- Helper Functions (adapted for flat structure) ---
 
@@ -36,7 +37,7 @@ const LOCAL_STORAGE_CONVERSATION_KEY = 'supergrok_conversation';
 const LOCAL_STORAGE_ACTIVE_ID_KEY = 'supergrok_activeMessageId';
 
 // Type for the return value of addMessage, including the path for the API call
-interface AddMessageResult {
+export interface AddMessageResult {
   newNode: MessageNode;
   messagePath: MessageNode[];
 }
@@ -52,6 +53,7 @@ interface ConversationContextType {
   addMessage: (messageData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'>, parentId?: string | null) => AddMessageResult | null;
   selectBranch: (messageId: string) => void;
   createBranch: (sourceMessageId: string, selectedText: string) => AddMessageResult | null;
+  hasChildren: (messageId: string) => boolean;
 }
 
 // Create the context with a default value
@@ -63,98 +65,114 @@ interface ConversationProviderProps {
 }
 
 export const ConversationProvider: React.FC<ConversationProviderProps> = ({ children }: ConversationProviderProps) => {
-  // Initialize state potentially from local storage
-  const [conversation, setConversation] = useState<Conversation | null>(() => {
-    // Removed direct loading here, will use useEffect hook
-    return null; 
-  });
-  const [activeMessageId, setActiveMessageId] = useState<string | null>(() => {
-    // Removed direct loading here, will use useEffect hook
-    return null;
-  });
+  const { session, isLoading: isAuthLoading } = useAuth(); // Get auth state
+
+  // Initialize state - Always start null/empty, loading logic is in useEffect
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [currentMessages, setCurrentMessages] = useState<MessageNode[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Add loading state
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Internal loading state for context
 
-  // Load state from local storage on initial mount
+  // Load state from local storage or initialize based on auth state
   useEffect(() => {
-    try {
-      const storedConversation = localStorage.getItem(LOCAL_STORAGE_CONVERSATION_KEY);
-      if (storedConversation) {
-        const parsedConversation = JSON.parse(storedConversation) as Conversation;
-        // Basic validation - could be more robust (e.g., with zod)
-        if (parsedConversation && typeof parsedConversation === 'object' && parsedConversation.messages) {
-            setConversation(parsedConversation);
-            console.log('Loaded conversation from localStorage');
+    setIsLoading(true);
+    // Wait until auth state is determined
+    if (isAuthLoading) {
+      return; 
+    }
 
+    if (session) {
+      // --- USER IS LOGGED IN --- 
+      console.log('User logged in, attempting to load conversation from localStorage');
+      try {
+        const storedConversation = localStorage.getItem(LOCAL_STORAGE_CONVERSATION_KEY);
+        if (storedConversation) {
+          const parsedConversation = JSON.parse(storedConversation) as Conversation;
+          if (parsedConversation && typeof parsedConversation === 'object' && parsedConversation.messages) {
+            setConversation(parsedConversation);
+            console.log('Loaded conversation for user');
             const storedActiveId = localStorage.getItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
             if (storedActiveId && parsedConversation.messages[storedActiveId]) {
-                setActiveMessageId(storedActiveId);
-                console.log('Loaded activeMessageId from localStorage');
+              setActiveMessageId(storedActiveId);
+              console.log('Loaded activeMessageId for user');
             } else if (parsedConversation.rootMessageId) {
-                // Default to root if active ID is invalid or not found
-                setActiveMessageId(parsedConversation.rootMessageId);
+              setActiveMessageId(parsedConversation.rootMessageId);
             }
-        } else {
-            console.warn('Invalid conversation data found in localStorage');
+          } else {
+            console.warn('Invalid conversation data in localStorage for user, initializing new.');
             localStorage.removeItem(LOCAL_STORAGE_CONVERSATION_KEY);
             localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
+            initializeNewConversation(); // Initialize fresh
+          }
+        } else {
+          console.log('No conversation found in localStorage for user, initializing new.');
+          initializeNewConversation(); // Initialize fresh
         }
-      } else {
-          console.log('No conversation found in localStorage');
-          // Initialize a new empty conversation if none exists
-          const rootId = uuidv4();
-          const initialMessage: MessageNode = {
-            id: rootId,
-            role: 'system', // Or a default user message?
-            content: 'Conversation started.', // Placeholder
-            createdAt: new Date(),
-            parentId: null,
-          };
-          const newConv: Conversation = {
-            id: uuidv4(),
-            rootMessageId: rootId,
-            messages: { [rootId]: initialMessage },
-            createdAt: new Date().getTime(),
-          };
-          setConversation(newConv);
-          setActiveMessageId(rootId); 
-          console.log('Initialized new conversation');
+      } catch (error) {
+        console.error('Error loading from localStorage for user:', error);
+        localStorage.removeItem(LOCAL_STORAGE_CONVERSATION_KEY);
+        localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
+        initializeNewConversation(); // Initialize fresh on error
       }
-    } catch (error) {
-      console.error('Error loading from localStorage:', error);
-      // Clear potentially corrupted data
+    } else {
+      // --- USER IS GUEST --- 
+      console.log('User is guest, initializing new in-memory conversation.');
+      // Ensure localStorage is clear for guest state (in case of logout)
       localStorage.removeItem(LOCAL_STORAGE_CONVERSATION_KEY);
       localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
+      initializeNewConversation(); // Initialize fresh
     }
     setIsLoading(false); // Loading finished
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, [session, isAuthLoading]); // Rerun when auth state changes
 
-  // Save conversation state to local storage whenever it changes
-  useEffect(() => {
-    if (!isLoading && conversation) { // Only save after initial load is complete
-        try {
-            console.log('Saving conversation to localStorage');
-            localStorage.setItem(LOCAL_STORAGE_CONVERSATION_KEY, JSON.stringify(conversation));
-        } catch (error) {
-            console.error('Error saving conversation to localStorage:', error);
-        }
-    }
-  }, [conversation, isLoading]);
+  // Helper to initialize a new conversation
+  const initializeNewConversation = () => {
+    const rootId = uuidv4();
+    const initialMessage: MessageNode = {
+      id: rootId,
+      role: 'system',
+      content: 'Conversation started.',
+      createdAt: new Date(),
+      parentId: null,
+    };
+    const newConv: Conversation = {
+      id: uuidv4(),
+      rootMessageId: rootId,
+      messages: { [rootId]: initialMessage },
+      createdAt: new Date().getTime(),
+    };
+    setConversation(newConv);
+    setActiveMessageId(rootId);
+    console.log('Initialized new conversation object');
+  };
 
-  // Save active message ID whenever it changes
+  // Save conversation state to local storage ONLY if logged in
   useEffect(() => {
-    if (!isLoading && activeMessageId) { // Only save after initial load
-        try {
-            console.log('Saving activeMessageId to localStorage');
-            localStorage.setItem(LOCAL_STORAGE_ACTIVE_ID_KEY, activeMessageId);
-        } catch (error) {
-            console.error('Error saving activeMessageId to localStorage:', error);
-        }
-    } else if (!isLoading && activeMessageId === null) {
-        // Explicitly remove if activeMessageId is set to null (e.g., conversation cleared)
-        localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
+    if (!isLoading && session && conversation) { // Check for session
+      try {
+        console.log('Saving conversation to localStorage for logged-in user');
+        localStorage.setItem(LOCAL_STORAGE_CONVERSATION_KEY, JSON.stringify(conversation));
+      } catch (error) {
+        console.error('Error saving conversation to localStorage:', error);
+      }
     }
-  }, [activeMessageId, isLoading]);
+  }, [conversation, isLoading, session]); // Add session dependency
+
+  // Save active message ID ONLY if logged in
+  useEffect(() => {
+    if (!isLoading && session && activeMessageId) { // Check for session
+      try {
+        console.log('Saving activeMessageId to localStorage for logged-in user');
+        localStorage.setItem(LOCAL_STORAGE_ACTIVE_ID_KEY, activeMessageId);
+      } catch (error) {
+        console.error('Error saving activeMessageId to localStorage:', error);
+      }
+    } else if (!isLoading && session && activeMessageId === null) {
+      // Remove if user is logged in and ID becomes null
+      localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
+    }
+    // No need to handle removal for guests, as it's done during initialization
+  }, [activeMessageId, isLoading, session]); // Add session dependency
 
   // Derive current messages (path) whenever the conversation map or active message changes
   useEffect(() => {
@@ -169,6 +187,13 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
       // setCurrentBranchNodes([]);
     }
   }, [conversation, activeMessageId]);
+
+  // --- Helper function to check for children --- 
+  const hasChildren = useCallback((messageId: string): boolean => {
+    if (!conversation?.messages) return false;
+    // Check if any message in the map has this messageId as its parentId
+    return Object.values(conversation.messages).some(msg => msg.parentId === messageId);
+  }, [conversation]); // Dependency on the conversation map
 
   // Updated addMessage to return the new node and its historical path
   const addMessage = useCallback((messageData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'>, parentIdParam?: string | null): AddMessageResult | null => {
@@ -250,12 +275,19 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     }
     console.log(`Creating branch from message ${sourceMessageId} with text: "${selectedText}"`);
 
-    const branchUserMessageData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'> = {
-      role: 'user',
-      content: `Based on your selection: "${selectedText}", please explore this further.`,
+    const userNode: MessageNode = conversation.messages[sourceMessageId];
+
+    // 2. Create the initial AI response node as a child of the user node
+    const aiNode: MessageNode = {
+      id: uuidv4(),
+      role: 'assistant',
+      content: '', // Set to empty string - subsequent LLM call should populate this
+      parentId: userNode.id,
+      createdAt: new Date(),
     };
 
-    const addResult = addMessage(branchUserMessageData, sourceMessageId);
+    // Add the new AI node as a child of the *source* message (the one branched from)
+    const addResult = addMessage(aiNode, sourceMessageId);
 
     if (addResult) {
       console.log(`Branch created. New active node: ${addResult.newNode.id}. Path length: ${addResult.messagePath.length}`);
@@ -277,8 +309,8 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   }, [conversation]);
 
   // Render children only after loading is complete
-  if (isLoading) {
-      // Optionally return a loading indicator component
+  if (isLoading || isAuthLoading) {
+      // Return null or loading indicator while waiting for auth and initial conversation setup
       return null; 
   }
 
@@ -293,6 +325,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     addMessage,
     selectBranch,
     createBranch,
+    hasChildren,
   };
 
   return (
