@@ -17,7 +17,7 @@
 
 /* Custom KaTeX styling */
 .katex-display {
-  font-size: 1.35em !important;
+  font-size: 1.21em !important;
   margin: 1.5em 0 !important;
   overflow-x: auto;
   overflow-y: hidden;
@@ -27,10 +27,43 @@
   border-radius: 4px;
 }
 
+/* Base KaTeX styling */
 .katex {
-  font-size: 1.1em;
+  font-size: 1.05em;
 }
 
+/* Display MathML and hide HTML content */
+.katex .katex-html {
+  position: absolute !important;
+  clip: rect(1px, 1px, 1px, 1px) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  height: 1px !important;
+  width: 1px !important;
+  overflow: hidden !important;
+}
+
+.katex .katex-mathml {
+  /* Make MathML visible */
+  display: block !important;
+  position: static !important;
+  font-family: "KaTeX_Math", "Times New Roman", serif !important;
+  line-height: 1.4 !important;
+}
+
+/* Adjustments for MathML specific styling */
+.katex-mathml math {
+  display: inline-block;
+  margin: 0.25em 0;
+}
+
+.math-display .katex-mathml math {
+  display: block;
+  margin: 0.5em auto;
+  text-align: center;
+}
+
+/* Remove unnecessary CSS selectors */
 /* Add padding and background for math blocks */
 .math.math-display {
   padding: 1em 0.5em;

@@ -15,6 +15,15 @@ interface ChatMessageProps {
   onBranchCreated: (result: AddMessageResult, sourceText: string) => void;
 }
 
+// Custom function to pre-process KaTeX format to ensure proper rendering
+const preprocessMarkdown = (content: string): string => {
+  // Ensure display math is on its own lines
+  return content
+    // Fix display math not properly isolated on its own lines
+    .replace(/([^\n])(\$\$)/g, '$1\n\n$$')
+    .replace(/(\$\$)([^\n])/g, '$$\n\n$2');
+};
+
 const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCreated }) => {
   const isUser = message.role === 'user';
 
@@ -111,6 +120,40 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
     // Depend on isUser and selectedText to potentially re-attach/cleanup or use inside handler
   }, [isUser, selectedText]); // Re-evaluate if component type changes or selectedText state changes
 
+  // Debug KaTeX HTML structure after render
+  useEffect(() => {
+    if (!isUser && messageContentRef.current) {
+      setTimeout(() => {
+        const katexElements = messageContentRef.current?.querySelectorAll('.katex');
+        if (katexElements?.length) {
+          console.log(`Found ${katexElements.length} KaTeX elements`);
+          
+          // Log structure of first katex element to see what's happening
+          const firstKatex = katexElements[0];
+          const htmlEl = firstKatex.querySelector('.katex-html');
+          const mathmlEl = firstKatex.querySelector('.katex-mathml');
+          
+          console.log('KaTeX structure:', {
+            htmlHidden: htmlEl?.hasAttribute('aria-hidden') || false,
+            mathmlVisible: mathmlEl !== null,
+            html: htmlEl?.innerHTML || 'not found',
+            mathml: mathmlEl?.innerHTML || 'not found'
+          });
+          
+          // Check if we still have duplicated content
+          const duplicateCheck: string[] = [];
+          katexElements.forEach((el, i) => {
+            const textContent = el.textContent?.trim() || '';
+            if (textContent && duplicateCheck.includes(textContent)) {
+              console.log(`Potential duplicate KaTeX content found at element ${i}:`, textContent);
+            } else if (textContent) {
+              duplicateCheck.push(textContent);
+            }
+          });
+        }
+      }, 500); // Small delay to ensure render is complete
+    }
+  }, [isUser, message.content, message.id]);
 
   const handleBranchClick = () => {
     if (!selectedText || isUser || !message.id) return;
@@ -148,9 +191,12 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
                  rehypeRaw, 
                  [rehypeKatex, { 
                    throwOnError: false,
-                   output: 'htmlAndMathml',
-                   trust: true,  // Allow custom commands and macros
-                   strict: false // Less strict about LaTeX syntax
+                   output: 'mathml', // Changed from 'htmlAndMathml' to only use MathML
+                   trust: true,  
+                   strict: false,
+                   displayMode: false, // Let remark-math determine display mode
+                   maxSize: 100, // Prevent excessive size
+                   maxExpand: 1000 // Prevent excessive macros
                  }]
                ]}
                components={{
@@ -160,7 +206,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
                  h3: ({children}) => <h3 className="text-xl font-bold my-2">{children}</h3>
                }}
              >
-               {message.content}
+               {preprocessMarkdown(message.content)}
              </ReactMarkdown>
            </div>
            {/* Render Branch Point Indicator Icon */} 
