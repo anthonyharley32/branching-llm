@@ -37,6 +37,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
 
   const [selectedText, setSelectedText] = useState<string>('');
   const messageContentRef = useRef<HTMLDivElement>(null);
+  const [selectionPosition, setSelectionPosition] = useState<{ top: number; right: number } | null>(null);
   const { createBranch, hasChildren } = useConversation();
 
   // Specific classes for user messages (Grok style)
@@ -54,6 +55,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
       // If selection change happened but it's not relevant, ensure state is clear
       // Check existing state to avoid unnecessary re-renders
       if (selectedText) setSelectedText('');
+      if (selectionPosition) setSelectionPosition(null);
       return;
     }
 
@@ -66,11 +68,21 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
         // Update state only if the selected text actually changed
         if (text && text !== selectedText) {
           setSelectedText(text);
-          // console.log(`Selected in ${message.id}: "${text}"`); // Debug logging
+          // Calculate position for the button
+          const rect = range.getBoundingClientRect();
+          const messageRect = messageContentRef.current.getBoundingClientRect();
+          
+          // Position at the right side of the message container
+          // Always vertically center with the text line
+          setSelectionPosition({
+            top: rect.top + (rect.height / 2) - messageRect.top + window.scrollY, // Center for all selections
+            right: messageRect.width // Position at the right edge of the message
+          });
           return; // Found valid selection, exit
         } else if (!text && selectedText) {
           // Selection cleared or now empty within this component
           setSelectedText('');
+          setSelectionPosition(null);
           return;
         }
       }
@@ -90,6 +102,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
        }
        if (!selectionStillInComponent) {
          setSelectedText('');
+         setSelectionPosition(null);
        }
     }
   };
@@ -100,6 +113,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
     if (isUser) {
         // Clear selection if user message becomes active or component re-renders as user
         if (selectedText) setSelectedText('');
+        if (selectionPosition) setSelectionPosition(null);
         return; // Don't attach listener for user messages
     }
 
@@ -171,6 +185,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
     }
     
     setSelectedText(''); // Clear selection state
+    setSelectionPosition(null); // Clear position
     window.getSelection()?.removeAllRanges(); // Clear visual selection
   };
 
@@ -184,50 +199,57 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
           className={`${isUser ? userBubbleClasses : aiTextClasses} ${isBranchPoint ? 'relative pr-6' : ''}`}
         >
            {/* Render message content using react-markdown */}
-           <div className="prose max-w-none">
              <ReactMarkdown
                remarkPlugins={[remarkMath, remarkGfm]}
                rehypePlugins={[
                  rehypeRaw, 
                  [rehypeKatex, { 
                    throwOnError: false,
-                   output: 'mathml', // Changed from 'htmlAndMathml' to only use MathML
+                   output: 'mathml',
                    trust: true,  
                    strict: false,
-                   displayMode: false, // Let remark-math determine display mode
-                   maxSize: 100, // Prevent excessive size
-                   maxExpand: 1000 // Prevent excessive macros
+                   displayMode: false,
+                   maxSize: 100,
+                   maxExpand: 1000
                  }]
                ]}
                components={{
-                 // Custom heading renderers to handle numbered sections
-                 h1: ({children}) => <h1 className="text-3xl font-bold my-4">{children}</h1>,
-                 h2: ({children}) => <h2 className="text-2xl font-bold my-3">{children}</h2>,
-                 h3: ({children}) => <h3 className="text-xl font-bold my-2">{children}</h3>
+                 // Custom heading renderers with more specific styling
+                 h1: ({children}) => <h1 className="text-4xl font-bold my-6 border-b pb-2">{children}</h1>,
+                 h2: ({children}) => <h2 className="text-2xl font-bold my-4">{children}</h2>,
+                 h3: ({children}) => <h3 className="text-xl font-bold my-3">{children}</h3>
                }}
              >
                {preprocessMarkdown(message.content)}
              </ReactMarkdown>
-           </div>
-           {/* Render Branch Point Indicator Icon */} 
+           {/* Render Branch Point Indicator Icon */}
            {isBranchPoint && (
              <FiGitBranch 
                className="absolute bottom-1 right-1 text-gray-400 dark:text-gray-500 h-3 w-3" 
                title="This message has branches"
              />
            )}
+           
+           {/* Floating branch button that appears next to selection */}
+           {!isUser && selectedText && selectionPosition && (
+             <div 
+               style={{
+                 position: 'absolute',
+                 top: `${selectionPosition.top}px`,
+                 left: `${selectionPosition.right}px`,
+                 transform: 'translateY(-50%)', // Center vertically relative to position
+                 zIndex: 10
+               }}
+             >
+               <button
+                 onClick={handleBranchClick}
+                 className="px-2 py-0.5 bg-indigo-500 text-white text-xs rounded shadow hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-colors whitespace-nowrap"
+               >
+                 Branch from selection
+               </button>
+             </div>
+           )}
         </div>
-        {/* Render Branch button conditionally below the AI message */}
-        {!isUser && selectedText && (
-         <div className="flex justify-start w-full pl-4"> {/* Aligns button slightly indented */}
-           <button
-             onClick={handleBranchClick}
-             className="-mt-1 px-2 py-0.5 bg-indigo-500 text-white text-xs rounded shadow hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-colors"
-           >
-             Branch from selection
-           </button>
-         </div>
-        )}
       </div>
     </div>
   );
