@@ -72,11 +72,19 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
           const rect = range.getBoundingClientRect();
           const messageRect = messageContentRef.current.getBoundingClientRect();
           
+          // Calculate the right position with a safety margin to prevent cutoff
+          // Constrain the position to ensure the button stays within viewport
+          const viewportWidth = window.innerWidth;
+          const maxRightPosition = Math.min(
+            messageRect.width,  // Right edge of message
+            viewportWidth - messageRect.left - 100 // Safety margin from viewport edge
+          );
+          
           // Position at the right side of the message container
           // Always vertically center with the text line
           setSelectionPosition({
             top: rect.top + (rect.height / 2) - messageRect.top + window.scrollY, // Center for all selections
-            right: messageRect.width // Position at the right edge of the message
+            right: maxRightPosition // Position at the right edge with safety margin
           });
           return; // Found valid selection, exit
         } else if (!text && selectedText) {
@@ -215,9 +223,13 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
                ]}
                components={{
                  // Custom heading renderers with more specific styling
-                 h1: ({children}) => <h1 className="text-4xl font-bold my-6 border-b pb-2">{children}</h1>,
+                 h1: ({children}) => <h1 className="text-4xl font-bold my-6 border-b border-gray-300 pb-2">{children}</h1>,
                  h2: ({children}) => <h2 className="text-2xl font-bold my-4">{children}</h2>,
-                 h3: ({children}) => <h3 className="text-xl font-bold my-3">{children}</h3>
+                 h3: ({children}) => <h3 className="text-xl font-bold my-3">{children}</h3>,
+                 // Style horizontal rules to be gray
+                 hr: () => <hr className="border-gray-300 my-4" />,
+                 // Style line breaks to be visible as gray lines
+                 br: () => <span className="inline-block w-full h-px bg-gray-200 my-1"></span>
                }}
              >
                {preprocessMarkdown(message.content)}
@@ -238,14 +250,16 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
                  top: `${selectionPosition.top}px`,
                  left: `${selectionPosition.right}px`,
                  transform: 'translateY(-50%)', // Center vertically relative to position
-                 zIndex: 10
+                 zIndex: 50 // Higher z-index to ensure visibility
                }}
+               className="branch-button-container"
              >
                <button
                  onClick={handleBranchClick}
                  className="px-2 py-0.5 bg-indigo-500 text-white text-xs rounded shadow hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-colors whitespace-nowrap"
+                 title="Branch from selection"
                >
-                 Branch from selection
+                 Branch
                </button>
              </div>
            )}
