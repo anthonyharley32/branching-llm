@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math'; // Import remark-math
+import rehypeRaw from 'rehype-raw'; // Import rehype-raw
 import { FiGitBranch } from 'react-icons/fi'; // Import branch icon
 import { MessageNode } from '../types/conversation';
 import { useConversation, AddMessageResult } from '../context/ConversationContext';
@@ -16,6 +17,15 @@ interface ChatMessageProps {
 
 const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCreated }) => {
   const isUser = message.role === 'user';
+
+  // --- DEBUGGING: Log raw AI message content ONCE per message ---
+  useEffect(() => {
+    if (!isUser) {
+      console.log(`Raw AI Message Content (ID: ${message.id}):`, message.content);
+    }
+  }, [isUser, message.content, message.id]); // Log only when content/id/role changes
+  // --- END DEBUGGING ---
+
   const [selectedText, setSelectedText] = useState<string>('');
   const messageContentRef = useRef<HTMLDivElement>(null);
   const { createBranch, hasChildren } = useConversation();
@@ -129,16 +139,30 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
         <div
           ref={messageContentRef}
           className={`${isUser ? userBubbleClasses : aiTextClasses} ${isBranchPoint ? 'relative pr-6' : ''}`}
-          // onMouseUp={handleSelection} // Handled by global listener now
         >
            {/* Render message content using react-markdown */}
-           {/* Removed prose class from wrapper - relying on element styles from tailwind.config.cjs */}
+           <div className="prose max-w-none">
              <ReactMarkdown
-               remarkPlugins={[remarkGfm, remarkMath]}
-               rehypePlugins={[rehypeKatex]}
+               remarkPlugins={[remarkMath, remarkGfm]}
+               rehypePlugins={[
+                 rehypeRaw, 
+                 [rehypeKatex, { 
+                   throwOnError: false,
+                   output: 'htmlAndMathml',
+                   trust: true,  // Allow custom commands and macros
+                   strict: false // Less strict about LaTeX syntax
+                 }]
+               ]}
+               components={{
+                 // Custom heading renderers to handle numbered sections
+                 h1: ({children}) => <h1 className="text-3xl font-bold my-4">{children}</h1>,
+                 h2: ({children}) => <h2 className="text-2xl font-bold my-3">{children}</h2>,
+                 h3: ({children}) => <h3 className="text-xl font-bold my-2">{children}</h3>
+               }}
              >
                {message.content}
              </ReactMarkdown>
+           </div>
            {/* Render Branch Point Indicator Icon */} 
            {isBranchPoint && (
              <FiGitBranch 

@@ -15,6 +15,38 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Custom KaTeX styling */
+.katex-display {
+  font-size: 1.35em !important;
+  margin: 1.5em 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+  padding: 0.5em 0;
+  background-color: rgba(248, 249, 250, 0.5);
+  border-radius: 4px;
+}
+
+.katex {
+  font-size: 1.1em;
+}
+
+/* Add padding and background for math blocks */
+.math.math-display {
+  padding: 1em 0.5em;
+  background-color: rgba(248, 249, 250, 0.5);
+  border-radius: 4px;
+  margin: 1em 0;
+}
+
+/* Handle headings with Markdown numbering */
+h2 strong:first-child + em, /* For cases like "**1.** *Title*" */
+h2 em:first-child + strong, /* For cases like "*1.* **Title**" */
+h2 strong:first-child {     /* For cases like "**1. Title**" */
+  font-weight: bold;
+  margin-right: 0.5em;
+}
+
 a {
   font-weight: 500;
   color: #646cff;
