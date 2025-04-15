@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math'; // Import remark-math
+import { FiGitBranch } from 'react-icons/fi'; // Import branch icon
 import { MessageNode } from '../types/conversation';
 import { useConversation, AddMessageResult } from '../context/ConversationContext';
-import { FiGitBranch } from 'react-icons/fi'; // Import branch icon
 // TODO: Import store hook when needed for branch creation
 // import { useChatStore } from '../store/useChatStore';
 
@@ -10,7 +14,7 @@ interface ChatMessageProps {
   onBranchCreated: (result: AddMessageResult, sourceText: string) => void;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, onBranchCreated }) => {
+const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCreated }) => {
   const isUser = message.role === 'user';
   const [selectedText, setSelectedText] = useState<string>('');
   const messageContentRef = useRef<HTMLDivElement>(null);
@@ -127,15 +131,21 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onBranchCreated }) =
           className={`${isUser ? userBubbleClasses : aiTextClasses} ${isBranchPoint ? 'relative pr-6' : ''}`}
           // onMouseUp={handleSelection} // Handled by global listener now
         >
-          {/* Render message content */}
-          {message.content}
-          {/* Render Branch Point Indicator Icon */} 
-          {isBranchPoint && (
-            <FiGitBranch 
-              className="absolute bottom-1 right-1 text-gray-400 dark:text-gray-500 h-3 w-3" 
-              title="This message has branches"
-            />
-          )}
+           {/* Render message content using react-markdown */}
+           {/* Removed prose class from wrapper - relying on element styles from tailwind.config.cjs */}
+             <ReactMarkdown
+               remarkPlugins={[remarkGfm, remarkMath]}
+               rehypePlugins={[rehypeKatex]}
+             >
+               {message.content}
+             </ReactMarkdown>
+           {/* Render Branch Point Indicator Icon */} 
+           {isBranchPoint && (
+             <FiGitBranch 
+               className="absolute bottom-1 right-1 text-gray-400 dark:text-gray-500 h-3 w-3" 
+               title="This message has branches"
+             />
+           )}
         </div>
         {/* Render Branch button conditionally below the AI message */}
         {!isUser && selectedText && (
@@ -152,5 +162,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onBranchCreated }) =
     </div>
   );
 };
+
+// Wrap the component with React.memo for performance optimization
+const ChatMessage = React.memo(ChatMessageInternal);
 
 export default ChatMessage; 

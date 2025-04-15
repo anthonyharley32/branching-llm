@@ -54,6 +54,7 @@ interface ConversationContextType {
   selectBranch: (messageId: string) => void;
   createBranch: (sourceMessageId: string, selectedText: string) => AddMessageResult | null;
   hasChildren: (messageId: string) => boolean;
+  updateMessageContent: (messageId: string, contentChunk: string) => void;
 }
 
 // Create the context with a default value
@@ -195,6 +196,34 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     return Object.values(conversation.messages).some(msg => msg.parentId === messageId);
   }, [conversation]); // Dependency on the conversation map
 
+  // --- Function to update content of an existing message (for streaming) ---
+  const updateMessageContent = useCallback((messageId: string, contentChunk: string) => {
+    if (isLoading) {
+      console.warn('Attempted to update message while loading state');
+      return;
+    }
+    setConversation(prevConv => {
+      if (!prevConv || !prevConv.messages[messageId]) {
+        console.error(`Cannot update message: ID "${messageId}" not found.`);
+        return prevConv; // Return previous state if ID not found
+      }
+
+      const updatedMessage = {
+        ...prevConv.messages[messageId],
+        content: prevConv.messages[messageId].content + contentChunk, // Append chunk
+      };
+
+      return {
+        ...prevConv,
+        messages: {
+          ...prevConv.messages,
+          [messageId]: updatedMessage,
+        },
+        updatedAt: new Date().getTime(),
+      };
+    });
+  }, [isLoading]); // Dependency on isLoading
+
   // Updated addMessage to return the new node and its historical path
   const addMessage = useCallback((messageData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'>, parentIdParam?: string | null): AddMessageResult | null => {
     if (isLoading) {
@@ -207,61 +236,63 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     let finalNode: MessageNode | null = null;
     let finalPath: MessageNode[] = [];
 
+    // --- Determine the node and path BEFORE setting state ---
+    let effectiveParentId: string | null;
+    let potentialMessagesMap: Record<string, MessageNode>;
+
+    if (!conversation) { // Check if conversation exists before creating the node
+      effectiveParentId = null;
+      finalNode = { ...messageData, id: newId, parentId: effectiveParentId, createdAt: now };
+      potentialMessagesMap = { [newId]: finalNode }; // Map for path calculation
+      finalPath = [finalNode];
+    } else {
+      effectiveParentId = parentIdParam === undefined ? activeMessageId : parentIdParam;
+      if (effectiveParentId !== null && !conversation.messages[effectiveParentId]) {
+        console.error(`Cannot add message: Parent ID "${effectiveParentId}" not found.`);
+        return null; // Return null early if parent not found
+      }
+      finalNode = { ...messageData, id: newId, parentId: effectiveParentId, createdAt: now };
+      potentialMessagesMap = { ...conversation.messages, [newId]: finalNode }; // Map for path calculation
+      finalPath = getPathToNode(potentialMessagesMap, newId);
+    }
+
+    // Check if finalNode was successfully created before proceeding
+    if (!finalNode) {
+      console.error('Failed to create finalNode before setting state');
+      return null;
+    }
+
+    // --- Now update the state --- 
     setConversation(prevConv => {
       let updatedConv: Conversation;
-      let effectiveParentId: string | null;
 
       if (!prevConv) {
-        // Create first message and new conversation
-        effectiveParentId = null;
-        finalNode = {
-          ...messageData,
-          id: newId,
-          parentId: effectiveParentId,
-          createdAt: now,
-        };
         updatedConv = {
           id: uuidv4(),
           rootMessageId: newId,
-          messages: { [newId]: finalNode },
+          messages: { [newId]: finalNode! }, // Use the pre-calculated finalNode
           createdAt: now.getTime(),
         };
-        finalPath = [finalNode];
         setActiveMessageId(newId);
       } else {
-        // Add to existing conversation
-        effectiveParentId = parentIdParam === undefined ? activeMessageId : parentIdParam;
-        if (effectiveParentId !== null && !prevConv.messages[effectiveParentId]) {
-          console.error(`Cannot add message: Parent ID "${effectiveParentId}" not found.`);
-          return prevConv;
-        }
-        finalNode = {
-          ...messageData,
-          id: newId,
-          parentId: effectiveParentId,
-          createdAt: now,
-        };
         updatedConv = {
           ...prevConv,
           messages: {
             ...prevConv.messages,
-            [newId]: finalNode,
+            [newId]: finalNode!, // Use the pre-calculated finalNode
           },
           updatedAt: now.getTime(),
         };
-        finalPath = getPathToNode(updatedConv.messages, newId);
         setActiveMessageId(newId);
       }
       return updatedConv;
     });
 
-    if (finalNode) {
-      return { newNode: finalNode, messagePath: finalPath };
-    } else {
-      console.error('Failed to obtain finalNode after state update in addMessage');
-      return null;
-    }
-  }, [activeMessageId, isLoading]);
+    // Return the pre-calculated node and path
+    // (The check for finalNode validity happened before setConversation)
+    return { newNode: finalNode, messagePath: finalPath };
+
+  }, [activeMessageId, isLoading, conversation]); // Add conversation as dependency
 
   // Updated createBranch to align with MessageNode using createdAt
   const createBranch = useCallback((sourceMessageId: string, selectedText: string): AddMessageResult | null => {
@@ -326,6 +357,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     selectBranch,
     createBranch,
     hasChildren,
+    updateMessageContent,
   };
 
   return (

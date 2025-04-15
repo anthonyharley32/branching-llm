@@ -56,51 +56,60 @@ function convertToOpenAIMessages(messages: Message[]): any[] {
   }));
 }
 
-// Generate a chat completion from OpenAI
-export async function generateCompletion(
-  messages: Message[]
-): Promise<Message> {
+// Interface for streaming callbacks
+export interface StreamCallbacks {
+  onChunk: (chunk: string) => void;
+  onComplete?: () => void;
+  onError?: (error: LLMError) => void;
+}
+
+// Generate a chat completion from OpenAI, streaming the response
+export async function generateCompletionStream(
+  messages: Message[],
+  callbacks: StreamCallbacks
+): Promise<void> { // Returns void as results are handled via callbacks
   try {
-    // Ensure we have an API key
     if (!config.apiKey) {
       throw new Error('OpenAI API key is not configured');
     }
     
-    // Get or initialize client
     const client = getClient();
     
-    // Convert messages to OpenAI format
-    const openaiMessages = convertToOpenAIMessages(messages);
+    const systemMessage = { role: 'system' as const, content: config.systemPrompt };
+    const openaiMessages = [systemMessage, ...convertToOpenAIMessages(messages)];
     
-    // Make the API call
-    const response = await client.chat.completions.create({
+    // Make the API call with stream enabled
+    const stream = await client.chat.completions.create({
       model: config.model,
       messages: openaiMessages,
       temperature: config.temperature,
       max_tokens: config.maxTokens,
-      stream: false,
+      stream: true, // Enable streaming
     });
     
-    // Extract the assistant's response
-    const assistantMessage = response.choices[0]?.message;
-    
-    if (!assistantMessage || !assistantMessage.content) {
-      throw new Error('No response content received from OpenAI');
+    // Process the stream
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) {
+        callbacks.onChunk(content);
+      }
     }
     
-    // Return the response in our app's format
-    return {
-      id: `openai-${Date.now()}`,
-      role: 'assistant',
-      content: assistantMessage.content,
-      createdAt: new Date(),
-    };
+    // Signal completion
+    if (callbacks.onComplete) {
+      callbacks.onComplete();
+    }
+
   } catch (error: unknown) {
-    console.error('Error generating completion from OpenAI:', error);
-    
-    // Handle and categorize errors
+    console.error('Error generating completion stream from OpenAI:', error);
     const llmError = parseError(error);
-    throw llmError;
+    // Signal error
+    if (callbacks.onError) {
+      callbacks.onError(llmError);
+    } else {
+      // If no error handler, re-throw as a fallback
+      throw llmError;
+    }
   }
 }
 

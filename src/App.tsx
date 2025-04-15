@@ -8,7 +8,12 @@ import ChatThread from './components/ChatThread'
 import { ConversationProvider, useConversation, AddMessageResult } from './context/ConversationContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import AuthContainer from './components/auth/AuthContainer'
-import { generateCompletion, LLMError, ErrorType } from './services/llm/openai'
+import { 
+  generateCompletionStream,
+  LLMError, 
+  ErrorType, 
+  StreamCallbacks
+} from './services/llm/openai'
 import { MessageNode } from './types/conversation'
 import { FiLogOut, FiArrowLeft, FiX } from 'react-icons/fi'
 import { supabase } from './lib/supabase'
@@ -26,6 +31,7 @@ function AppContent() {
     activeMessageId,
     setActiveMessageId,
     selectBranch,
+    updateMessageContent
   } = useConversation();
 
   const [isSending, setIsSending] = useState(false);
@@ -33,6 +39,10 @@ function AppContent() {
   const [guestMessageCount, setGuestMessageCount] = useState<number>(0); // State for guest count
   const [branchParentId, setBranchParentId] = useState<string | null>(null); // State for branched view
   const [branchSourceText, setBranchSourceText] = useState<string | null>(null); // State for source text
+  const [streamingAiNodeId, setStreamingAiNodeId] = useState<string | null>(null); // Track the ID of the AI message being streamed
+
+  // State to trigger LLM call after user message is added
+  const [pendingLlmCall, setPendingLlmCall] = useState<{parentId: string; path: MessageNode[]} | null>(null);
 
   // Load guest message count from localStorage on initial load if not logged in
   useEffect(() => {
@@ -55,9 +65,87 @@ function AppContent() {
     }
   }, [isAuthLoading, session]); // Run when auth state is determined
 
+  // --- Effect to initiate LLM stream after user message state is updated ---
+  useEffect(() => {
+    if (!pendingLlmCall) return;
+
+    const { parentId: aiParentId, path: messagePath } = pendingLlmCall;
+    let tempAiNodeId: string | null = null; // Temporary ID within this async scope
+
+    const executeStream = async () => {
+      try {
+        const apiMessages = messagePath.map(node => ({ role: node.role, content: node.content }));
+        console.log('Sending context to LLM (useEffect):', apiMessages);
+
+        const callbacks: StreamCallbacks = {
+          onChunk: (chunk) => {
+            if (!tempAiNodeId) {
+              // First chunk: Create the AI message node
+              const firstChunkData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'> = {
+                role: 'assistant',
+                content: chunk,
+              };
+              const newAiResult = addMessage(firstChunkData, aiParentId);
+              if (newAiResult) {
+                tempAiNodeId = newAiResult.newNode.id;
+                setStreamingAiNodeId(tempAiNodeId); // Store in state for subsequent updates
+              } else {
+                console.error("Failed to add first AI chunk message");
+                setError({ type: ErrorType.UNKNOWN, message: 'Failed to add first AI message.' });
+                // Maybe stop processing stream?
+              }
+            } else {
+              // Subsequent chunks: Update the existing node
+              updateMessageContent(tempAiNodeId, chunk);
+            }
+          },
+          onComplete: () => {
+            console.log("LLM Stream Complete");
+            if (!session) {
+              const newCount = guestMessageCount + 1;
+              setGuestMessageCount(newCount);
+              try {
+                localStorage.setItem(GUEST_MESSAGE_COUNT_KEY, newCount.toString());
+                console.log(`Guest message count updated: ${newCount}`);
+              } catch (err) {
+                console.error('Failed to save guest message count to localStorage:', err);
+              }
+            }
+            setIsSending(false);
+            setStreamingAiNodeId(null);
+          },
+          onError: (llmError) => {
+            console.error("LLM Stream Error:", llmError);
+            setError(llmError);
+            setIsSending(false);
+            setStreamingAiNodeId(null);
+          }
+        };
+
+        await generateCompletionStream(apiMessages, callbacks);
+
+      } catch (err) { // Catch errors during stream *setup* 
+        console.error("Failed to initiate AI stream (useEffect):", err);
+        const setupError: LLMError = {
+          type: ErrorType.UNKNOWN,
+          message: err instanceof Error ? err.message : 'Failed to start AI stream.',
+          original: err,
+        };
+        setError(setupError);
+        setIsSending(false);
+      } finally {
+        setPendingLlmCall(null); // Clear the trigger regardless of success/failure
+      }
+    };
+
+    executeStream();
+
+  }, [pendingLlmCall, guestMessageCount, session]); // Removed addMessage/updateMessageContent
+
   const handleSendMessage = async (text: string) => {
     setIsSending(true);
-    setError(null)
+    setError(null);
+    setStreamingAiNodeId(null); // Reset streaming ID on new message
 
     // --- Guest Rate Limit Check --- 
     if (!session) { 
@@ -76,57 +164,20 @@ function AppContent() {
     const userMessageData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'> = {
       role: 'user',
       content: text,
-    }
-    const addResult = addMessage(userMessageData)
+    };
+    const addResult = addMessage(userMessageData);
 
     if (!addResult) {
-      console.error('Failed to add user message to context')
-      setError({ type: ErrorType.UNKNOWN, message: 'Failed to add user message locally.'})
+      console.error('Failed to add user message to context');
+      setError({ type: ErrorType.UNKNOWN, message: 'Failed to add user message locally.' });
       setIsSending(false);
-      return
+      return;
     }
 
-    const { newNode: userMessageNode, messagePath: userMessagePath } = addResult
+    // --- Set state to trigger LLM call via useEffect --- 
+    setPendingLlmCall({ parentId: addResult.newNode.id, path: addResult.messagePath });
 
-    try {
-      const apiMessages = userMessagePath.map(node => ({ role: node.role, content: node.content }))
-
-      console.log('Sending context to LLM:', apiMessages)
-
-      const aiResponse = await generateCompletion(apiMessages)
-
-      const aiMessageData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'> = {
-        role: aiResponse.role,
-        content: aiResponse.content,
-      }
-      addMessage(aiMessageData, userMessageNode.id)
-
-      // --- Increment Guest message count --- 
-      if (!session) {
-        const newCount = guestMessageCount + 1;
-        setGuestMessageCount(newCount);
-        try {
-            localStorage.setItem(GUEST_MESSAGE_COUNT_KEY, newCount.toString());
-            console.log(`Guest message count updated: ${newCount}`);
-        } catch (err) {
-            console.error('Failed to save guest message count to localStorage:', err);
-        }
-      }
-
-    } catch (err) {
-      console.error("Failed to get AI response:", err)
-      if (err instanceof Error && 'type' in err && Object.values(ErrorType).includes((err as LLMError).type)) {
-        setError(err as LLMError)
-      } else {
-        setError({
-          type: ErrorType.UNKNOWN,
-          message: err instanceof Error ? err.message : 'An unexpected error occurred.',
-          original: err,
-        })
-      }
-    } finally {
-      setIsSending(false);
-    }
+    // LLM call moved to useEffect triggered by pendingLlmCall
   }
 
   // Handler for when a branch is successfully created in ChatMessage
