@@ -16,8 +16,15 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, onBra
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Filter out empty system messages that don't need to be displayed
-  const displayMessages = messages.filter(msg => !(msg.role === 'system' && !msg.content.trim()));
+  // Filter out empty system messages, but keep the root message if it's the only one
+  const displayMessages = messages.filter(msg => {
+    // Keep the message if it's not a system message OR if it has content
+    if (msg.role !== 'system' || msg.content.trim()) {
+      return true;
+    }
+    // If it IS a system message with empty content, only keep it if it's the *only* message
+    return messages.length === 1;
+  });
 
   return (
     <div className="flex-grow overflow-y-auto p-4 space-y-4">

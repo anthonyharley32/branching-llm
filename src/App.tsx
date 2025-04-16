@@ -625,10 +625,48 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
               {branchStack.length > 1 ? (
                 <div className="flex flex-wrap justify-center items-center gap-1">
                   <span>Branches:</span>
+                  <span 
+                    onClick={() => {
+                      // Clear the entire branch stack to return to main conversation
+                      setBranchStack([]);
+                      // Set active message to the root of the conversation
+                      setActiveMessageId(conversation?.rootMessageId || null);
+                    }}
+                    className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 relative group"
+                    title="Return to main conversation"
+                  >
+                    Main
+                  </span>
+                  <span className="mx-1">→</span>
                   {branchStack.map((branch, index) => (
                     <React.Fragment key={`branch-${index}`}>
                       {index > 0 && <span className="mx-1">→</span>}
-                      <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
+                      <span 
+                        onClick={() => {
+                          // Navigate to this specific branch by truncating the stack
+                          setBranchStack(prev => prev.slice(0, index + 1));
+                          // If this branch has an associated node ID, set it as active
+                          if (index > 0 && branchStack[index].branchId) {
+                            // Find the branch starter node for this branch
+                            const allMessages = Object.values(conversation?.messages || {});
+                            const branchStarter = allMessages.find(msg => 
+                              msg.metadata?.branchId === branchStack[index].branchId &&
+                              msg.metadata?.isBranchStart === true
+                            );
+                            if (branchStarter) {
+                              setActiveMessageId(branchStarter.id);
+                            } else {
+                              // Fallback to parent ID if branch starter not found
+                              setActiveMessageId(branchStack[index].parentId);
+                            }
+                          } else if (index === 0) {
+                            // For the first branch, use its parent ID directly
+                            setActiveMessageId(branchStack[0].parentId);
+                          }
+                        }}
+                        className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
+                        title={`Navigate to ${branch.sourceText || `Branch ${index + 1}`}`}
+                      >
                         {branch.sourceText || `Branch ${index + 1}`}
                       </span>
                     </React.Fragment>

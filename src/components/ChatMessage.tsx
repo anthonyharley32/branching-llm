@@ -149,26 +149,81 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
     if (isBranchPoint && messageContentRef.current && branchSources.length > 0) {
       // Small delay to ensure markdown has fully rendered
       const timer = setTimeout(() => {
-        branchSources.forEach((source, index) => {
-          const indicator = document.getElementById(`branch-indicator-${message.id}-${index}`);
-          if (!indicator) return;
-          
+        // **Revised Sorting**: Sort sources based on their visual horizontal position
+        const sortedSources = [...branchSources].sort((a, b) => {
+          const resultA = findNodeWithText(messageContentRef.current!, a.text);
+          const resultB = findNodeWithText(messageContentRef.current!, b.text);
+
+          if (!resultA || !resultB) return 0; // Keep original relative order if text not found
+
+          try {
+            const rangeA = document.createRange();
+            rangeA.setStart(resultA.node, resultA.offset);
+            rangeA.setEnd(resultA.node, resultA.offset + Math.min(a.text.length, resultA.node.textContent!.length - resultA.offset));
+            const rectA = rangeA.getBoundingClientRect();
+
+            const rangeB = document.createRange();
+            rangeB.setStart(resultB.node, resultB.offset);
+            rangeB.setEnd(resultB.node, resultB.offset + Math.min(b.text.length, resultB.node.textContent!.length - resultB.offset));
+            const rectB = rangeB.getBoundingClientRect();
+            
+            // Sort by the left edge position
+            return rectA.left - rectB.left;
+          } catch (e) {
+            console.error("Error getting bounding rects for sorting indicators:", e);
+            return 0; // Fallback to original relative order on error
+          }
+        });
+
+        // Now position indicators based on sorted sources
+        sortedSources.forEach((source, sortedIndex) => {
+          // Find indicator using stable ID derived from childId
+          const indicator = document.getElementById(`branch-indicator-${message.id}-${source.childId}`);
+          if (!indicator) {
+            console.warn(`Could not find indicator DOM element for source child ID: ${source.childId}`);
+            return;
+          }
+
           // Find the text node containing the selected text
           const result = findNodeWithText(messageContentRef.current!, source.text);
-          
+
           if (result) {
             try {
               // Create a range to get the bounding rectangle of the text
               const range = document.createRange();
               range.setStart(result.node, result.offset);
               range.setEnd(result.node, result.offset + Math.min(source.text.length, result.node.textContent!.length - result.offset));
-              
+
               const rect = range.getBoundingClientRect();
               const messageRect = messageContentRef.current!.getBoundingClientRect();
-              
-              // Position the indicator at the right side, aligned with text start
+
+              // Position the indicator vertically aligned with text start
               indicator.style.top = `${rect.top - messageRect.top}px`;
-              console.log(`Positioned branch indicator for "${source.text.substring(0, 20)}..." at ${rect.top - messageRect.top}px`);
+              
+              // **Revised Offset Logic**: Apply horizontal offset based on sorted position
+              const baseRightOffset = -10; // Closest to the right edge
+              const additionalOffsetPerIndicator = -25; // Moves further left (Increased spacing)
+
+              // Check how many *previous* indicators in the sorted list are on the same visual line
+              const sameLineIndicatorsCount = sortedSources
+                .slice(0, sortedIndex) // Use sortedIndex to check elements before this one in the sorted list
+                .filter(prevSource => {
+                  const prevResult = findNodeWithText(messageContentRef.current!, prevSource.text);
+                  if (!prevResult) return false;
+                  try {
+                    const prevRange = document.createRange();
+                    prevRange.setStart(prevResult.node, prevResult.offset);
+                    prevRange.setEnd(prevResult.node, prevResult.offset + Math.min(prevSource.text.length, prevResult.node.textContent!.length - prevResult.offset));
+                    const prevRect = prevRange.getBoundingClientRect();
+                    // Consider them on the same line if vertical positions are very close
+                    return Math.abs(prevRect.top - rect.top) < 5; 
+                  } catch { return false; }
+                }).length;
+
+              // Calculate final right position
+              indicator.style.right = `${baseRightOffset + (sameLineIndicatorsCount * additionalOffsetPerIndicator)}px`;
+
+              console.log(`Positioned indicator ${sortedIndex} for "${source.text.substring(0, 20)}..." at top: ${indicator.style.top}, right: ${indicator.style.right}`);
             } catch (e) {
               console.error('Error positioning branch indicator:', e);
             }
@@ -177,6 +232,56 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
           }
         });
       }, 100); // Small delay to ensure rendering is complete
+
+      return () => clearTimeout(timer);
+    }
+  }, [isBranchPoint, branchSources, message.content, message.id]);
+
+  // New effect: Apply yellow highlighting to branch source text
+  useEffect(() => {
+    if (isBranchPoint && messageContentRef.current && branchSources.length > 0) {
+      // Small delay to ensure markdown has fully rendered
+      const timer = setTimeout(() => {
+        // Remove any existing highlights first (to prevent duplicates on re-render)
+        const existingHighlights = messageContentRef.current!.querySelectorAll('.branch-source-highlight');
+        existingHighlights.forEach(el => {
+          // Unwrap the highlight (move its children to its parent, then remove it)
+          const parent = el.parentNode;
+          if (parent) {
+            while (el.firstChild) {
+              parent.insertBefore(el.firstChild, el);
+            }
+            parent.removeChild(el);
+          }
+        });
+        
+        // Now add highlights for each branch source
+        branchSources.forEach((source, index) => {
+          const result = findNodeWithText(messageContentRef.current!, source.text);
+          
+          if (result) {
+            try {
+              // Create a range for the text to highlight
+              const range = document.createRange();
+              range.setStart(result.node, result.offset);
+              range.setEnd(result.node, result.offset + Math.min(source.text.length, result.node.textContent!.length - result.offset));
+              
+              // Create a highlight span
+              const highlightSpan = document.createElement('span');
+              highlightSpan.className = 'branch-source-highlight';
+              highlightSpan.style.backgroundColor = '#f5f0a8'; // Brighter version is now base
+              highlightSpan.dataset.branchIndex = index.toString(); // Store index for later hover effects
+              
+              // Surround the text with the highlight span
+              range.surroundContents(highlightSpan);
+              
+              console.log(`Added yellow highlight to: "${source.text.substring(0, 20)}..."`);
+            } catch (e) {
+              console.error('Error highlighting branch source text:', e);
+            }
+          }
+        });
+      }, 150); // Slight delay to ensure DOM is ready
       
       return () => clearTimeout(timer);
     }
@@ -379,7 +484,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
            {branchSources.length > 0 && branchSources.map((source, index) => (
              <div 
                key={`branch-${index}`}
-               id={`branch-indicator-${message.id}-${index}`}
+               id={`branch-indicator-${message.id}-${source.childId}`}
                style={{
                  position: 'absolute',
                  right: '0px',
@@ -421,6 +526,24 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
                  
                  console.log(`Entering existing branch with content: "${branchNode.content.substring(0, 30)}..."`);
                  onBranchCreated(result, source.text, false);
+               }}
+               onMouseEnter={() => {
+                 // Apply less bright color on hover
+                 if (messageContentRef.current) {
+                   const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
+                   if (highlight) {
+                     (highlight as HTMLElement).style.backgroundColor = '#f2eb88'; // Less bright version for hover
+                   }
+                 }
+               }}
+               onMouseLeave={() => {
+                 // Restore original (brighter) yellow color when not hovering
+                 if (messageContentRef.current) {
+                   const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
+                   if (highlight) {
+                     (highlight as HTMLElement).style.backgroundColor = '#f5f0a8'; // Original brighter version
+                   }
+                 }
                }}
                className="group flex items-center justify-center p-1 transition-transform duration-150 ease-in-out hover:scale-130"
                title="View branch created from this text"
