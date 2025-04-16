@@ -56,6 +56,26 @@ export type ConversationMessage = {
   updated_at: string;
 };
 
+export type Bug = {
+  id: string;
+  title: string;
+  description: string;
+  severity: 'critical' | 'major' | 'minor';
+  status: 'new' | 'in-progress' | 'fixed' | 'verified';
+  reporter_id: string | null;
+  assignee_id: string | null;
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
+  related_component: string | null;
+  steps_to_reproduce: string | null;
+  expected_behavior: string | null;
+  actual_behavior: string | null;
+  environment: Record<string, any>;
+  screenshots: string[] | null;
+  commit_refs: string[] | null;
+};
+
 // Define types for table names to use with the database helper functions
 export type Tables = {
   users: User;
@@ -63,6 +83,7 @@ export type Tables = {
   conversations: Conversation;
   conversation_branches: ConversationBranch;
   conversation_messages: ConversationMessage;
+  bugs: Bug;
 };
 
 export type TableName = keyof Tables; 

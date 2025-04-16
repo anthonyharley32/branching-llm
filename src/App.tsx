@@ -19,6 +19,7 @@ import { FiLogOut, FiArrowLeft } from 'react-icons/fi' // Removed FiX
 // import { supabase } from './lib/supabase' // Already removed
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Conversation } from './types/conversation'
+import { BugReportButton } from './components/BugReporting'
 
 // --- Constants ---
 const GUEST_MESSAGE_LIMIT = 1000;
@@ -527,6 +528,9 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
         {/* Currently shows when not in branch view - this seems correct */}
         {branchStack.length === 0 && (
             <div className="flex items-center gap-4">
+                {/* Bug Report Button */}
+                <BugReportButton buttonText="Report Bug" className="text-sm cursor-pointer" />
+                
                 {/* Guest Limit Warning */}
                 {guestLimitWarning && (
                     <span className={`text-sm font-medium ${guestMessageCount >= GUEST_MESSAGE_LIMIT * 0.9 ? 'text-red-500' : 'text-yellow-500'} hidden md:inline`}>
@@ -543,7 +547,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                         )}
                         <button 
                             onClick={signOut}
-                            className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                            className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 cursor-pointer"
                             aria-label="Logout"
                             title="Logout"
                         >
@@ -555,7 +559,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                         onClick={() => {
                             console.log("TODO: Show Auth Modal/View");
                         }}
-                        className="bg-black text-white rounded px-4 py-2 shadow hover:bg-gray-900 text-base font-semibold transition-colors"
+                        className="flex items-center gap-1 py-2 px-3 bg-black text-white rounded-md hover:bg-gray-800 text-sm font-semibold transition-colors cursor-pointer"
                     >
                         Login / Register
                     </button>

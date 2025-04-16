@@ -8,6 +8,7 @@
 ALTER TABLE conversations DROP CONSTRAINT IF EXISTS fk_root_message;
 
 -- Drop existing tables if they exist (order matters for foreign key constraints)
+DROP TABLE IF EXISTS bugs;
 DROP TABLE IF EXISTS conversation_messages;
 DROP TABLE IF EXISTS conversation_branches;
 DROP TABLE IF EXISTS conversations;
@@ -96,6 +97,27 @@ CREATE TABLE IF NOT EXISTS conversation_messages (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
+-- Bugs
+CREATE TABLE IF NOT EXISTS bugs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  severity TEXT NOT NULL CHECK (severity IN ('critical', 'major', 'minor')),
+  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'in-progress', 'fixed', 'verified')),
+  reporter_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  assignee_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  resolved_at TIMESTAMP WITH TIME ZONE,
+  related_component TEXT,
+  steps_to_reproduce TEXT,
+  expected_behavior TEXT,
+  actual_behavior TEXT,
+  environment JSONB DEFAULT '{}'::JSONB,
+  screenshots TEXT[],
+  commit_refs TEXT[]
+);
+
 -- =====================================
 -- INDEXES
 -- =====================================
@@ -106,6 +128,10 @@ CREATE INDEX IF NOT EXISTS idx_conversation_branches_parent_branch_id ON convers
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation_id ON conversation_messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_branch_id ON conversation_messages(branch_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_parent_message_id ON conversation_messages(parent_message_id);
+CREATE INDEX IF NOT EXISTS idx_bugs_reporter_id ON bugs(reporter_id);
+CREATE INDEX IF NOT EXISTS idx_bugs_assignee_id ON bugs(assignee_id);
+CREATE INDEX IF NOT EXISTS idx_bugs_status ON bugs(status);
+CREATE INDEX IF NOT EXISTS idx_bugs_severity ON bugs(severity);
 
 -- =====================================
 -- TRIGGERS
@@ -135,6 +161,11 @@ BEFORE UPDATE ON conversation_messages
 FOR EACH ROW
 EXECUTE FUNCTION trigger_set_updated_at();
 
+CREATE TRIGGER set_bugs_updated_at
+BEFORE UPDATE ON bugs
+FOR EACH ROW
+EXECUTE FUNCTION trigger_set_updated_at();
+
 -- =====================================
 -- ROW LEVEL SECURITY POLICIES
 -- =====================================
@@ -145,6 +176,7 @@ ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversation_branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversation_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bugs ENABLE ROW LEVEL SECURITY;
 
 -- Users table policies
 CREATE POLICY users_select_own ON users 
@@ -251,4 +283,17 @@ CREATE POLICY messages_delete_own ON conversation_messages
       WHERE conversations.id = conversation_messages.conversation_id 
       AND conversations.user_id = auth.uid()
     )
-  ); 
+  );
+
+-- Bugs policies
+CREATE POLICY bugs_select_all ON bugs
+  FOR SELECT USING (true);
+  
+CREATE POLICY bugs_insert_authenticated ON bugs
+  FOR INSERT WITH CHECK (auth.uid() IS NULL OR auth.uid() IS NOT NULL);
+  
+CREATE POLICY bugs_update_all ON bugs
+  FOR UPDATE USING (auth.uid() IS NOT NULL);
+  
+CREATE POLICY bugs_delete_own ON bugs
+  FOR DELETE USING (auth.uid() = reporter_id); 
