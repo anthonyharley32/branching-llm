@@ -4,7 +4,7 @@ import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math'; // Import remark-math
 import rehypeRaw from 'rehype-raw'; // Import rehype-raw
-import { FiGitBranch } from 'react-icons/fi'; // Import branch icon
+// import { FiGitBranch } from 'react-icons/fi'; // Removed unused import
 import { MessageNode } from '../types/conversation';
 import { useConversation, AddMessageResult } from '../context/ConversationContext';
 // TODO: Import store hook when needed for branch creation
@@ -30,7 +30,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
   // --- DEBUGGING: Log raw AI message content ONCE per message ---
   useEffect(() => {
     if (!isUser) {
-      console.log(`Raw AI Message Content (ID: ${message.id}):`, message.content);
+      // console.log(`Raw AI Message Content (ID: ${message.id}):`, message.content);
     }
   }, [isUser, message.content, message.id]); // Log only when content/id/role changes
   // --- END DEBUGGING ---
@@ -116,7 +116,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
         .filter(msg => msg.parentId === message.id);
       
       // *** Add Logging Here ***
-      console.log(`[Effect ${message.id}] Checking children:`, childNodes.map(c => ({id: c.id, role: c.role, meta: c.metadata})));
+      // console.log(`[Effect ${message.id}] Checking children:`, childNodes.map(c => ({id: c.id, role: c.role, meta: c.metadata})));
 
       // Filter children to find those created via text selection (metadata check)
       // Reassign sources if conditions met and valid sources found
@@ -129,12 +129,12 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
         .filter(source => {
           // *** Add Logging Here ***
           const hasText = source.text.trim().length > 0;
-          console.log(`[Effect ${message.id}] Filtering child ${source.childId}: hasSelectedText=${hasText}, text="${source.text}"`);
+          // console.log(`[Effect ${message.id}] Filtering child ${source.childId}: hasSelectedText=${hasText}, text="${source.text}"`);
           return hasText;
         }); // Only include if selectedText exists
         
         // *** Add Logging Here ***
-        console.log(`[Effect ${message.id}] Calculated sources:`, sources);
+        // console.log(`[Effect ${message.id}] Calculated sources:`, sources);
     }
     
     // Unconditionally set the state based on the calculated sources for this specific message
@@ -170,7 +170,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
             // Sort by the left edge position
             return rectA.left - rectB.left;
           } catch (e) {
-            console.error("Error getting bounding rects for sorting indicators:", e);
+            // console.error("Error getting bounding rects for sorting indicators:", e);
             return 0; // Fallback to original relative order on error
           }
         });
@@ -180,7 +180,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
           // Find indicator using stable ID derived from childId
           const indicator = document.getElementById(`branch-indicator-${message.id}-${source.childId}`);
           if (!indicator) {
-            console.warn(`Could not find indicator DOM element for source child ID: ${source.childId}`);
+            // console.warn(`Could not find indicator DOM element for source child ID: ${source.childId}`);
             return;
           }
 
@@ -223,12 +223,12 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
               // Calculate final right position
               indicator.style.right = `${baseRightOffset + (sameLineIndicatorsCount * additionalOffsetPerIndicator)}px`;
 
-              console.log(`Positioned indicator ${sortedIndex} for "${source.text.substring(0, 20)}..." at top: ${indicator.style.top}, right: ${indicator.style.right}`);
+              // console.log(`Positioned indicator ${sortedIndex} for "${source.text.substring(0, 20)}..." at top: ${indicator.style.top}, right: ${indicator.style.right}`);
             } catch (e) {
-              console.error('Error positioning branch indicator:', e);
+              // console.error('Error positioning branch indicator:', e);
             }
           } else {
-            console.log(`Could not find text node for: "${source.text.substring(0, 20)}..."`);
+            // console.log(`Could not find text node for: "${source.text.substring(0, 20)}..."`);
           }
         });
       }, 100); // Small delay to ensure rendering is complete
@@ -275,9 +275,9 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
               // Surround the text with the highlight span
               range.surroundContents(highlightSpan);
               
-              console.log(`Added yellow highlight to: "${source.text.substring(0, 20)}..."`);
+              // console.log(`Added yellow highlight to: "${source.text.substring(0, 20)}..."`);
             } catch (e) {
-              console.error('Error highlighting branch source text:', e);
+              // console.error('Error highlighting branch source text:', e);
             }
           }
         });
@@ -387,26 +387,26 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
       setTimeout(() => {
         const katexElements = messageContentRef.current?.querySelectorAll('.katex');
         if (katexElements?.length) {
-          console.log(`Found ${katexElements.length} KaTeX elements`);
+          // console.log(`Found ${katexElements.length} KaTeX elements`);
           
           // Log structure of first katex element to see what's happening
           const firstKatex = katexElements[0];
           const htmlEl = firstKatex.querySelector('.katex-html');
           const mathmlEl = firstKatex.querySelector('.katex-mathml');
           
-          console.log('KaTeX structure:', {
-            htmlHidden: htmlEl?.hasAttribute('aria-hidden') || false,
-            mathmlVisible: mathmlEl !== null,
-            html: htmlEl?.innerHTML || 'not found',
-            mathml: mathmlEl?.innerHTML || 'not found'
-          });
+          // console.log('KaTeX structure:', {
+          //   htmlHidden: htmlEl?.hasAttribute('aria-hidden') || false,
+          //   mathmlVisible: mathmlEl !== null,
+          //   html: htmlEl?.innerHTML || 'not found',
+          //   mathml: mathmlEl?.innerHTML || 'not found'
+          // });
           
           // Check if we still have duplicated content
           const duplicateCheck: string[] = [];
           katexElements.forEach((el, i) => {
             const textContent = el.textContent?.trim() || '';
             if (textContent && duplicateCheck.includes(textContent)) {
-              console.log(`Potential duplicate KaTeX content found at element ${i}:`, textContent);
+              // console.log(`Potential duplicate KaTeX content found at element ${i}:`, textContent);
             } else if (textContent) {
               duplicateCheck.push(textContent);
             }
@@ -419,7 +419,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
   const handleBranchClick = () => {
     if (!selectedText || isUser || !message.id) return;
     const currentSelectedText = selectedText; // Capture before clearing
-    console.log(`Attempting to branch from message ${message.id} with text: "${currentSelectedText}"`);
+    // console.log(`Attempting to branch from message ${message.id} with text: "${currentSelectedText}"`);
     
     // Create branch with metadata including selection offsets
     const branchResult = createBranch(
@@ -430,11 +430,11 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
     );
     
     if (branchResult) {
-        console.log(`Branch initiated, new node ID: ${branchResult.newNode.id}`);
+        // console.log(`Branch initiated, new node ID: ${branchResult.newNode.id}`);
         // Call the callback prop with the result and the source text
         onBranchCreated(branchResult, currentSelectedText, true);
     } else {
-        console.error('Branch creation failed in component.');
+        // console.error('Branch creation failed in component.');
     }
     
     setSelectedText(''); // Clear selection state
@@ -514,7 +514,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
                  }
                  
                  if (!branchNode) {
-                   console.error("Failed to find branch node", source.childId);
+                   // console.error("Failed to find branch node", source.childId);
                    return;
                  }
                  
@@ -524,7 +524,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
                    messagePath
                  } as AddMessageResult;
                  
-                 console.log(`Entering existing branch with content: "${branchNode.content.substring(0, 30)}..."`);
+                 // console.log(`Entering existing branch with content: "${branchNode.content.substring(0, 30)}..."`);
                  onBranchCreated(result, source.text, false);
                }}
                onMouseEnter={() => {

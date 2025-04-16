@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+// import reactLogo from './assets/react.svg' // Removed unused import
+// import viteLogo from '/vite.svg' // Removed unused import
 import './App.css'
-import ChatMessage from './components/ChatMessage'
+// import ChatMessage from './components/ChatMessage' // Removed unused import
 import ChatInput from './components/ChatInput'
 import ChatThread from './components/ChatThread'
 import { ConversationProvider, useConversation, AddMessageResult } from './context/ConversationContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import AuthContainer from './components/auth/AuthContainer'
+// import AuthContainer from './components/auth/AuthContainer' // Already removed
 import { 
   generateCompletionStream,
   LLMError, 
@@ -15,13 +15,34 @@ import {
   StreamCallbacks
 } from './services/llm/openai'
 import { MessageNode } from './types/conversation'
-import { FiLogOut, FiArrowLeft, FiX } from 'react-icons/fi'
-import { supabase } from './lib/supabase'
+import { FiLogOut, FiArrowLeft } from 'react-icons/fi' // Removed FiX
+// import { supabase } from './lib/supabase' // Already removed
 import { motion, AnimatePresence } from 'framer-motion'
+import type { Conversation } from './types/conversation'
 
 // --- Constants ---
 const GUEST_MESSAGE_LIMIT = 1000;
 const GUEST_MESSAGE_COUNT_KEY = 'LearningLLM_guest_message_count';
+
+// Helper to get the main thread path (root to latest non-branch message)
+function getMainThreadPath(conversation: Conversation | null): MessageNode[] {
+  if (!conversation?.messages || !conversation.rootMessageId) return [];
+  const messages = conversation.messages;
+  let path: MessageNode[] = [];
+  let currentId: string | null = conversation.rootMessageId;
+  let current: MessageNode | undefined = messages[currentId];
+  while (current) {
+    path.push(current);
+    // Find the next child that is NOT a branch (no isBranchStart in metadata)
+    const children = Object.values(messages).filter((m: MessageNode) => m.parentId === current!.id && !(m.metadata && m.metadata.isBranchStart));
+    if (children.length === 0) break;
+    // If multiple, pick the earliest createdAt
+    children.sort((a: MessageNode, b: MessageNode) => a.createdAt.getTime() - b.createdAt.getTime());
+    current = children[0];
+    currentId = current.id;
+  }
+  return path;
+}
 
 function AppContent() {
   const { user, isLoading: isAuthLoading, session, signOut } = useAuth();
@@ -30,7 +51,6 @@ function AppContent() {
     addMessage, 
     activeMessageId,
     setActiveMessageId,
-    selectBranch,
     updateMessageContent,
     conversation
   } = useConversation();
@@ -60,6 +80,8 @@ function AppContent() {
     metadata?: Record<string, any>;
   } | null>(null);
 
+  const [showingMainThread, setShowingMainThread] = useState(false);
+
   // Load guest message count from localStorage on initial load if not logged in
   useEffect(() => {
     if (!isAuthLoading && !session) {
@@ -68,14 +90,11 @@ function AppContent() {
         const count = storedCount ? parseInt(storedCount, 10) : 0;
         if (!isNaN(count)) {
             setGuestMessageCount(count);
-            console.log('Loaded guest message count:', count);
         } else {
-            // Handle case where stored value is invalid
             localStorage.removeItem(GUEST_MESSAGE_COUNT_KEY);
             setGuestMessageCount(0);
         }
       } catch (err) {
-        console.error('Failed to load guest message count from localStorage:', err);
         setGuestMessageCount(0); // Default to 0 on error
       }
     }
@@ -91,7 +110,6 @@ function AppContent() {
     const executeStream = async () => {
       try {
         const apiMessages = messagePath.map(node => ({ role: node.role, content: node.content }));
-        console.log('Sending context to LLM (useEffect):', apiMessages);
 
         const callbacks: StreamCallbacks = {
           onChunk: (chunk) => {
@@ -117,9 +135,6 @@ function AppContent() {
                 tempAiNodeId = newAiResult.newNode.id;
                 setStreamingAiNodeId(tempAiNodeId); // Store in state for subsequent updates
               } else {
-                console.error("Failed to add first AI chunk message");
-                setError({ type: ErrorType.UNKNOWN, message: 'Failed to add first AI message.' });
-                // Maybe stop processing stream?
               }
             } else {
               // Subsequent chunks: Update the existing node
@@ -127,32 +142,24 @@ function AppContent() {
             }
           },
           onComplete: () => {
-            console.log("LLM Stream Complete");
             if (!session) {
               const newCount = guestMessageCount + 1;
               setGuestMessageCount(newCount);
-              try {
-                localStorage.setItem(GUEST_MESSAGE_COUNT_KEY, newCount.toString());
-                console.log(`Guest message count updated: ${newCount}`);
-              } catch (err) {
-                console.error('Failed to save guest message count to localStorage:', err);
-              }
             }
             setIsSending(false);
             setStreamingAiNodeId(null);
           },
           onError: (llmError) => {
-            console.error("LLM Stream Error:", llmError);
             setError(llmError);
             setIsSending(false);
             setStreamingAiNodeId(null);
           }
         };
 
-        await generateCompletionStream(apiMessages, callbacks);
+        // Pass the full messagePath which includes id and createdAt
+        await generateCompletionStream(messagePath, callbacks);
 
-      } catch (err) { // Catch errors during stream *setup* 
-        console.error("Failed to initiate AI stream (useEffect):", err);
+      } catch (err) { // Catch errors during stream *setup*
         const setupError: LLMError = {
           type: ErrorType.UNKNOWN,
           message: err instanceof Error ? err.message : 'Failed to start AI stream.',
@@ -173,11 +180,11 @@ function AppContent() {
     setIsSending(true);
     setError(null);
     setStreamingAiNodeId(null); // Reset streaming ID on new message
+    setShowingMainThread(false);
 
     // --- Guest Rate Limit Check --- 
     if (!session) { 
       if (guestMessageCount >= GUEST_MESSAGE_LIMIT) {
-        console.log(`Guest hit message limit (${guestMessageCount}/${GUEST_MESSAGE_LIMIT}).`);
         setError({ 
           type: ErrorType.QUOTA_EXCEEDED, // Using QUOTA_EXCEEDED type
           message: `Message limit reached (${guestMessageCount}/${GUEST_MESSAGE_LIMIT}). Please log in or register to continue.` 
@@ -210,7 +217,6 @@ function AppContent() {
         if (currentBranchId) {
           // Add branch metadata to maintain branch context
           metadata = { branchId: currentBranchId };
-          console.log(`Adding message to branch: ${currentBranchId}`);
         }
       }
     }
@@ -223,7 +229,6 @@ function AppContent() {
     const addResult = addMessage(userMessageData);
 
     if (!addResult) {
-      console.error('Failed to add user message to context');
       setError({ type: ErrorType.UNKNOWN, message: 'Failed to add user message locally.' });
       setIsSending(false);
       return;
@@ -240,28 +245,6 @@ function AppContent() {
   // Handler for when a branch is successfully created in ChatMessage
   const handleBranchCreated = (branchResult: AddMessageResult, sourceText: string, isNewBranch: boolean) => {
     if (branchResult.newNode.parentId) { 
-      // Add debug logs for branch creation
-      console.log("DEBUG handleBranchCreated:");
-      console.log("- newNode:", {
-        id: branchResult.newNode.id, 
-        role: branchResult.newNode.role,
-        parentId: branchResult.newNode.parentId,
-        metadata: branchResult.newNode.metadata,
-        content: branchResult.newNode.content.substring(0, 30) + "..."
-      });
-      
-      // Log current branch stack
-      console.log("- Current branch stack:", branchStack);
-      
-      // If we can, check for the parent
-      const parentNode = conversation?.messages?.[branchResult.newNode.parentId];
-      console.log("- parentNode:", parentNode ? {
-        id: parentNode.id,
-        role: parentNode.role,
-        parentId: parentNode.parentId,
-        metadata: parentNode.metadata,
-      } : "null");
-      
       // Store the branch ID from the node metadata
       const currentBranchId = branchResult.newNode.metadata?.branchId || null;
       
@@ -278,13 +261,8 @@ function AppContent() {
       // Update the branch stack (keeping previous branch history)
       setBranchStack(prev => [...prev, newBranchInfo]);
       
-      console.log(`Entering branch view. Parent: ${branchResult.newNode.parentId}, BranchId: ${currentBranchId}, Source: "${truncatedText}"`);
-      
       // Store branch node ID directly for simpler access
       const branchNodeId = branchResult.newNode.id;
-      console.log(`Branch node ID: ${branchNodeId}`);
-      
-      console.log(`Is new branch (from callback): ${isNewBranch}`);
       
       // Only generate a response if this is a new branch (using the passed flag)
       if (isNewBranch) {
@@ -319,8 +297,6 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
             } as MessageNode
           ]);
         
-        console.log(`Creating branch with ${focusedPath.length} messages, including parent context`);
-        
         // When a branch is created, immediately set up an LLM call to generate content
         // with the focused message path so it responds to the selected text
         setPendingLlmCall({ 
@@ -329,15 +305,12 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
           metadata: branchResult.newNode.metadata // Use the same metadata from the branch node
         });
       } else {
-        console.log(`Navigating to existing branch with content: "${branchResult.newNode.content.substring(0, 30)}..."`);
         // For existing branches, just navigate to the branch without generating new content
         // Ensure we activate the correct message ID when navigating to an existing branch
         if (branchNodeId !== activeMessageId) {
             setActiveMessageId(branchNodeId);
         }
       }
-    } else {
-      console.error("Branch created but newNode lacks parentId?", branchResult.newNode);
     }
   };
 
@@ -345,9 +318,6 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
   const handleGoBack = () => {
     // With branch stack, going back is simply popping the top item off the stack
     if (branchStack.length > 0) {
-      // Log the current state before we change it
-      console.log("Going back from current branch:", branchStack[branchStack.length - 1]);
-      
       // Get the parent ID from the current branch (top of stack)
       const currentBranchParentId = branchStack[branchStack.length - 1].parentId;
       
@@ -356,36 +326,22 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
       
       if (branchStack.length > 1) {
         // If we have more than one branch in the stack, we're going back to a previous branch
-        console.log("Going back to previous branch:", branchStack[branchStack.length - 2]);
-        
-        // Remove the top branch from the stack (keeping the rest of the branch history)
         setBranchStack(prev => prev.slice(0, -1));
       } else {
         // If we only have one branch, we're exiting branch view entirely
-        console.log("Exiting branch view");
         setBranchStack([]);
       }
-    } else {
-      console.warn('handleGoBack called but branch stack is empty');
     }
   };
 
   // --- Filter messages for display ---
   let displayedMessages = currentMessages;
+  if (showingMainThread && conversation) {
+    displayedMessages = getMainThreadPath(conversation);
+  }
   if (branchParentId) {
-    console.log("DEBUG FILTER MESSAGES:");
-    console.log("- branchStack:", branchStack);
-    console.log("- Current branch (top of stack):", branchStack[branchStack.length - 1]);
-    console.log("- activeMessageId:", activeMessageId);
-    
     // Find any branch messages that have the branch parent
     const branchParentNode = conversation?.messages?.[branchParentId];
-    console.log("- branchParentNode:", branchParentNode ? {
-      id: branchParentNode.id,
-      role: branchParentNode.role,
-      parentId: branchParentNode.parentId,
-      metadata: branchParentNode.metadata,
-    } : "null");
     
     if (branchParentNode) {
       // Get all messages in the conversation
@@ -394,8 +350,6 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
       
       // If we have a specific branch ID, use it for precise filtering
       if (branchId) {
-        console.log(`Filtering messages with branchId: ${branchId}`);
-        
         // Get the branch starter node (direct child of parent with this branch ID)
         // This is the message with isBranchStart that initiates a branch
         const branchStarter = allMessages.find(msg => 
@@ -405,56 +359,18 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
         );
         
         if (branchStarter) {
-          console.log(`Found branch starter node: ${branchStarter.id}`);
-          console.log("- branchStarter:", {
-            id: branchStarter.id,
-            role: branchStarter.role,
-            parentId: branchStarter.parentId,
-            metadata: branchStarter.metadata,
-          });
-          
           // Include messages that belong to this branch:
           // 1. Include the branch starter
-          // 2. Include direct and indirect descendants of the branch starter
-          // 3. Include messages explicitly tagged with the same branchId
+          // 2. Include messages explicitly tagged with the same branchId
           branchMessages = allMessages.filter(msg => {
             // Include the branch starter itself
             if (msg.id === branchStarter.id) return true;
-            
             // Include messages explicitly tagged with this branch ID
             if (msg.metadata?.branchId === branchId) return true;
-            
-            // Include messages that are descendants of the branch starter
-            // by walking up the parentId chain
-            let currentId = msg.parentId;
-            while (currentId) {
-              // If we reach the branch starter, this message is part of this branch
-              if (currentId === branchStarter.id) return true;
-              
-              // Stop if we reach the branch parent (don't go past it)
-              if (currentId === branchParentId) break;
-              
-              // Move up the tree
-              currentId = conversation?.messages?.[currentId]?.parentId || null;
-            }
-            
+            // Do NOT include descendants with a different branchId
             return false;
           });
-          
-          // Debug the branch structure
-          console.log("BRANCH STRUCTURE:");
-          const messageStructure = branchMessages.map(msg => ({
-            id: msg.id,
-            role: msg.role,
-            parentId: msg.parentId,
-            content: msg.content.substring(0, 20) + "...",
-            isBranchStart: msg.metadata?.isBranchStart,
-            branchId: msg.metadata?.branchId
-          }));
-          console.log(messageStructure);
         } else {
-          console.warn(`Could not find branch starter node with branchId: ${branchId}`);
-          
           // Fallback to just using branchId for filtering (less reliable)
           branchMessages = allMessages.filter(msg => 
             msg.metadata?.branchId === branchId || 
@@ -465,8 +381,6 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
       
       // If no branch ID or no messages found with branch ID, fall back to parent-based filtering
       if (branchMessages.length === 0) {
-        console.log("Using fallback parent-based filtering");
-        
         // Show all direct children of the branch parent
         branchMessages = allMessages.filter(msg => {
           // Skip the parent itself
@@ -496,20 +410,11 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
       
       if (branchMessages.length > 0) {
         displayedMessages = branchMessages;
-        console.log(`Found ${branchMessages.length} messages in branch`);
-        console.log("- Branch messages IDs:", branchMessages.map(m => m.id));
       } else {
-        console.warn("No messages found in branch. It may be newly created.");
         displayedMessages = []; // Empty until AI response comes back
       }
-    } else {
-      console.warn("Could not find branch parent in conversation.");
-      displayedMessages = [];
     }
-  } else {
-    console.log("Not in branch view. Using currentMessages:", currentMessages.map(m => m.id));
   }
-  // --- End Filter ---
 
   // Determine guest limit warning
   const guestLimitWarning = !session && guestMessageCount >= GUEST_MESSAGE_LIMIT * 0.8 
@@ -627,10 +532,9 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
                   <span>Branches:</span>
                   <span 
                     onClick={() => {
-                      // Clear the entire branch stack to return to main conversation
                       setBranchStack([]);
-                      // Set active message to the root of the conversation
                       setActiveMessageId(conversation?.rootMessageId || null);
+                      setShowingMainThread(true);
                     }}
                     className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 relative group"
                     title="Return to main conversation"
@@ -698,7 +602,7 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
         {!session && (
             <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-1">
                 Chat history isn't saved for guest users. 
-                <button onClick={() => console.log("TODO: Show Auth Modal")} className="text-blue-500 hover:underline ml-1">Login/Register</button> 
+                <span onClick={() => console.log("TODO: Show Auth Modal")} className="text-blue-500 hover:underline cursor-pointer ml-1">Login/Register </span> 
                 to save your conversations.
             </p>
         )}

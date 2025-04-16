@@ -85,41 +85,33 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
 
     if (session) {
       // --- USER IS LOGGED IN --- 
-      console.log('User logged in, attempting to load conversation from localStorage');
       try {
         const storedConversation = localStorage.getItem(LOCAL_STORAGE_CONVERSATION_KEY);
         if (storedConversation) {
           const parsedConversation = JSON.parse(storedConversation) as Conversation;
           if (parsedConversation && typeof parsedConversation === 'object' && parsedConversation.messages) {
             setConversation(parsedConversation);
-            console.log('Loaded conversation for user');
             const storedActiveId = localStorage.getItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
             if (storedActiveId && parsedConversation.messages[storedActiveId]) {
               setActiveMessageId(storedActiveId);
-              console.log('Loaded activeMessageId for user');
             } else if (parsedConversation.rootMessageId) {
               setActiveMessageId(parsedConversation.rootMessageId);
             }
           } else {
-            console.warn('Invalid conversation data in localStorage for user, initializing new.');
             localStorage.removeItem(LOCAL_STORAGE_CONVERSATION_KEY);
             localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
             initializeNewConversation(); // Initialize fresh
           }
         } else {
-          console.log('No conversation found in localStorage for user, initializing new.');
           initializeNewConversation(); // Initialize fresh
         }
       } catch (error) {
-        console.error('Error loading from localStorage for user:', error);
         localStorage.removeItem(LOCAL_STORAGE_CONVERSATION_KEY);
         localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
         initializeNewConversation(); // Initialize fresh on error
       }
     } else {
       // --- USER IS GUEST --- 
-      console.log('User is guest, initializing new in-memory conversation.');
-      // Ensure localStorage is clear for guest state (in case of logout)
       localStorage.removeItem(LOCAL_STORAGE_CONVERSATION_KEY);
       localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
       initializeNewConversation(); // Initialize fresh
@@ -145,17 +137,14 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     };
     setConversation(newConv);
     setActiveMessageId(rootId);
-    console.log('Initialized new conversation object');
   };
 
   // Save conversation state to local storage ONLY if logged in
   useEffect(() => {
     if (!isLoading && session && conversation) { // Check for session
       try {
-        console.log('Saving conversation to localStorage for logged-in user');
         localStorage.setItem(LOCAL_STORAGE_CONVERSATION_KEY, JSON.stringify(conversation));
       } catch (error) {
-        console.error('Error saving conversation to localStorage:', error);
       }
     }
   }, [conversation, isLoading, session]); // Add session dependency
@@ -164,10 +153,8 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   useEffect(() => {
     if (!isLoading && session && activeMessageId) { // Check for session
       try {
-        console.log('Saving activeMessageId to localStorage for logged-in user');
         localStorage.setItem(LOCAL_STORAGE_ACTIVE_ID_KEY, activeMessageId);
       } catch (error) {
-        console.error('Error saving activeMessageId to localStorage:', error);
       }
     } else if (!isLoading && session && activeMessageId === null) {
       // Remove if user is logged in and ID becomes null
@@ -200,12 +187,10 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   // --- Function to update content of an existing message (for streaming) ---
   const updateMessageContent = useCallback((messageId: string, contentChunk: string) => {
     if (isLoading) {
-      console.warn('Attempted to update message while loading state');
       return;
     }
     setConversation(prevConv => {
       if (!prevConv || !prevConv.messages[messageId]) {
-        console.error(`Cannot update message: ID "${messageId}" not found.`);
         return prevConv; // Return previous state if ID not found
       }
 
@@ -228,7 +213,6 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   // Updated addMessage to return the new node and its historical path
   const addMessage = useCallback((messageData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'>, parentIdParam?: string | null): AddMessageResult | null => {
     if (isLoading) {
-      console.warn('Attempted to add message while loading state');
       return null;
     }
     const newId = uuidv4();
@@ -249,7 +233,6 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     } else {
       effectiveParentId = parentIdParam === undefined ? activeMessageId : parentIdParam;
       if (effectiveParentId !== null && !conversation.messages[effectiveParentId]) {
-        console.error(`Cannot add message: Parent ID "${effectiveParentId}" not found.`);
         return null; // Return null early if parent not found
       }
       finalNode = { ...messageData, id: newId, parentId: effectiveParentId, createdAt: now };
@@ -259,7 +242,6 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
 
     // Check if finalNode was successfully created before proceeding
     if (!finalNode) {
-      console.error('Failed to create finalNode before setting state');
       return null;
     }
 
@@ -303,14 +285,11 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     selectionEnd?: number
   ): AddMessageResult | null => {
      if (isLoading || !conversation) {
-        console.warn('Cannot create branch: context not ready or conversation missing.');
         return null;
     }
     if (!conversation.messages[sourceMessageId]) {
-        console.error(`Cannot create branch: Source message ID "${sourceMessageId}" not found.`);
         return null;
     }
-    console.log(`Creating branch from message ${sourceMessageId} with text: "${selectedText}"`);
 
     // Generate a unique branch ID
     const branchId = `branch-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -337,10 +316,8 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     const addResult = addMessage(aiNode, sourceMessageId);
 
     if (addResult) {
-      console.log(`Branch created. New active node: ${addResult.newNode.id}. Path length: ${addResult.messagePath.length}. Branch ID: ${branchId}`);
       return addResult;
     } else {
-      console.error('Failed to add the branching message.');
       return null;
     }
   }, [conversation, addMessage, isLoading]);
@@ -348,10 +325,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   // Re-add the selectBranch function definition
   const selectBranch = useCallback((messageId: string) => {
     if (conversation?.messages && conversation.messages[messageId]) {
-      console.log("Selecting branch/message:", messageId);
       setActiveMessageId(messageId);
-    } else {
-      console.warn(`selectBranch: Message ID ${messageId} not found.`);
     }
   }, [conversation]);
 
