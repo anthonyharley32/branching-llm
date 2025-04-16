@@ -12,6 +12,8 @@ import { useConversation, AddMessageResult } from '../context/ConversationContex
 
 interface ChatMessageProps {
   message: MessageNode;
+  /** ID of assistant message currently streaming (to highlight/animate). */
+  streamingNodeId?: string | null;
   onBranchCreated: (result: AddMessageResult, sourceText: string, isNewBranch: boolean) => void;
 }
 
@@ -24,7 +26,7 @@ const preprocessMarkdown = (content: string): string => {
     .replace(/(\$\$)([^\n])/g, '$$\n\n$2');
 };
 
-const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCreated }) => {
+const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNodeId, onBranchCreated }) => {
   const isUser = message.role === 'user';
 
   // --- DEBUGGING: Log raw AI message content ONCE per message ---
@@ -91,10 +93,11 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
   };
 
   // Specific classes for user messages (Grok style)
-  const userBubbleClasses = 'bg-gray-100 text-gray-800 px-4 py-2 rounded-lg max-w-xs md:max-w-md lg:max-w-lg break-words self-end';
+  const userBubbleClasses = 'bg-white text-gray-900 px-3 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl rounded-br-md max-w-xs md:max-w-md lg:max-w-lg break-words self-end border border-gray-200 shadow-sm transition-colors text-[15px]';
 
   // Minimal classes for AI messages (plain text with adjusted leading)
-  const aiTextClasses = 'text-gray-800 px-4 py-2 max-w-prose break-words self-start leading-relaxed relative'; // Added relative positioning possibility
+  // Keep relative positioning to allow absolutely positioned wave background
+  const aiTextClasses = 'text-gray-800 px-4 py-2 max-w-prose break-words self-start leading-relaxed relative';
 
   // --- Check if this message is a branch point --- 
   const isBranchPoint = !isUser && hasChildren(message.id);
@@ -311,19 +314,16 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
           const rect = range.getBoundingClientRect();
           const messageRect = messageContentRef.current.getBoundingClientRect();
           
-          // Calculate the right position with a safety margin to prevent cutoff
-          // Constrain the position to ensure the button stays within viewport
-          const viewportWidth = window.innerWidth;
-          const maxRightPosition = Math.min(
-            messageRect.width,  // Right edge of message
-            viewportWidth - messageRect.left - 100 // Safety margin from viewport edge
-          );
+          // Calculate position relative to the message container
+          // Use the actual right edge of the text selection
+          const rightPositionRelative = rect.right - messageRect.left;
           
-          // Position at the right side of the message container
-          // Always vertically center with the text line
+          // Add a small offset for spacing between text and button
+          const buttonOffset = 8; // pixels
+          
           setSelectionPosition({
             top: rect.top + (rect.height / 2) - messageRect.top + window.scrollY, // Center for all selections
-            right: maxRightPosition, // Position at the right edge with safety margin
+            right: rightPositionRelative + buttonOffset, // Position just after the selected text
           });
           return; // Found valid selection, exit
         } else if (!text && selectedText) {
@@ -416,32 +416,43 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
     }
   }, [isUser, message.content, message.id]);
 
+  // Branch creation handler
   const handleBranchClick = () => {
     if (!selectedText || isUser || !message.id) return;
-    const currentSelectedText = selectedText; // Capture before clearing
-    // console.log(`Attempting to branch from message ${message.id} with text: "${currentSelectedText}"`);
+    const currentSelectedText = selectedText;
     
     // Create branch with metadata including selection offsets
-    const branchResult = createBranch(
-      message.id, 
-      currentSelectedText, 
-      selectionPosition?.selectionStart, 
-      selectionPosition?.selectionEnd
-    );
+    const branchResult = createBranch(message.id, currentSelectedText, selectionPosition?.selectionStart, selectionPosition?.selectionEnd);
     
     if (branchResult) {
-        // console.log(`Branch initiated, new node ID: ${branchResult.newNode.id}`);
-        // Call the callback prop with the result and the source text
-        onBranchCreated(branchResult, currentSelectedText, true);
-    } else {
-        // console.error('Branch creation failed in component.');
+      // Call the callback prop with the result and the source text
+      onBranchCreated(branchResult, currentSelectedText, false); // false means don't auto-explain
     }
     
-    setSelectedText(''); // Clear selection state
-    setSelectionPosition(null); // Clear position
-    window.getSelection()?.removeAllRanges(); // Clear visual selection
+    // Clear selection
+    setSelectedText('');
+    setSelectionPosition(null);
+  };
+  
+  // Explain button handler
+  const handleExplainClick = () => {
+    if (!selectedText || isUser || !message.id) return;
+    const currentSelectedText = selectedText;
+    
+    // Create branch with metadata including selection offsets
+    const branchResult = createBranch(message.id, currentSelectedText, selectionPosition?.selectionStart, selectionPosition?.selectionEnd);
+    
+    if (branchResult) {
+      // Call the callback prop with the result and the source text
+      onBranchCreated(branchResult, currentSelectedText, true); // true means auto-explain
+    }
+    
+    // Clear selection
+    setSelectedText('');
+    setSelectionPosition(null);
   };
 
+  const isStreaming = !isUser && streamingNodeId === message.id;
 
   return (
     <div className={`flex w-full mb-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -451,6 +462,14 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
           ref={messageContentRef}
           className={`${isUser ? userBubbleClasses : aiTextClasses} ${isBranchPoint ? 'relative pr-6' : ''}`}
         >
+           {/* Background wave for currently streaming assistant message */}
+           {isStreaming && (
+             <div
+               className="streaming-wave absolute left-0 pointer-events-none select-none"
+               style={{ top: '0.6rem', zIndex: -1 }}
+             />
+           )}
+
            {/* Render message content using react-markdown */}
              <ReactMarkdown
                remarkPlugins={[remarkMath, remarkGfm]}
@@ -564,19 +583,30 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
                style={{
                  position: 'absolute',
                  top: `${selectionPosition.top}px`,
-                 left: `${selectionPosition.right}px`,
-                 transform: 'translateY(-50%)', // Center vertically relative to position
-                 zIndex: 50 // Higher z-index to ensure visibility
+                 left: `${selectionPosition.right ?? 0}px`,
+                 transform: 'translateY(-50%)',
+                 zIndex: 50,
+                 opacity: 1,
+                 animation: 'fadeIn 0.2s'
                }}
                className="branch-button-container"
              >
-               <button
-                 onClick={handleBranchClick}
-                 className="px-2 py-0.5 bg-indigo-500 text-white text-xs rounded shadow hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-colors whitespace-nowrap"
-                 title="Branch from selection"
-               >
-                 Branch
-               </button>
+               <div className="flex shadow rounded-xl overflow-hidden">
+                 <button
+                   onClick={handleBranchClick}
+                   className="px-3 py-2 text-base font-semibold bg-black text-white rounded-l-xl hover:bg-gray-900 focus:outline-none transition-colors whitespace-nowrap cursor-pointer border-r border-gray-700"
+                   title="Branch from selection"
+                 >
+                   Branch
+                 </button>
+                 <button
+                   onClick={handleExplainClick}
+                   className="px-3 py-2 text-base font-semibold bg-black text-white rounded-r-xl hover:bg-gray-900 focus:outline-none transition-colors whitespace-nowrap cursor-pointer"
+                   title="Get explanation of selection"
+                 >
+                   Explain
+                 </button>
+               </div>
              </div>
            )}
         </div>

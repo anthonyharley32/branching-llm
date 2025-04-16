@@ -6,10 +6,12 @@ import { AddMessageResult } from '../context/ConversationContext';
 interface ChatThreadProps {
   messages: MessageNode[];
   isLoading: boolean;
+  /** If provided, the ID of the assistant message currently streaming. */
+  streamingNodeId?: string | null;
   onBranchCreated: (result: AddMessageResult, sourceText: string, isNewBranch: boolean) => void;
 }
 
-const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, onBranchCreated }) => {
+const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, streamingNodeId = null, onBranchCreated }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,18 +28,22 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, onBra
     return messages.length === 1;
   });
 
+  const showInitialLoading = isLoading && !streamingNodeId;
+
   return (
     <div className="flex-grow overflow-y-auto p-4 space-y-4">
       {displayMessages.map((msg, index) => (
         <ChatMessage 
           key={msg.id || `msg-${index}`} 
           message={msg}
+          streamingNodeId={streamingNodeId}
           onBranchCreated={onBranchCreated}
         />
       ))}
-      {isLoading && (
-        <div className="flex justify-center items-center p-4">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+      {showInitialLoading && (
+        <div className="flex items-start p-4 text-gray-800 px-4 max-w-prose self-start">
+          {/* Squiggly wave placeholder */}
+          <div className="relative w-40 h-4 streaming-wave" />
         </div>
       )}
       {displayMessages.length === 0 && !isLoading && (

@@ -234,16 +234,78 @@ function AppContent() {
       return;
     }
 
-    // --- Set state to trigger LLM call via useEffect --- 
-    setPendingLlmCall({ 
-      parentId: addResult.newNode.id,
-      path: addResult.messagePath,
-      metadata // Pass branch metadata to ensure LLM response stays in the branch
-    });
+    // --- Set state to trigger LLM call via useEffect ---
+    // When in a branch, ensure we only include messages relevant to this branch
+    if (branchId && metadata?.branchId) {
+      // Construct a properly ordered message path for branch context
+      // 1. Get all messages from the conversation
+      const allMessages = Object.values(conversation?.messages || {});
+      
+      // 2. Find the branch starter message (first message in this branch)
+      const branchStarter = allMessages.find(msg => 
+        msg.metadata?.branchId === metadata.branchId && 
+        msg.metadata?.isBranchStart === true
+      );
+      
+      // 3. If we found the branch starter, get its parent (the message containing the highlighted text)
+      const highlightParent = branchStarter?.parentId ? conversation?.messages[branchStarter.parentId] : null;
+      
+      // 4. Collect system messages (instructions)
+      const systemMessages = allMessages.filter(msg => msg.role === 'system');
+      
+      // 5. Get parent context (messages before the highlighted text, limited to 5 messages)
+      const parentContext = [];
+      if (highlightParent) {
+        // Find messages leading up to the highlighted text's parent
+        const tempContext = [];
+        let currentId = highlightParent.id || null;
+        
+        // Walk up the tree to collect parent context
+        while (currentId && tempContext.length < 5) {
+          const msg = conversation?.messages[currentId];
+          if (msg) {
+            tempContext.unshift(msg); // Add to front to maintain order
+            currentId = msg.parentId;
+          } else {
+            break;
+          }
+        }
+        
+        // Add the collected context
+        parentContext.push(...tempContext);
+      }
+      
+      // 6. Get current branch messages (excluding the new message which we'll add last)
+      const branchMessages = allMessages.filter(msg => 
+        msg.metadata?.branchId === metadata.branchId && 
+        msg.id !== addResult.newNode.id
+      ).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      
+      // 7. Construct the properly ordered message path
+      const orderedPath = [
+        ...systemMessages,         // System instructions first
+        ...parentContext,          // Parent context next
+        ...branchMessages,         // Branch messages in chronological order
+        addResult.newNode          // Current user message last
+      ];
+      
+      setPendingLlmCall({ 
+        parentId: addResult.newNode.id,
+        path: orderedPath,
+        metadata
+      });
+    } else {
+      // Not in a branch or no branch ID, use the full path
+      setPendingLlmCall({ 
+        parentId: addResult.newNode.id,
+        path: addResult.messagePath,
+        metadata
+      });
+    }
   }
 
   // Handler for when a branch is successfully created in ChatMessage
-  const handleBranchCreated = (branchResult: AddMessageResult, sourceText: string, isNewBranch: boolean) => {
+  const handleBranchCreated = (branchResult: AddMessageResult, sourceText: string, isAutoExplain: boolean) => {
     if (branchResult.newNode.parentId) { 
       // Store the branch ID from the node metadata
       const currentBranchId = branchResult.newNode.metadata?.branchId || null;
@@ -264,8 +326,8 @@ function AppContent() {
       // Store branch node ID directly for simpler access
       const branchNodeId = branchResult.newNode.id;
       
-      // Only generate a response if this is a new branch (using the passed flag)
-      if (isNewBranch) {
+      // Only generate a response if this is an auto-explain branch
+      if (isAutoExplain) {
         // Get the parent message for context
         const parentMessage = conversation?.messages?.[branchResult.newNode.parentId];
         const parentContent = parentMessage ? parentMessage.content : '';
@@ -289,8 +351,9 @@ function AppContent() {
             {
               id: 'synthetic-user-msg',
               role: 'user',
-              content: `Regarding this highlighted text: "${sourceText}"
-${sourceText.length > 100 ? 'Consider the broader context from which this was selected.' : ''}`, 
+              content: `Explain ONLY this exact highlighted text: "${sourceText}"
+Do not ask for clarification. Focus specifically on explaining this exact text, not any other words that may appear in context.
+${sourceText.length > 100 ? 'For this longer selection, explain its key points and significance.' : 'Be direct and concise with your explanation.'}`, 
               parentId: null,
               createdAt: new Date(),
               metadata: branchResult.newNode.metadata // Use the same metadata
@@ -305,7 +368,7 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
           metadata: branchResult.newNode.metadata // Use the same metadata from the branch node
         });
       } else {
-        // For existing branches, just navigate to the branch without generating new content
+        // For regular branches, just navigate to the branch without generating new content
         // Ensure we activate the correct message ID when navigating to an existing branch
         if (branchNodeId !== activeMessageId) {
             setActiveMessageId(branchNodeId);
@@ -492,7 +555,7 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
                         onClick={() => {
                             console.log("TODO: Show Auth Modal/View");
                         }}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm"
+                        className="bg-black text-white rounded px-4 py-2 shadow hover:bg-gray-900 text-base font-semibold transition-colors"
                     >
                         Login / Register
                     </button>
@@ -516,11 +579,11 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
           {branchStack.length > 0 && (
             <button
               onClick={handleGoBack}
-              className="absolute top-4 left-4 z-10 text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 rounded-full p-1"
+              className="absolute top-4 left-4 z-10 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 focus:outline-none rounded-full p-1 transition-colors bg-transparent hover:bg-gray-200 dark:hover:bg-gray-300"
               aria-label="Go back"
               title="Go back"
             >
-              <FiArrowLeft className="h-5 w-5" />
+              <FiArrowLeft className="h-5 w-5 transition-colors" />
             </button>
           )}
 
@@ -586,6 +649,7 @@ ${sourceText.length > 100 ? 'Consider the broader context from which this was se
           <ChatThread
             messages={displayedMessages}
             isLoading={isSending}
+            streamingNodeId={streamingAiNodeId}
             onBranchCreated={handleBranchCreated}
           />
         </motion.main>

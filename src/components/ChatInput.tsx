@@ -57,7 +57,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
       <button
         type="submit"
         disabled={isLoading || !inputValue.trim()}
-        className="p-2 ml-2 bg-gray-100 text-gray-200 rounded-full hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-00 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+        className="p-2 ml-2 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 hover:text-gray-900 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
       >
         <IoMdArrowUp size={20} />
       </button>
