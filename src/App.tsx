@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 // import reactLogo from './assets/react.svg' // Removed unused import
 // import viteLogo from '/vite.svg' // Removed unused import
 import './App.css'
@@ -94,7 +94,36 @@ function AppContent() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const openProfileModal = () => setIsProfileModalOpen(true);
   const closeProfileModal = () => setIsProfileModalOpen(false);
+  // Profile dropdown state
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const profileButtonRef = useRef<HTMLButtonElement>(null); // Ref for the profile button
+  const dropdownRef = useRef<HTMLDivElement>(null); // Ref for the dropdown
   // ---------------------------
+
+  // --- Click outside handler for profile dropdown ---
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        profileButtonRef.current &&
+        !profileButtonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsProfileDropdownOpen(false);
+      }
+    }
+
+    if (isProfileDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isProfileDropdownOpen]);
+  // ---------------------------------------------
 
   // Load guest message count from localStorage on initial load if not logged in
   useEffect(() => {
@@ -540,7 +569,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
         {/* Right Side: Auth Controls (always show unless back button logic changes this) */}
         {/* Currently shows when not in branch view - this seems correct */}
         {branchStack.length === 0 && (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 relative"> {/* Added relative positioning for dropdown */}
                 {/* Bug Report Button */}
                 <BugReportButton buttonText="Report Bug" className="text-sm cursor-pointer" />
                 
@@ -552,29 +581,67 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                 )}
                 {/* Auth Controls / User Info */}
                 {session ? (
-                    <>
-                        {user?.email && (
-                            <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:inline">
-                                {user.email}
-                            </span>
-                        )}
-                        <button 
-                            onClick={openProfileModal}
-                            className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 cursor-pointer"
-                            aria-label="Profile"
-                            title="Profile"
+                    <div className="relative"> {/* Wrapper for button and dropdown */}
+                        <button
+                            ref={profileButtonRef} // Attach ref
+                            onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} // Toggle dropdown
+                            className="flex items-center justify-center h-8 w-8 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-blue-500 cursor-pointer overflow-hidden" // Adjusted focus rings
+                            aria-label="Profile menu"
+                            title="Profile menu"
+                            aria-haspopup="true"
+                            aria-expanded={isProfileDropdownOpen}
                         >
-                            <FiUser className="h-5 w-5" />
+                            {user?.user_metadata?.avatar_url ? (
+                                <img 
+                                    src={user.user_metadata.avatar_url} 
+                                    alt="User profile" 
+                                    className="h-full w-full object-cover" // Ensure image covers the button area
+                                />
+                            ) : (
+                                <FiUser className="h-5 w-5" /> // Default icon
+                            )}
                         </button>
-                        <button 
-                            onClick={signOut}
-                            className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 cursor-pointer"
-                            aria-label="Logout"
-                            title="Logout"
-                        >
-                            <FiLogOut className="h-5 w-5" />
-                        </button>
-                    </>
+                        
+                        {/* Profile Dropdown Menu */} 
+                        <AnimatePresence>
+                            {isProfileDropdownOpen && (
+                                <motion.div
+                                    ref={dropdownRef} // Attach ref
+                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                    transition={{ duration: 0.15, ease: "easeOut" }}
+                                    className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none z-50"
+                                    role="menu"
+                                    aria-orientation="vertical"
+                                    aria-labelledby="profile-menu-button"
+                                >
+                                    <div className="p-1" role="none">
+                                        <button
+                                            onClick={() => {
+                                                openProfileModal();
+                                                setIsProfileDropdownOpen(false); // Close dropdown after click
+                                            }}
+                                            className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                                            role="menuitem"
+                                        >
+                                            Settings
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                signOut();
+                                                setIsProfileDropdownOpen(false); // Close dropdown after click
+                                            }}
+                                            className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                                            role="menuitem"
+                                        >
+                                            Sign Out
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
                 ) : (
                     <button 
                         onClick={openAuthModal}

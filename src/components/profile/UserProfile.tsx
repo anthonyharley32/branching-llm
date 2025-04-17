@@ -2,12 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { UserProfile as UserProfileType } from '../../types/database';
-import { FiUser, FiEdit, FiSave, FiX, FiCamera, FiAlertCircle } from 'react-icons/fi';
+import { 
+  FiUser, FiEdit, FiSave, FiX, FiCamera, FiAlertCircle, FiCreditCard, FiSettings, 
+  FiSliders, FiDatabase, FiBox, FiSun, FiMoon, FiSmile, 
+  FiMousePointer, FiDollarSign, FiEdit3 // Added specific icons
+} from 'react-icons/fi';
 import { motion } from 'framer-motion';
 
 interface UserProfileProps {
   onClose?: () => void;
 }
+
+// Update Tab type for sidebar navigation
+type ActiveSetting = 'account' | 'appearance' | 'behavior' | 'customize' | 'dataControls' | 'billing';
 
 const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
   const { user, session } = useAuth();
@@ -19,25 +26,22 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
   
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
-  const [username, setUsername] = useState<string>('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   
-  // Usage stats
-  const [messageCount, setMessageCount] = useState<number>(0);
-  const [isFetchingStats, setIsFetchingStats] = useState(false);
-  
+  // Sidebar navigation state
+  const [activeSetting, setActiveSetting] = useState<ActiveSetting>('account');
+
   useEffect(() => {
     if (user) {
       fetchUserProfile();
-      fetchMessageCount();
     } else {
       setLoading(false);
     }
   }, [user]);
   
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = async (isRetry = false) => {
     try {
       setLoading(true);
       setError(null);
@@ -45,20 +49,22 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('user_id', user?.id)
-        .single();
+        .eq('user_id', user?.id);
       
       if (error) {
         throw error;
       }
       
-      if (data) {
-        setProfile(data as UserProfileType);
-        setUsername(data.username || '');
-        setAvatarUrl(data.avatar_url === undefined ? null : data.avatar_url);
+      if (data && data.length > 0) {
+        setProfile(data[0] as UserProfileType);
+        setAvatarUrl(data[0].avatar_url || null);
       } else {
         // Create a new profile if one doesn't exist
-        await createUserProfile();
+        if (!isRetry) { // Prevent infinite loops
+          await createUserProfile();
+        } else {
+          setError('Unable to create profile. Please contact support.');
+        }
       }
     } catch (err: any) {
       console.error('Error fetching user profile:', err);
@@ -70,58 +76,58 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
   
   const createUserProfile = async () => {
     try {
+      // Check if user exists in users table first
+      const { data: existingUser, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user?.id)
+        .single();
+      
+      // If the user doesn't exist in users table, create it first
+      if (userError && !existingUser) {
+        const { error: insertUserError } = await supabase
+          .from('users')
+          .insert([{
+            id: user?.id,
+            email: user?.email
+          }]);
+        
+        if (insertUserError) {
+          console.error('Error inserting user:', insertUserError);
+          // Continue anyway, the trigger might handle it
+        }
+      }
+      
+      // Get avatar URL from user metadata if available (for OAuth providers like Google)
+      const avatarFromProvider = user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
+      
       const newProfile = {
         user_id: user?.id,
-        username: user?.email?.split('@')[0] || null, // Default username from email
-        avatar_url: null,
+        avatar_url: avatarFromProvider || null,
         preferences: {}
       };
       
+      // Try to upsert the profile - inserts if new, does nothing if user_id conflicts
       const { data, error } = await supabase
         .from('user_profiles')
-        .insert([newProfile])
+        .upsert(newProfile, { onConflict: 'user_id' }) // Use upsert on user_id conflict
         .select()
         .single();
       
-      if (error) {
+      if (error && !(error.code === '23505' || (error as any).status === 409)) {
+        // If it's an error *other* than a conflict (which upsert handles), throw it
+        console.error('Error upserting user profile:', error);
         throw error;
       }
       
+      // If data is returned (either from insert or existing row), update state
       if (data) {
         setProfile(data as UserProfileType);
-        setUsername(data.username || '');
-        setAvatarUrl(data.avatar_url === undefined ? null : data.avatar_url);
+        setAvatarUrl(data.avatar_url || null);
       }
     } catch (err: any) {
       console.error('Error creating user profile:', err);
-      setError('Failed to create profile information');
-    }
-  };
-  
-  const fetchMessageCount = async () => {
-    if (!user?.id) return;
-    
-    try {
-      setIsFetchingStats(true);
-      
-      // This is a placeholder for your actual query
-      // The actual implementation depends on your database schema
-      const { data, error } = await supabase
-        .from('conversation_messages')
-        .select('id')
-        .eq('conversation:user_id', user.id);
-      
-      if (error) {
-        throw error;
-      }
-      
-      if (data) {
-        setMessageCount(data.length || 0);
-      }
-    } catch (err: any) {
-      console.error('Error fetching message count:', err);
-    } finally {
-      setIsFetchingStats(false);
+      setError('Failed to create profile information. Please try again later.');
     }
   };
   
@@ -139,7 +145,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
       }
       
       const updatedProfile = {
-        username,
         avatar_url: newAvatarUrl,
         updated_at: new Date().toISOString()
       };
@@ -194,13 +199,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
   const uploadAvatar = async (): Promise<string | null> => {
     if (!avatarFile || !user) return null;
     
+    const fileExt = avatarFile.name.split('.').pop();
+    const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
+    console.log('Attempting to upload avatar with path:', filePath); // Log the path
+
     try {
       setUploading(true);
-      
-      // Create a unique filename
-      const fileExt = avatarFile.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      setError(null); // Clear previous errors
       
       // Upload the file
       const { error: uploadError } = await supabase.storage
@@ -208,302 +214,272 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
         .upload(filePath, avatarFile);
       
       if (uploadError) {
-        throw uploadError;
+        console.error('Supabase upload error object:', uploadError); // Log the specific upload error
+        throw uploadError; // Re-throw to be caught below
       }
       
-      // Get the public URL
-      const { data } = supabase.storage
+      // Get the public URL - Assume error throws and will be caught
+      const { data: urlResponseData } = supabase.storage
         .from('user-assets')
         .getPublicUrl(filePath);
         
-      return data?.publicUrl || null;
+      // Access publicUrl from the nested data object
+      const publicUrl = urlResponseData?.publicUrl;
+      console.log('Upload successful, public URL:', publicUrl);
+      return publicUrl || null; // Return null if publicUrl is undefined/null
+
     } catch (err: any) {
-      console.error('Error uploading avatar:', err);
-      setError('Failed to upload avatar');
+      // Log the detailed error object from Supabase if available
+      console.error('Error in uploadAvatar function:', err); 
+      setError(`Failed to upload avatar: ${err.message || 'Unknown error'}`); // Provide more error context
       return null;
     } finally {
       setUploading(false);
     }
   };
   
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-  
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 300,
-        damping: 24
-      }
-    }
-  };
-  
-  if (!user) {
-    return (
-      <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-        <div className="text-center text-gray-500 dark:text-gray-400">
-          <p>Please sign in to view your profile</p>
-        </div>
-      </div>
-    );
-  }
+  // --- MOCK DATA ---
+  const subscriptionTier = user?.user_metadata?.subscription_tier || 'free';
+  const userDisplayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  // --- END MOCK DATA ---
+
+  // Helper component for sidebar items
+  const SidebarItem: React.FC<{ 
+    setting: ActiveSetting; 
+    icon: React.ElementType;
+    label: string; 
+  }> = ({ setting, icon: Icon, label }) => (
+    <button
+      onClick={() => setActiveSetting(setting)}
+      className={`flex items-center w-full px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 ease-in-out ${ // Adjusted padding
+        activeSetting === setting
+          ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' // Adjusted active background
+          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-gray-100' // Adjusted hover background
+      }`}
+    >
+      <Icon className="mr-3 h-5 w-5 flex-shrink-0" />
+      <span>{label}</span>
+    </button>
+  );
   
   return (
-    <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg max-w-2xl w-full mx-auto relative">
-      {/* Close button if in modal */}
-      {onClose && (
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
-          aria-label="Close"
-        >
-          <FiX size={20} />
-        </button>
-      )}
-      
-      <motion.div
-        className="space-y-6"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <motion.div variants={itemVariants}>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-            {isEditing ? 'Edit Profile' : 'User Profile'}
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400">
-            {user.email}
-          </p>
-        </motion.div>
-        
-        {/* Success/Error Messages */}
-        {success && (
-          <motion.div
-            className="p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-200 flex items-center gap-2"
-            variants={itemVariants}
+    <div className="w-full flex"> {/* Removed minHeight style */}
+      {/* Sidebar */} 
+      <div className="w-60 border-r border-gray-200 dark:border-gray-700 p-4 flex flex-col shrink-0"> {/* Reduced width w-60 */} 
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6 px-2">Settings</h2>
+        <nav className="flex-1 space-y-1">
+          <SidebarItem setting="account" icon={FiUser} label="Account" />
+          <SidebarItem setting="appearance" icon={FiEdit3} label="Appearance" /> {/* Updated Icon */} 
+          <SidebarItem setting="behavior" icon={FiMousePointer} label="Behavior" /> {/* Updated Icon */} 
+          <SidebarItem setting="customize" icon={FiSliders} label="Customize" />
+          <SidebarItem setting="dataControls" icon={FiDatabase} label="Data Controls" />
+          <SidebarItem setting="billing" icon={FiDollarSign} label="Billing" /> {/* Updated Icon */} 
+        </nav>
+      </div>
+
+      {/* Content Area */} 
+      <div className="flex-1 overflow-y-auto p-6 relative"> {/* Reduced padding p-6, added overflow-y-auto */} 
+        {onClose && (
+          <button 
+            onClick={onClose} 
+            className="absolute top-4 right-4 p-1 rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors z-10" // Added z-10
+            aria-label="Close"
           >
-            <span className="text-sm font-medium">{success}</span>
-          </motion.div>
+            <FiX className="h-5 w-5" />
+          </button>
         )}
+
+        {loading && activeSetting === 'account' && <p className="text-center text-gray-500 dark:text-gray-400">Loading account...</p>}
         
-        {error && (
-          <motion.div
-            className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-200 flex items-center gap-2"
-            variants={itemVariants}
-          >
-            <FiAlertCircle className="flex-shrink-0 text-red-500 dark:text-red-400" size={18}/>
-            <span className="text-sm font-medium">{error}</span>
-          </motion.div>
-        )}
-        
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-          </div>
-        ) : (
-          <>
-            {/* Avatar Section */}
-            <motion.div
-              className="flex flex-col sm:flex-row items-center gap-6"
-              variants={itemVariants}
-            >
-              <div className="relative group">
-                <div className={`h-24 w-24 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden ${isEditing ? 'cursor-pointer' : ''}`}>
-                  {avatarUrl ? (
-                    <img 
-                      src={avatarUrl} 
-                      alt="User avatar" 
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <FiUser size={40} className="text-gray-400 dark:text-gray-500" />
-                  )}
-                </div>
-                
-                {isEditing && (
-                  <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                    <FiCamera size={24} className="text-white" />
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handleAvatarChange}
-                      disabled={uploading}
-                    />
-                  </label>
-                )}
-              </div>
-              
-              <div className="flex-1 space-y-4">
-                <div>
-                  {isEditing ? (
-                    <div>
-                      <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Username
+        {error && <p className="text-red-500 text-center mb-4">Error: {error}</p>}
+        {success && <p className="text-green-500 text-center mb-4">{success}</p>}
+
+        {/* Account Settings Content */} 
+        {activeSetting === 'account' && profile && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Account Details</h3>
+            <div className="space-y-4"> {/* Reduced spacing */} 
+              {/* User Info Section */} 
+              <div className="flex items-center justify-between p-4 rounded-lg border border-transparent"> 
+                <div className="flex items-center gap-4">
+                  <div className="relative shrink-0">
+                    <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-gray-200 dark:bg-gray-600">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <FiUser className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                      )}
+                    </div>
+                    {isEditing && (
+                      <label htmlFor="avatar-upload" className="absolute -bottom-1 -right-1 bg-blue-500 text-white p-1 rounded-full cursor-pointer hover:bg-blue-600 transition-colors shadow-sm">
+                        <FiCamera className="w-2.5 h-2.5" />
+                        <input 
+                          id="avatar-upload" 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleAvatarChange} 
+                          className="sr-only" 
+                          disabled={uploading}
+                        />
                       </label>
-                      <input
-                        type="text"
-                        id="username"
-                        value={username || ''}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Username</p>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">
-                        {profile?.username || 'Not set'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-            
-            {/* Usage Stats */}
-            <motion.div
-              className="mt-8 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl"
-              variants={itemVariants}
-            >
-              <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-4">
-                Usage Statistics
-              </h3>
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Messages Sent
-                  </p>
-                  <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                    {isFetchingStats ? (
-                      <span className="text-sm text-gray-400">Loading...</span>
-                    ) : (
-                      messageCount
                     )}
-                  </p>
+                  </div>
+                  <div>
+                    <p className="text-md font-semibold text-gray-900 dark:text-gray-100">{userDisplayName}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{user?.email}</p>
+                  </div>
                 </div>
-                
-                <div className="flex-1 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Limit
-                  </p>
-                  <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                    1,000 <span className="text-sm text-gray-400 font-normal">free messages</span>
-                  </p>
-                </div>
-              </div>
-              
-              {/* Progress bar */}
-              <div className="mt-4">
-                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                  <div 
-                    className={`h-2.5 rounded-full ${
-                      messageCount > 800 ? 'bg-red-500' : 
-                      messageCount > 500 ? 'bg-yellow-500' : 
-                      'bg-green-500'
-                    }`}
-                    style={{ width: `${Math.min((messageCount / 1000) * 100, 100)}%` }}
-                  ></div>
-                </div>
-                <p className="text-xs text-right mt-1 text-gray-500 dark:text-gray-400">
-                  {messageCount}/1,000 messages used
-                </p>
-              </div>
-            </motion.div>
-            
-            {/* Account Details */}
-            <motion.div
-              className="mt-8"
-              variants={itemVariants}
-            >
-              <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-4">
-                Account Details
-              </h3>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Account Created
-                  </p>
-                  <p className="text-gray-900 dark:text-gray-100">
-                    {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Unknown'}
-                  </p>
-                </div>
-                
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Last Updated
-                  </p>
-                  <p className="text-gray-900 dark:text-gray-100">
-                    {profile?.updated_at ? new Date(profile.updated_at).toLocaleDateString() : 'Unknown'}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-            
-            {/* Actions */}
-            <motion.div
-              className="mt-8 flex justify-end"
-              variants={itemVariants}
-            >
-              {isEditing ? (
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditing(false);
-                      setUsername(profile?.username || '');
-                      setAvatarUrl(profile?.avatar_url);
-                      setAvatarFile(null);
-                    }}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                {!isEditing ? (
+                  <button 
+                    onClick={() => setIsEditing(true)}
+                    // Adjusted styles to match target screenshot
+                    className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-offset-gray-850"
                   >
-                    Cancel
+                    Manage
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveProfile}
-                    disabled={loading || uploading}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors flex items-center gap-2"
-                  >
-                    {loading || uploading ? (
-                      <>
-                        <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <FiSave size={18} />
-                        <span>Save Changes</span>
-                      </>
-                    )}
-                  </button>
+                 ) : (
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={handleSaveProfile}
+                      className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                      disabled={loading || uploading}
+                    >
+                      {loading || uploading ? 'Saving...' : 'Save'}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setIsEditing(false);
+                        setAvatarUrl(profile.avatar_url || null);
+                        setAvatarFile(null);
+                        setError(null);
+                      }}
+                      className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-offset-gray-850"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                 )}
+              </div>
+              {uploading && <p className="text-xs text-blue-500 pl-16">Uploading...</p>} 
+
+              {/* Status Section */} 
+              <div className="flex items-center justify-between p-4 rounded-lg border border-transparent"> 
+                <div className="flex items-center gap-2">
+                  <FiBox className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                  <span className="text-md font-medium text-gray-900 dark:text-gray-100">Status</span>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors flex items-center gap-2"
+                {/* Adjusted styles to match target screenshot */}
+                <span className={`px-3 py-0.5 text-sm font-medium rounded-full ${subscriptionTier === 'free' ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'}`}>
+                  {subscriptionTier === 'free' ? 'Free' : 'Premium+'} 
+                </span>
+              </div>
+
+              {/* Language Section */} 
+              <div className="flex items-center justify-between p-4 rounded-lg border border-transparent"> 
+                <div className="flex items-center gap-2">
+                  {/* ... Language Icon ... */}
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.06 7.94l-1.88-1.88M16.5 10.5a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0zm-1.5-1.82a4 4 0 00-5.36 0M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                  </svg>
+                  <span className="text-md font-medium text-gray-900 dark:text-gray-100">Language</span>
+                </div>
+                <button 
+                  onClick={() => console.log('Change Language')}
+                  // Adjusted styles to match target screenshot
+                  className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-offset-gray-850"
                 >
-                  <FiEdit size={18} />
-                  <span>Edit Profile</span>
+                  Change
                 </button>
-              )}
-            </motion.div>
-          </>
+              </div>
+            </div>
+          </motion.div>
         )}
-      </motion.div>
+        
+        {/* Appearance Settings Content (Placeholder) */} 
+        {activeSetting === 'appearance' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Appearance</h3>
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <p className="text-gray-600 dark:text-gray-400">Theme settings (Light/Dark/System) would go here.</p>
+              {/* Example Theme Toggle */} 
+              <div className="mt-4 flex items-center gap-4">
+                 <button className="flex items-center gap-2 p-2 rounded-md border border-gray-300 dark:border-gray-600"><FiSun/> Light</button>
+                 <button className="flex items-center gap-2 p-2 rounded-md border border-gray-300 dark:border-gray-600"><FiMoon/> Dark</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+        
+        {/* Behavior Settings Content (Placeholder) */} 
+        {activeSetting === 'behavior' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Behavior</h3>
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <p className="text-gray-600 dark:text-gray-400">Application behavior settings (e.g., notifications, startup) would go here.</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Customize Settings Content (Placeholder) */} 
+        {activeSetting === 'customize' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Customize</h3>
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <p className="text-gray-600 dark:text-gray-400">UI customization options would go here.</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Data Controls Settings Content (Placeholder) */} 
+        {activeSetting === 'dataControls' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Data Controls</h3>
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <p className="text-gray-600 dark:text-gray-400">Data privacy, export, and deletion settings would go here.</p>
+            </div>
+          </motion.div>
+        )}
+        
+        {/* Billing Settings Content */} 
+        {activeSetting === 'billing' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Billing</h3>
+            {subscriptionTier === 'free' ? (
+              // Free Tier View
+              <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 rounded-lg text-center shadow-sm border border-gray-200 dark:border-gray-700 max-w-md mx-auto"> {/* Constrain width */} 
+                <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">You are on the Free Plan</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+                  Upgrade to unlock premium features and support the development of LearningLLM.
+                </p>
+                <button 
+                  onClick={() => console.log('Navigate to upgrade/checkout page')} 
+                  className="px-5 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-full shadow-md hover:shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300 ease-in-out transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 dark:focus:ring-offset-gray-850"
+                >
+                  Upgrade to Premium+
+                </button>
+              </div>
+            ) : (
+              // Paid Tier View
+              <div className="space-y-4 max-w-md"> {/* Constrain width */} 
+                 <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700"> {/* Added border */} 
+                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Current Plan</p>
+                   <p className="text-md font-medium text-gray-900 dark:text-gray-100 capitalize">{subscriptionTier}</p>
+                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Renews on: January 1, 2025</p>
+                 </div>
+                <div className="pt-2">
+                  <button 
+                    onClick={() => console.log('Navigate to billing management portal (e.g., Stripe)')} 
+                    // Adjusted styles to match target screenshot
+                    className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-offset-gray-850"
+                  >
+                    Manage Subscription
+                  </button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 };

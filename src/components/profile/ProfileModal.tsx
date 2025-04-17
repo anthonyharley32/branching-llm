@@ -41,7 +41,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
           onClick={onClose}
         >
           <motion.div
-            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-5xl h-[650px] bg-white dark:bg-gray-850 rounded-lg shadow-xl flex overflow-hidden"
             variants={modalVariants}
             initial="hidden"
             animate="visible"

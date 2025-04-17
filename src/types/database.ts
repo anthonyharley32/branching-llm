@@ -12,7 +12,6 @@ export type User = {
 export type UserProfile = {
   id: string;
   user_id: string;
-  username: string | null;
   avatar_url: string | null;
   preferences: Record<string, any>;
   created_at: string;

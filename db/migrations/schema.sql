@@ -16,7 +16,8 @@ DROP TABLE IF EXISTS user_profiles;
 DROP TABLE IF EXISTS users;
 
 -- Drop existing functions
-DROP FUNCTION IF EXISTS trigger_set_updated_at;
+DROP FUNCTION IF EXISTS trigger_set_updated_at CASCADE;
+DROP FUNCTION IF EXISTS handle_new_user CASCADE;
 
 -- =====================================
 -- EXTENSIONS
@@ -35,6 +36,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function to handle new user creation
+CREATE OR REPLACE FUNCTION handle_new_user() 
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (id, email, created_at, updated_at)
+  VALUES (NEW.id, NEW.email, NEW.created_at, NEW.updated_at);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- =====================================
 -- TABLES
 -- =====================================
@@ -51,7 +62,6 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS user_profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-  username TEXT UNIQUE,
   avatar_url TEXT,
   preferences JSONB DEFAULT '{}'::JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
@@ -166,6 +176,12 @@ BEFORE UPDATE ON bugs
 FOR EACH ROW
 EXECUTE FUNCTION trigger_set_updated_at();
 
+-- Trigger to create users when auth.users are created
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW
+EXECUTE FUNCTION handle_new_user();
+
 -- =====================================
 -- ROW LEVEL SECURITY POLICIES
 -- =====================================
@@ -184,6 +200,9 @@ CREATE POLICY users_select_own ON users
   
 CREATE POLICY users_update_own ON users 
   FOR UPDATE USING (auth.uid() = id);
+
+CREATE POLICY users_insert_own ON users 
+  FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- User profiles policies
 CREATE POLICY profiles_select_own ON user_profiles 
@@ -296,4 +315,53 @@ CREATE POLICY bugs_update_all ON bugs
   FOR UPDATE USING (auth.uid() IS NOT NULL);
   
 CREATE POLICY bugs_delete_own ON bugs
-  FOR DELETE USING (auth.uid() = reporter_id); 
+  FOR DELETE USING (auth.uid() = reporter_id);
+
+-- =====================================
+-- STORAGE POLICIES (user-assets bucket)
+-- =====================================
+-- Policies for the 'user-assets' bucket (ensure this bucket exists and is public)
+
+-- 1. Allow public read access to the 'avatars' folder
+DROP POLICY IF EXISTS "Allow public read access to avatars folder" ON storage.objects;
+CREATE POLICY "Allow public read access to avatars folder" 
+ON storage.objects FOR SELECT
+USING ( bucket_id = 'user-assets' AND name LIKE 'avatars/%' );
+
+-- Policy to allow authenticated users to upload their own avatar
+-- Extracts the full 36-character UUID from the filename
+DROP POLICY IF EXISTS "Allow authenticated users to upload own avatar" ON storage.objects; -- Drop old one first
+CREATE POLICY "Allow authenticated users to upload own avatar"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'user-assets' AND
+  name LIKE 'avatars/%' AND
+  -- Extract the 36-character UUID from the path component after 'avatars/'
+  auth.uid() = uuid(substring(split_part(name, '/', 2) from '^(.{36})-'))
+);
+
+-- 3. Allow authenticated users to update/delete their own avatar
+-- Drop the old combined policy if it exists
+DROP POLICY IF EXISTS "Allow authenticated users to update/delete own avatar" ON storage.objects;
+
+-- Create separate policy for UPDATE
+DROP POLICY IF EXISTS "Allow authenticated users to update own avatar" ON storage.objects;
+CREATE POLICY "Allow authenticated users to update own avatar"
+ON storage.objects FOR UPDATE TO authenticated
+USING (
+  bucket_id = 'user-assets' AND
+  name LIKE 'avatars/%' AND
+  -- Correctly extract the full 36-character UUID from the filename
+  auth.uid() = uuid(substring(split_part(name, '/', 2) from '^(.{36})-'))
+);
+
+-- Create separate policy for DELETE
+DROP POLICY IF EXISTS "Allow authenticated users to delete own avatar" ON storage.objects;
+CREATE POLICY "Allow authenticated users to delete own avatar"
+ON storage.objects FOR DELETE TO authenticated
+USING (
+  bucket_id = 'user-assets' AND
+  name LIKE 'avatars/%' AND
+  -- Correctly extract the full 36-character UUID from the filename
+  auth.uid() = uuid(substring(split_part(name, '/', 2) from '^(.{36})-'))
+); 
