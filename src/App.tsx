@@ -15,13 +15,14 @@ import {
   StreamCallbacks
 } from './services/llm/openai'
 import { MessageNode } from './types/conversation'
-import { FiLogOut, FiArrowLeft, FiUser } from 'react-icons/fi' // Added FiUser
+import { FiLogOut, FiArrowLeft, FiUser, FiMenu, FiPlusSquare, FiEdit } from 'react-icons/fi' // Added FiEdit
 // import { supabase } from './lib/supabase' // Already removed
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Conversation } from './types/conversation'
 import { BugReportButton } from './components/BugReporting'
 import AuthModal from './components/auth/AuthModal'
 import ProfileModal from './components/profile/ProfileModal'
+import ChatHistory from './components/ChatHistory'
 
 // --- Constants ---
 const GUEST_MESSAGE_LIMIT = 1000;
@@ -55,7 +56,8 @@ function AppContent() {
     activeMessageId,
     setActiveMessageId,
     updateMessageContent,
-    conversation
+    conversation,
+    startNewConversation
   } = useConversation();
 
   const [isSending, setIsSending] = useState(false);
@@ -98,6 +100,8 @@ function AppContent() {
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const profileButtonRef = useRef<HTMLButtonElement>(null); // Ref for the profile button
   const dropdownRef = useRef<HTMLDivElement>(null); // Ref for the dropdown
+  // Chat history sidebar state
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   // ---------------------------
 
   // --- Click outside handler for profile dropdown ---
@@ -554,222 +558,275 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
-      <header className="h-16 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 shrink-0 relative">
-        {/* Left Side: Show logo title */}
-        {/* Back button moved to main content area */}
-        {branchStack.length === 0 && (
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold">LearningLLM</h1>
+    // Layout: side panel (ChatHistory) and main content
+    <div className="flex h-screen w-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
+      {/* Animated Chat History panel */}
+      <AnimatePresence>
+        {isHistoryOpen && (
+          <motion.div
+            initial={{ width: 0, opacity: 1 }}
+            animate={{ width: '20rem', opacity: 1 }}
+            exit={{ width: 0, opacity: 1 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            className="flex-shrink-0 h-full z-20 overflow-hidden"
+            style={{ position: 'relative', boxShadow: isHistoryOpen ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none' }}
+          >
+            <div className="absolute top-0 left-0 w-80 h-full">
+              <ChatHistory 
+                onClose={() => setIsHistoryOpen(false)} 
+                onLoadConversation={() => setBranchStack([])} 
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Main content area */}
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <header className="h-16 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 shrink-0 relative">
+          {/* Left Side: Show logo title */}
+          {branchStack.length === 0 && (
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-semibold">LearningLLM</h1>
+            </div>
+          )}
+
+          {/* Center Content: Empty */}
+
+          {/* Right Side: Auth Controls (always show unless back button logic changes this) */}
+          {/* Currently shows when not in branch view - this seems correct */}
+          {branchStack.length === 0 && (
+              <div className="flex items-center gap-4 relative"> {/* Added relative positioning for dropdown */}
+                  {/* Bug Report Button */}
+                  <BugReportButton buttonText="Report Bug" className="text-sm cursor-pointer" />
+                  {/* New Conversation */}
+                  {session && (
+                    <button
+                      onClick={() => { startNewConversation(); setBranchStack([]); }}
+                      className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      title="Start New Conversation"
+                    >
+                      <FiPlusSquare className="h-5 w-5" />
+                    </button>
+                  )}
+                  
+                  {/* Guest Limit Warning */}
+                  {guestLimitWarning && (
+                      <span className={`text-sm font-medium ${guestMessageCount >= GUEST_MESSAGE_LIMIT * 0.9 ? 'text-red-500' : 'text-yellow-500'} hidden md:inline`}>
+                          {guestLimitWarning}
+                      </span>
+                  )}
+                  {/* Auth Controls / User Info */}
+                  {session ? (
+                      <div className="relative"> {/* Wrapper for button and dropdown */}
+                          <button
+                              ref={profileButtonRef} // Attach ref
+                              onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} // Toggle dropdown
+                              className="flex items-center justify-center h-8 w-8 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-blue-500 cursor-pointer overflow-hidden" // Adjusted focus rings
+                              aria-label="Profile menu"
+                              title="Profile menu"
+                              aria-haspopup="true"
+                              aria-expanded={isProfileDropdownOpen}
+                          >
+                              {user?.user_metadata?.avatar_url ? (
+                                  <img 
+                                      src={user.user_metadata.avatar_url} 
+                                      alt="User profile" 
+                                      className="h-full w-full object-cover" // Ensure image covers the button area
+                                  />
+                              ) : (
+                                  <FiUser className="h-5 w-5" /> // Default icon
+                              )}
+                          </button>
+                          
+                          {/* Profile Dropdown Menu */} 
+                          <AnimatePresence>
+                              {isProfileDropdownOpen && (
+                                  <motion.div
+                                      ref={dropdownRef} // Attach ref
+                                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                      transition={{ duration: 0.15, ease: "easeOut" }}
+                                      className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none z-50"
+                                      role="menu"
+                                      aria-orientation="vertical"
+                                      aria-labelledby="profile-menu-button"
+                                  >
+                                      <div className="p-1" role="none">
+                                          <button
+                                              onClick={() => {
+                                                  openProfileModal();
+                                                  setIsProfileDropdownOpen(false); // Close dropdown after click
+                                              }}
+                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                                              role="menuitem"
+                                          >
+                                              Settings
+                                          </button>
+                                          <button
+                                              onClick={() => {
+                                                  signOut();
+                                                  setIsProfileDropdownOpen(false); // Close dropdown after click
+                                              }}
+                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                                              role="menuitem"
+                                          >
+                                              Sign Out
+                                          </button>
+                                      </div>
+                                  </motion.div>
+                              )}
+                          </AnimatePresence>
+                      </div>
+                  ) : (
+                      <button 
+                          onClick={openAuthModal}
+                          className="flex items-center gap-1 py-2 px-3 bg-black text-white rounded-md hover:bg-gray-800 text-sm font-semibold transition-colors cursor-pointer"
+                      >
+                          Login / Register
+                      </button>
+                  )}
+              </div>
+          )}
+        </header>
+
+        {/* Left Sidebar Icons (only for logged-in users) */}
+        {session && (
+          <div className="absolute top-16 left-0 p-4 z-10 flex gap-2">
+            <button
+              onClick={() => setIsHistoryOpen(true)}
+              className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title="Open History"
+            >
+              <FiMenu className="h-5 w-5" />
+            </button>
+            <button 
+              onClick={() => { startNewConversation(); setBranchStack([]); }}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-offset-gray-850 transition-colors"
+              title="Start a new conversation thread"
+            >
+              <FiEdit className="h-4 w-4" />
+            </button>
           </div>
         )}
 
-        {/* Center Content: Empty */}
+        {/* --- Animated Main Content Area --- */}
+        <AnimatePresence mode="wait">
+          {/* Add relative positioning to main for the absolute back button */}
+          <motion.main
+            key={branchParentId ? `branch-${branchParentId}-${branchId}` : 'main'}
+            className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col space-y-0 w-full max-w-4xl mx-auto relative" // Added relative
+            variants={animationVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+          >
+            {/* Moved Back Button Here */}
+            {branchStack.length > 0 && (
+              <button
+                onClick={handleGoBack}
+                className="absolute top-4 left-4 z-10 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 focus:outline-none rounded-full p-1 transition-colors bg-transparent hover:bg-gray-200 dark:hover:bg-gray-300"
+                aria-label="Go back"
+                title="Go back"
+              >
+                <FiArrowLeft className="h-5 w-5 transition-colors" />
+              </button>
+            )}
 
-        {/* Right Side: Auth Controls (always show unless back button logic changes this) */}
-        {/* Currently shows when not in branch view - this seems correct */}
-        {branchStack.length === 0 && (
-            <div className="flex items-center gap-4 relative"> {/* Added relative positioning for dropdown */}
-                {/* Bug Report Button */}
-                <BugReportButton buttonText="Report Bug" className="text-sm cursor-pointer" />
-                
-                {/* Guest Limit Warning */}
-                {guestLimitWarning && (
-                    <span className={`text-sm font-medium ${guestMessageCount >= GUEST_MESSAGE_LIMIT * 0.9 ? 'text-red-500' : 'text-yellow-500'} hidden md:inline`}>
-                        {guestLimitWarning}
-                    </span>
-                )}
-                {/* Auth Controls / User Info */}
-                {session ? (
-                    <div className="relative"> {/* Wrapper for button and dropdown */}
-                        <button
-                            ref={profileButtonRef} // Attach ref
-                            onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} // Toggle dropdown
-                            className="flex items-center justify-center h-8 w-8 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-blue-500 cursor-pointer overflow-hidden" // Adjusted focus rings
-                            aria-label="Profile menu"
-                            title="Profile menu"
-                            aria-haspopup="true"
-                            aria-expanded={isProfileDropdownOpen}
-                        >
-                            {user?.user_metadata?.avatar_url ? (
-                                <img 
-                                    src={user.user_metadata.avatar_url} 
-                                    alt="User profile" 
-                                    className="h-full w-full object-cover" // Ensure image covers the button area
-                                />
-                            ) : (
-                                <FiUser className="h-5 w-5" /> // Default icon
-                            )}
-                        </button>
-                        
-                        {/* Profile Dropdown Menu */} 
-                        <AnimatePresence>
-                            {isProfileDropdownOpen && (
-                                <motion.div
-                                    ref={dropdownRef} // Attach ref
-                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    transition={{ duration: 0.15, ease: "easeOut" }}
-                                    className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none z-50"
-                                    role="menu"
-                                    aria-orientation="vertical"
-                                    aria-labelledby="profile-menu-button"
-                                >
-                                    <div className="p-1" role="none">
-                                        <button
-                                            onClick={() => {
-                                                openProfileModal();
-                                                setIsProfileDropdownOpen(false); // Close dropdown after click
-                                            }}
-                                            className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                                            role="menuitem"
-                                        >
-                                            Settings
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                signOut();
-                                                setIsProfileDropdownOpen(false); // Close dropdown after click
-                                            }}
-                                            className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                                            role="menuitem"
-                                        >
-                                            Sign Out
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                ) : (
-                    <button 
-                        onClick={openAuthModal}
-                        className="flex items-center gap-1 py-2 px-3 bg-black text-white rounded-md hover:bg-gray-800 text-sm font-semibold transition-colors cursor-pointer"
+            {/* Show breadcrumb-style navigation for nested branches */}
+            {branchStack.length > 0 && (
+              <div className="text-sm italic text-gray-500 dark:text-gray-400 text-center mb-4 pt-10 flex-shrink-0">
+                {branchStack.length > 1 ? (
+                  <div className="flex flex-wrap justify-center items-center gap-1">
+                    <span>Branches:</span>
+                    <span 
+                      onClick={() => {
+                        setBranchStack([]);
+                        setActiveMessageId(conversation?.rootMessageId || null);
+                        setShowingMainThread(true);
+                      }}
+                      className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 relative group"
+                      title="Return to main conversation"
                     >
-                        Login / Register
-                    </button>
-                )}
-            </div>
-        )}
-      </header>
-
-      {/* --- Animated Main Content Area --- */}
-      <AnimatePresence mode="wait">
-        {/* Add relative positioning to main for the absolute back button */}
-        <motion.main
-          key={branchParentId ? `branch-${branchParentId}-${branchId}` : 'main'}
-          className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col space-y-0 w-full max-w-4xl mx-auto relative" // Added relative
-          variants={animationVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-        >
-          {/* Moved Back Button Here */}
-          {branchStack.length > 0 && (
-            <button
-              onClick={handleGoBack}
-              className="absolute top-4 left-4 z-10 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 focus:outline-none rounded-full p-1 transition-colors bg-transparent hover:bg-gray-200 dark:hover:bg-gray-300"
-              aria-label="Go back"
-              title="Go back"
-            >
-              <FiArrowLeft className="h-5 w-5 transition-colors" />
-            </button>
-          )}
-
-          {/* Show breadcrumb-style navigation for nested branches */}
-          {branchStack.length > 0 && (
-            <div className="text-sm italic text-gray-500 dark:text-gray-400 text-center mb-4 pt-10 flex-shrink-0">
-              {branchStack.length > 1 ? (
-                <div className="flex flex-wrap justify-center items-center gap-1">
-                  <span>Branches:</span>
-                  <span 
-                    onClick={() => {
-                      setBranchStack([]);
-                      setActiveMessageId(conversation?.rootMessageId || null);
-                      setShowingMainThread(true);
-                    }}
-                    className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 relative group"
-                    title="Return to main conversation"
-                  >
-                    Main
-                  </span>
-                  <span className="mx-1">→</span>
-                  {branchStack.map((branch, index) => (
-                    <React.Fragment key={`branch-${index}`}>
-                      {index > 0 && <span className="mx-1">→</span>}
-                      <span 
-                        onClick={() => {
-                          // Navigate to this specific branch by truncating the stack
-                          setBranchStack(prev => prev.slice(0, index + 1));
-                          // If this branch has an associated node ID, set it as active
-                          if (index > 0 && branchStack[index].branchId) {
-                            // Find the branch starter node for this branch
-                            const allMessages = Object.values(conversation?.messages || {});
-                            const branchStarter = allMessages.find(msg => 
-                              msg.metadata?.branchId === branchStack[index].branchId &&
-                              msg.metadata?.isBranchStart === true
-                            );
-                            if (branchStarter) {
-                              setActiveMessageId(branchStarter.id);
-                            } else {
-                              // Fallback to parent ID if branch starter not found
-                              setActiveMessageId(branchStack[index].parentId);
+                      Main
+                    </span>
+                    <span className="mx-1">→</span>
+                    {branchStack.map((branch, index) => (
+                      <React.Fragment key={`branch-${index}`}>
+                        {index > 0 && <span className="mx-1">→</span>}
+                        <span 
+                          onClick={() => {
+                            // Navigate to this specific branch by truncating the stack
+                            setBranchStack(prev => prev.slice(0, index + 1));
+                            // If this branch has an associated node ID, set it as active
+                            if (index > 0 && branchStack[index].branchId) {
+                              // Find the branch starter node for this branch
+                              const allMessages = Object.values(conversation?.messages || {});
+                              const branchStarter = allMessages.find(msg => 
+                                msg.metadata?.branchId === branchStack[index].branchId &&
+                                msg.metadata?.isBranchStart === true
+                              );
+                              if (branchStarter) {
+                                setActiveMessageId(branchStarter.id);
+                              } else {
+                                // Fallback to parent ID if branch starter not found
+                                setActiveMessageId(branchStack[index].parentId);
+                              }
+                            } else if (index === 0) {
+                              // For the first branch, use its parent ID directly
+                              setActiveMessageId(branchStack[0].parentId);
                             }
-                          } else if (index === 0) {
-                            // For the first branch, use its parent ID directly
-                            setActiveMessageId(branchStack[0].parentId);
-                          }
-                        }}
-                        className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
-                        title={`Navigate to ${branch.sourceText || `Branch ${index + 1}`}`}
-                      >
-                        {branch.sourceText || `Branch ${index + 1}`}
-                      </span>
-                    </React.Fragment>
-                  ))}
-                </div>
-              ) : (
-                <div>Based off of: "{branchSourceText}"</div>
-              )}
-            </div>
-          )}
+                          }}
+                          className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
+                          title={`Navigate to ${branch.sourceText || `Branch ${index + 1}`}`}
+                        >
+                          {branch.sourceText || `Branch ${index + 1}`}
+                        </span>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                ) : (
+                  <div>Based off of: "{branchSourceText}"</div>
+                )}
+              </div>
+            )}
 
-          {/* Pass filtered messages */}
-          <ChatThread
-            messages={displayedMessages}
-            isLoading={isSending}
-            streamingNodeId={streamingAiNodeId}
-            onBranchCreated={handleBranchCreated}
-          />
-        </motion.main>
-      </AnimatePresence>
-      {/* --- End Animated Main Content Area --- */}
+            {/* Pass filtered messages */}
+            <ChatThread
+              messages={displayedMessages}
+              isLoading={isSending}
+              streamingNodeId={streamingAiNodeId}
+              onBranchCreated={handleBranchCreated}
+            />
+          </motion.main>
+        </AnimatePresence>
+        {/* --- End Animated Main Content Area --- */}
 
-      {error && (
-        <div className={`p-2 text-center text-sm ${error.type === ErrorType.QUOTA_EXCEEDED ? 'text-orange-600 bg-orange-100 border-orange-200' : 'text-red-600 bg-red-100 border-red-200'} border-t`}>
-          Error: {error.message}
-        </div>
-      )}
-
-      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pb-2">
-        {!session && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-1">
-                Chat history isn't saved for guest users. 
-                <span onClick={() => console.log("TODO: Show Auth Modal")} className="text-blue-500 hover:underline cursor-pointer ml-1">Login/Register </span> 
-                to save your conversations.
-            </p>
+        {error && (
+          <div className={`p-2 text-center text-sm ${error.type === ErrorType.QUOTA_EXCEEDED ? 'text-orange-600 bg-orange-100 border-orange-200' : 'text-red-600 bg-red-100 border-red-200'} border-t`}>
+            Error: {error.message}
+          </div>
         )}
-        <ChatInput onSendMessage={handleSendMessage} isLoading={isSending} />
+
+        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pb-2">
+          {!session && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-1">
+                  Chat history isn't saved for guest users. 
+                  <span onClick={() => console.log("TODO: Show Auth Modal")} className="text-blue-500 hover:underline cursor-pointer ml-1">Login/Register </span> 
+                  to save your conversations.
+              </p>
+          )}
+          <ChatInput onSendMessage={handleSendMessage} isLoading={isSending} />
+        </div>
+        
+        {/* --- Render Auth Modal --- */}
+        <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
+        
+        {/* --- Render Profile Modal --- */}
+        <ProfileModal isOpen={isProfileModalOpen} onClose={closeProfileModal} />
+        {/* ------------------------- */}
+        
       </div>
-      
-      {/* --- Render Auth Modal --- */}
-      <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
-      
-      {/* --- Render Profile Modal --- */}
-      <ProfileModal isOpen={isProfileModalOpen} onClose={closeProfileModal} />
-      {/* ------------------------- */}
-      
     </div>
   )
 }

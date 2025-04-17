@@ -5,6 +5,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, Dispa
 import { Conversation, MessageNode } from '../types/conversation'; 
 import { v4 as uuidv4 } from 'uuid'; // Need uuid for generating IDs
 import { useAuth } from './AuthContext'; // Import useAuth hook
+// Import Supabase service functions
+import { loadConversationFromSupabase, saveConversationToSupabase } from '../services/conversationService'; 
 
 // --- Helper Functions (adapted for flat structure) ---
 
@@ -34,8 +36,10 @@ const getChildrenOfNode = (messages: Record<string, MessageNode>, parentId: stri
 // --- End Helper Functions ---
 
 // --- Constants for local storage ---
-const LOCAL_STORAGE_CONVERSATION_KEY = 'LearningLLM_conversation';
-const LOCAL_STORAGE_ACTIVE_ID_KEY = 'LearningLLM_activeMessageId';
+const LOCAL_STORAGE_CONVERSATION_KEY = 'LearningLLM_conversation'; // Keep for potential migration or backup? Decided against using for logged-in users.
+const LOCAL_STORAGE_ACTIVE_ID_KEY = 'LearningLLM_activeMessageId'; // Keep for potential migration or backup? Decided against using for logged-in users.
+const GUEST_LOCAL_STORAGE_CONVERSATION_KEY = 'LearningLLM_guest_conversation'; // New key for guests
+const GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY = 'LearningLLM_guest_activeMessageId'; // New key for guests
 
 // Type for the return value of addMessage, including the path for the API call
 export interface AddMessageResult {
@@ -56,6 +60,7 @@ interface ConversationContextType {
   createBranch: (sourceMessageId: string, selectedText: string, selectionStart?: number, selectionEnd?: number) => AddMessageResult | null;
   hasChildren: (messageId: string) => boolean;
   updateMessageContent: (messageId: string, contentChunk: string) => void;
+  startNewConversation: () => void;
 }
 
 // Create the context with a default value
@@ -74,53 +79,91 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [currentMessages, setCurrentMessages] = useState<MessageNode[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Internal loading state for context
+  const [isSaving, setIsSaving] = useState<boolean>(false); // Add saving state
+
+  // Debounce save function
+  const debouncedSave = useCallback(
+    debounce((conv: Conversation) => {
+      if (conv.userId) { // Only save to Supabase if userId is present
+        setIsSaving(true);
+        saveConversationToSupabase(conv).finally(() => setIsSaving(false));
+      }
+    }, 1500), // Debounce for 1.5 seconds
+    [] // Empty dependency array for useCallback
+  );
 
   // Load state from local storage or initialize based on auth state
   useEffect(() => {
-    setIsLoading(true);
-    // Wait until auth state is determined
-    if (isAuthLoading) {
-      return; 
-    }
+    const loadState = async () => {
+      setIsLoading(true);
+      // Wait until auth state is determined
+      if (isAuthLoading) {
+        return; 
+      }
 
-    if (session) {
-      // --- USER IS LOGGED IN --- 
-      try {
-        const storedConversation = localStorage.getItem(LOCAL_STORAGE_CONVERSATION_KEY);
-        if (storedConversation) {
-          const parsedConversation = JSON.parse(storedConversation) as Conversation;
-          if (parsedConversation && typeof parsedConversation === 'object' && parsedConversation.messages) {
-            setConversation(parsedConversation);
-            const storedActiveId = localStorage.getItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
-            if (storedActiveId && parsedConversation.messages[storedActiveId]) {
-              setActiveMessageId(storedActiveId);
-            } else if (parsedConversation.rootMessageId) {
-              setActiveMessageId(parsedConversation.rootMessageId);
+      if (session) {
+        // --- USER IS LOGGED IN --- 
+        // Clear any old guest data
+        localStorage.removeItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
+        localStorage.removeItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
+
+        const loadedConversation = await loadConversationFromSupabase(session.user.id);
+        if (loadedConversation) {
+           // Add userId to the loaded conversation object if not already present
+          loadedConversation.userId = session.user.id; 
+          setConversation(loadedConversation);
+          // TODO: Decide how to handle activeMessageId persistence for logged-in users. 
+          // Maybe store it in conversation metadata in Supabase? 
+          // For now, default to root.
+          setActiveMessageId(loadedConversation.rootMessageId); 
+        } else {
+          // No conversation in Supabase, initialize fresh and assign userId
+          initializeNewConversation(session.user.id); 
+        }
+      } else {
+        // --- USER IS GUEST --- 
+        // Clear any potential logged-in user data (e.g., if they logged out)
+        localStorage.removeItem(LOCAL_STORAGE_CONVERSATION_KEY); 
+        localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY); 
+
+        try {
+          const storedConversation = localStorage.getItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
+          if (storedConversation) {
+            const parsedConversation = JSON.parse(storedConversation) as Conversation;
+            // Basic validation
+            if (parsedConversation && typeof parsedConversation === 'object' && parsedConversation.messages) {
+              setConversation(parsedConversation);
+              const storedActiveId = localStorage.getItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
+              if (storedActiveId && parsedConversation.messages[storedActiveId]) {
+                setActiveMessageId(storedActiveId);
+              } else if (parsedConversation.rootMessageId) {
+                setActiveMessageId(parsedConversation.rootMessageId);
+              }
+            } else {
+              // Invalid data found, initialize fresh
+              console.warn("Invalid guest conversation data found in localStorage. Initializing fresh.");
+              localStorage.removeItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
+              localStorage.removeItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
+              initializeNewConversation(); // Initialize guest conversation
             }
           } else {
-            localStorage.removeItem(LOCAL_STORAGE_CONVERSATION_KEY);
-            localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
-            initializeNewConversation(); // Initialize fresh
+            initializeNewConversation(); // Initialize guest conversation
           }
-        } else {
-          initializeNewConversation(); // Initialize fresh
+        } catch (error) {
+           console.error("Error loading guest conversation from localStorage:", error);
+           localStorage.removeItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
+           localStorage.removeItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
+           initializeNewConversation(); // Initialize fresh on error
         }
-      } catch (error) {
-        localStorage.removeItem(LOCAL_STORAGE_CONVERSATION_KEY);
-        localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
-        initializeNewConversation(); // Initialize fresh on error
       }
-    } else {
-      // --- USER IS GUEST --- 
-      localStorage.removeItem(LOCAL_STORAGE_CONVERSATION_KEY);
-      localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
-      initializeNewConversation(); // Initialize fresh
-    }
-    setIsLoading(false); // Loading finished
+      setIsLoading(false); // Loading finished
+    };
+
+    loadState();
   }, [session, isAuthLoading]); // Rerun when auth state changes
 
-  // Helper to initialize a new conversation
-  const initializeNewConversation = () => {
+  // Helper to initialize a new conversation, now accepts optional userId
+  const initializeNewConversation = (userId?: string) => {
     const rootId = uuidv4();
     const initialMessage: MessageNode = {
       id: rootId,
@@ -139,43 +182,88 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     setActiveMessageId(rootId);
   };
 
+  // Function to start a new conversation
+  const startNewConversation = () => {
+    initializeNewConversation(session?.user?.id); // Pass user ID if logged in
+    // Persisting the *new* conversation will be handled by the useEffect that watches `conversation`
+  };
+
   // Save conversation state to local storage ONLY if logged in
-  useEffect(() => {
-    if (!isLoading && session && conversation) { // Check for session
-      try {
-        localStorage.setItem(LOCAL_STORAGE_CONVERSATION_KEY, JSON.stringify(conversation));
-      } catch (error) {
-      }
-    }
-  }, [conversation, isLoading, session]); // Add session dependency
+  // useEffect(() => {
+  //   if (!isLoading && session && conversation) { // Check for session
+  //     try {
+  //       localStorage.setItem(LOCAL_STORAGE_CONVERSATION_KEY, JSON.stringify(conversation));
+  //     } catch (error) {
+  //     }
+  //   }
+  // }, [conversation, isLoading, session]); // Add session dependency
 
   // Save active message ID ONLY if logged in
+  // useEffect(() => {
+  //   if (!isLoading && session && activeMessageId) { // Check for session
+  //     try {
+  //       localStorage.setItem(LOCAL_STORAGE_ACTIVE_ID_KEY, activeMessageId);
+  //     } catch (error) {
+  //     }
+  //   } else if (!isLoading && session && activeMessageId === null) {
+  //     // Remove if user is logged in and ID becomes null
+  //     localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
+  //   }
+  //   // No need to handle removal for guests, as it\'s done during initialization
+  // }, [activeMessageId, isLoading, session]); // Add session dependency
+
+  // NEW: Save conversation state based on auth status
   useEffect(() => {
-    if (!isLoading && session && activeMessageId) { // Check for session
-      try {
-        localStorage.setItem(LOCAL_STORAGE_ACTIVE_ID_KEY, activeMessageId);
-      } catch (error) {
+    if (!isLoading && conversation) {
+      if (session) {
+        // --- USER IS LOGGED IN --- 
+        // Ensure userId is attached before saving
+        const convWithUser = { ...conversation, userId: session.user.id }; 
+        debouncedSave(convWithUser); // Debounce Supabase saves
+      } else {
+        // --- USER IS GUEST --- 
+        try {
+          localStorage.setItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY, JSON.stringify(conversation));
+        } catch (error) {
+           console.error("Error saving guest conversation to localStorage:", error);
+        }
       }
-    } else if (!isLoading && session && activeMessageId === null) {
-      // Remove if user is logged in and ID becomes null
-      localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
     }
-    // No need to handle removal for guests, as it's done during initialization
-  }, [activeMessageId, isLoading, session]); // Add session dependency
+  }, [conversation, isLoading, session, debouncedSave]); // Rerun when conversation, loading, or session changes
+
+  // NEW: Save active message ID for guests
+  useEffect(() => {
+    if (!isLoading && !session) { // Only for guests
+      if (activeMessageId) {
+        try {
+          localStorage.setItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY, activeMessageId);
+        } catch (error) {
+          console.error("Error saving guest activeMessageId to localStorage:", error);
+        }
+      } else {
+        localStorage.removeItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY); // Remove if null
+      }
+    }
+    // Note: Persistence for logged-in activeMessageId is TBD (maybe via Supabase metadata)
+  }, [activeMessageId, isLoading, session]);
 
   // Derive current messages (path) whenever the conversation map or active message changes
   useEffect(() => {
     if (conversation?.messages && activeMessageId) {
+      console.log(`[Effect] Recalculating path. Active ID: ${activeMessageId}, Conv ID: ${conversation.id}, Message Count: ${Object.keys(conversation.messages).length}`);
       const path = getPathToNode(conversation.messages, activeMessageId);
+      console.log(`[Effect] Calculated path length: ${path.length}`);
       setCurrentMessages(path);
       // Example: Update children state if needed
       // const children = getChildrenOfNode(conversation.messages, activeMessageId);
       // setCurrentBranchNodes(children);
     } else {
+      console.log(`[Effect] Clearing path. Active ID: ${activeMessageId}, Conversation exists: ${!!conversation}`);
       setCurrentMessages([]);
       // setCurrentBranchNodes([]);
     }
-  }, [conversation, activeMessageId]);
+    // Add conversation.id to dependencies to ensure effect runs when conversation changes entirely
+  }, [conversation?.id, conversation?.messages, activeMessageId]);
 
   // --- Helper function to check for children --- 
   const hasChildren = useCallback((messageId: string): boolean => {
@@ -348,6 +436,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     createBranch,
     hasChildren,
     updateMessageContent,
+    startNewConversation,
   };
 
   return (
@@ -364,4 +453,20 @@ export const useConversation = (): ConversationContextType => {
     throw new Error('useConversation must be used within a ConversationProvider');
   }
   return context;
-}; 
+};
+
+// Add debounce function utility (if not already available globally)
+// Simple debounce implementation
+function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+
+  const debounced = (...args: Parameters<F>) => {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+    timeout = setTimeout(() => func(...args), waitFor);
+  };
+
+  return debounced as (...args: Parameters<F>) => ReturnType<F>;
+} 
