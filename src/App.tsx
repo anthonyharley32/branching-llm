@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 // import AuthContainer from './components/auth/AuthContainer' // Already removed
 import { 
   generateCompletionStream,
+  generateTitle,
   LLMError, 
   ErrorType, 
   StreamCallbacks
@@ -57,7 +58,8 @@ function AppContent() {
     setActiveMessageId,
     updateMessageContent,
     conversation,
-    startNewConversation
+    startNewConversation,
+    updateConversationTitle
   } = useConversation();
 
   const [isSending, setIsSending] = useState(false);
@@ -280,6 +282,29 @@ function AppContent() {
       setIsSending(false);
       return;
     }
+
+    // --- Generate Title for New Conversations --- 
+    // Use the messagePath returned by addResult, as it includes the new message immediately
+    const isFirstUserMessage = addResult.messagePath && 
+      addResult.messagePath.filter(msg => msg.role === 'user').length === 1; 
+
+    // We also need the conversation ID, so check conversation exists too
+    if (addResult && conversation && isFirstUserMessage) {
+      console.log(`[Title Gen] First user message detected (ID: ${addResult.newNode.id}). Triggering title generation for conversation ${conversation.id}...`);
+      // Don't await this - let it run in the background
+      generateTitle(text).then(generatedTitle => {
+        console.log(`[Title Gen] Received title: '${generatedTitle}'`);
+        if (generatedTitle && generatedTitle !== "New Chat") {
+          console.log(`[Title Gen] Updating conversation ${conversation.id} title.`);
+          updateConversationTitle(conversation.id, generatedTitle);
+        } else {
+          console.log(`[Title Gen] Title is default or empty, not updating.`);
+        }
+      }).catch(err => {
+        console.error("[Title Gen] Background title generation failed:", err);
+      });
+    }
+    // --- End Title Generation ---
 
     // --- Set state to trigger LLM call via useEffect ---
     // When in a branch, ensure we only include messages relevant to this branch

@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid'; // Need uuid for generating IDs
 import { useAuth } from './AuthContext'; // Import useAuth hook
 // Import Supabase service functions
 import { loadConversationFromSupabase, saveConversationToSupabase } from '../services/conversationService'; 
+import { supabase } from '../lib/supabase';
 
 // --- Helper Functions (adapted for flat structure) ---
 
@@ -61,6 +62,7 @@ interface ConversationContextType {
   hasChildren: (messageId: string) => boolean;
   updateMessageContent: (messageId: string, contentChunk: string) => void;
   startNewConversation: () => void;
+  updateConversationTitle: (conversationId: string, title: string) => void;
 }
 
 // Create the context with a default value
@@ -250,7 +252,6 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   // Derive current messages (path) whenever the conversation map or active message changes
   useEffect(() => {
     if (conversation?.messages && activeMessageId) {
-      console.log(`[Effect] Recalculating path. Active ID: ${activeMessageId}, Conv ID: ${conversation.id}, Message Count: ${Object.keys(conversation.messages).length}`);
       const path = getPathToNode(conversation.messages, activeMessageId);
       console.log(`[Effect] Calculated path length: ${path.length}`);
       setCurrentMessages(path);
@@ -417,6 +418,42 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     }
   }, [conversation]);
 
+  // --- Function to update conversation title --- 
+  const updateConversationTitle = useCallback(async (conversationId: string, title: string) => {
+    if (!conversationId) return;
+
+    // 1. Update local state optimistically
+    setConversation(prevConv => {
+      if (!prevConv || prevConv.id !== conversationId) {
+        return prevConv;
+      }
+      // Only update if the title is different
+      if (prevConv.title === title) {
+        return prevConv;
+      }
+      return {
+        ...prevConv,
+        title: title,
+        updatedAt: new Date().getTime() // Also update timestamp
+      };
+    });
+
+    // 2. Update database in the background
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ title: title, updated_at: new Date().toISOString() })
+        .eq('id', conversationId);
+
+      if (error) {
+        console.error('Error updating conversation title in database:', error);
+        // TODO: Consider reverting local state or showing an error to the user
+      }
+    } catch (dbError) {
+      console.error('Unexpected error saving title to DB:', dbError);
+    }
+  }, []); // No dependencies needed as it operates on passed IDs/values
+
   // Render children only after loading is complete
   if (isLoading || isAuthLoading) {
       // Return null or loading indicator while waiting for auth and initial conversation setup
@@ -437,6 +474,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     hasChildren,
     updateMessageContent,
     startNewConversation,
+    updateConversationTitle,
   };
 
   return (

@@ -106,7 +106,7 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
       user_id: conversation.userId,
       root_message_id: conversation.rootMessageId,
       // Extract title/description from metadata if stored there, otherwise set defaults
-      title: conversation.messages[conversation.rootMessageId || '']?.content.substring(0, 50) || 'Untitled Conversation',
+      title: conversation.messages[conversation.rootMessageId || '']?.content.substring(0, 50) || 'New Chat',
       // metadata: conversation.metadata || {}, // Assuming metadata exists on FrontendConversation
       updated_at: new Date().toISOString(), // Ensure updated_at is set
       // created_at is handled by DB default on insert

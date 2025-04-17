@@ -5,6 +5,7 @@ import { useConversation } from '../context/ConversationContext';
 import { Conversation as DbConversation, ConversationMessage as DbMessage } from '../types/database';
 import { MessageNode } from '../types/conversation';
 import { FiEdit } from 'react-icons/fi';
+import { formatDistanceToNow } from 'date-fns';
 
 interface HistoryItem {
   id: string;
@@ -192,15 +193,15 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation }
         history.length === 0 ? (
           <p className="text-gray-500">No conversations found.</p>
         ) : (
-          <ul>
+          <ul className="list-none p-0 m-0">
             {history.map(item => (
-              <li key={item.id} className="mb-2">
+              <li key={item.id} className="mb-2 list-none">
                 <button
                   onClick={() => loadConversation(item.id)}
                   className="w-full text-left px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                 >
                   <div className="font-medium text-gray-900 dark:text-gray-200">{item.title}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">{new Date(item.updatedAt).toLocaleString()}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
                 </button>
               </li>
             ))}

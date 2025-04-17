@@ -27,6 +27,7 @@ export interface MessageNode extends BaseMessage { // Extend the base Message ty
 // Represents the entire conversation structure
 export interface Conversation {
   id: string; // Unique identifier for the conversation session
+  title?: string | null; // Add optional title field
   rootMessageId: string | null; // ID of the very first message (often a system prompt or initial user message)
   messages: Record<string, MessageNode>; // Flat map of all message nodes by their ID
   createdAt: number; // Unix timestamp (milliseconds) when conversation started

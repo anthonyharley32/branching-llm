@@ -113,6 +113,55 @@ export async function generateCompletionStream(
   }
 }
 
+// Function to generate a concise conversation title
+export async function generateTitle(
+  userMessage: string, 
+  maxRetries: number = 3,
+  defaultTitle: string = "New Chat"
+): Promise<string> {
+  const client = getClient();
+  const maxTitleLength = 30; // Maximum allowed title length
+  
+  const systemPrompt = `Summarize the following user message into a concise conversation title, maximum ${maxTitleLength} characters. Be brief and capture the main topic. Title:`;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const completion = await client.chat.completions.create({
+        model: "gpt-4-turbo", // Explicitly use gpt-4-turbo for titles
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage }
+        ],
+        temperature: 0.5, // Lower temperature for more deterministic titles
+        max_tokens: 15, // Keep response short
+        n: 1, // Generate only one title candidate
+        stream: false // We need the full response
+      });
+
+      const generatedTitle = completion.choices[0]?.message?.content?.trim();
+
+      if (generatedTitle && generatedTitle.length > 0 && generatedTitle.length <= maxTitleLength) {
+        // Remove potential quotes if the model adds them
+        return generatedTitle.replace(/^["']|["']$/g, ''); 
+      } else {
+        console.warn(`Title generation attempt ${attempt}: Title too long or empty ('${generatedTitle}'). Retrying...`);
+      }
+    } catch (error: unknown) {
+      console.error(`Error generating title on attempt ${attempt}:`, error);
+      const llmError = parseError(error);
+      // Don't retry on specific errors like auth/quota
+      if (llmError.type === ErrorType.AUTHENTICATION || llmError.type === ErrorType.QUOTA_EXCEEDED) {
+        console.error(`Unrecoverable error encountered (${llmError.type}), stopping title generation.`);
+        break; 
+      }
+      // For other errors, log and continue retrying
+    }
+  }
+
+  console.warn(`Failed to generate a valid title after ${maxRetries} attempts.`);
+  return defaultTitle; // Return default title if all attempts fail
+}
+
 // Parse and categorize OpenAI errors
 function parseError(error: unknown): LLMError {
   // Default error object
