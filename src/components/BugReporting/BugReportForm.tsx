@@ -2,6 +2,7 @@ import React, { useState, FormEvent, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { insertData } from '../../lib/db';
+import { motion } from 'framer-motion';
 
 interface BugReportFormProps {
   onSuccess?: () => void;
@@ -125,6 +126,17 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const backdropVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1 },
+  };
+  
+  const modalVariants = {
+    hidden: { opacity: 0, scale: 0.9 },
+    visible: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 300, damping: 30 } },
+    exit: { opacity: 0, scale: 0.9, transition: { duration: 0.2 } },
   };
 
   return (

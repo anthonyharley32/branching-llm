@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+import { Session, User, Provider, SignInWithPasswordCredentials, SignUpWithPasswordCredentials } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase'; // Import your initialized Supabase client
 
 type AuthContextType = {
@@ -7,6 +7,9 @@ type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  signInWithProvider: (provider: Provider) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,11 +62,62 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // setIsLoading(false); // Handled by listener now
   };
 
+  const signInWithPassword = async (email: string, password: string): Promise<void> => {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setIsLoading(false); // Set loading false after attempt
+    if (error) {
+      console.error('Error signing in:', error);
+      throw error; // Re-throw the error to be caught in the UI component
+    }
+    // State will update via onAuthStateChange listener
+  };
+  
+  const signUp = async (email: string, password: string): Promise<void> => {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signUp({ 
+        email, 
+        password, 
+        // Optional: Add options like redirect URL if needed for email verification flow
+        options: {
+            emailRedirectTo: window.location.origin, // Redirect back to app after verification
+        }
+    });
+    setIsLoading(false);
+    if (error) {
+      console.error('Error signing up:', error);
+      throw error;
+    }
+    // State will update via onAuthStateChange listener (usually requires email verification first)
+    // You might want to show a message in the UI after calling this
+  };
+  
+  const signInWithProvider = async (provider: Provider): Promise<void> => {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({ 
+        provider,
+        options: {
+            // Optional: Specify redirect URL if needed, defaults usually work
+             redirectTo: window.location.origin, 
+        }
+     });
+    // Don't setLoading(false) here, as redirect will happen
+    if (error) {
+        console.error(`Error signing in with ${provider}:`, error);
+        setIsLoading(false); // Only set loading false if there's an error preventing redirect
+        throw error;
+    }
+    // Supabase handles the redirect
+  };
+
   const value = {
     session,
     user,
     isLoading,
     signOut,
+    signInWithPassword,
+    signUp,
+    signInWithProvider,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

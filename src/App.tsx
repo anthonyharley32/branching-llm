@@ -15,11 +15,13 @@ import {
   StreamCallbacks
 } from './services/llm/openai'
 import { MessageNode } from './types/conversation'
-import { FiLogOut, FiArrowLeft } from 'react-icons/fi' // Removed FiX
+import { FiLogOut, FiArrowLeft, FiUser } from 'react-icons/fi' // Added FiUser
 // import { supabase } from './lib/supabase' // Already removed
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Conversation } from './types/conversation'
 import { BugReportButton } from './components/BugReporting'
+import AuthModal from './components/auth/AuthModal'
+import ProfileModal from './components/profile/ProfileModal'
 
 // --- Constants ---
 const GUEST_MESSAGE_LIMIT = 1000;
@@ -82,6 +84,17 @@ function AppContent() {
   } | null>(null);
 
   const [showingMainThread, setShowingMainThread] = useState(false);
+
+  // --- State for Auth Modal --- 
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const openAuthModal = () => setIsAuthModalOpen(true);
+  const closeAuthModal = () => setIsAuthModalOpen(false);
+  
+  // Profile modal state
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const openProfileModal = () => setIsProfileModalOpen(true);
+  const closeProfileModal = () => setIsProfileModalOpen(false);
+  // ---------------------------
 
   // Load guest message count from localStorage on initial load if not logged in
   useEffect(() => {
@@ -546,6 +559,14 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                             </span>
                         )}
                         <button 
+                            onClick={openProfileModal}
+                            className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 cursor-pointer"
+                            aria-label="Profile"
+                            title="Profile"
+                        >
+                            <FiUser className="h-5 w-5" />
+                        </button>
+                        <button 
                             onClick={signOut}
                             className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 cursor-pointer"
                             aria-label="Logout"
@@ -556,9 +577,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                     </>
                 ) : (
                     <button 
-                        onClick={() => {
-                            console.log("TODO: Show Auth Modal/View");
-                        }}
+                        onClick={openAuthModal}
                         className="flex items-center gap-1 py-2 px-3 bg-black text-white rounded-md hover:bg-gray-800 text-sm font-semibold transition-colors cursor-pointer"
                     >
                         Login / Register
@@ -676,6 +695,14 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
         )}
         <ChatInput onSendMessage={handleSendMessage} isLoading={isSending} />
       </div>
+      
+      {/* --- Render Auth Modal --- */}
+      <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
+      
+      {/* --- Render Profile Modal --- */}
+      <ProfileModal isOpen={isProfileModalOpen} onClose={closeProfileModal} />
+      {/* ------------------------- */}
+      
     </div>
   )
 }
