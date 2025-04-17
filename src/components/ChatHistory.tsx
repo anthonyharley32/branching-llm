@@ -16,11 +16,17 @@ interface HistoryItem {
 interface ChatHistoryProps {
   onClose: () => void;
   onLoadConversation?: () => void;
+  activeConversationId?: string | null;
 }
 
-const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation }) => {
+const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, activeConversationId }) => {
   const { session } = useAuth();
-  const { setConversation, setActiveMessageId, startNewConversation } = useConversation();
+  const { 
+    setConversation, 
+    setActiveMessageId, 
+    startNewConversation, 
+    conversation
+  } = useConversation();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +52,42 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation }
     };
     fetchHistory();
   }, [session]);
+
+  // --- Effect to update the current conversation's title/timestamp in the history list LIVE ---
+  useEffect(() => {
+    // Only run if we have an active conversation and its ID matches the one passed via props
+    if (conversation && activeConversationId && conversation.id === activeConversationId) {
+      setHistory(prevHistory => 
+        prevHistory.map(item => {
+          // If this list item matches the active conversation ID...
+          if (item.id === conversation.id) {
+            // ...update its title and updatedAt timestamp if they differ
+            const newTitle = conversation.title || 'New Chat'; // Use current title or default
+            // Ensure updatedAt is a valid number before creating a Date
+            const newTimestamp = typeof conversation.updatedAt === 'number' 
+              ? new Date(conversation.updatedAt).toISOString() 
+              : item.updatedAt; // Fallback to existing timestamp if invalid
+            
+            // Detailed logging for comparison
+            console.log(`[History Effect] Comparing ID: ${item.id} vs ${conversation.id}`);
+            console.log(`[History Effect] Comparing Title: '${item.title}'(${typeof item.title}) vs '${newTitle}'(${typeof newTitle})`);
+            console.log(`[History Effect] Comparing Timestamp: '${item.updatedAt}'(${typeof item.updatedAt}) vs '${newTimestamp}'(${typeof newTimestamp})`);
+            const titleChanged = item.title !== newTitle;
+            const timestampChanged = item.updatedAt !== newTimestamp;
+            console.log(`[History Effect] Title changed: ${titleChanged}, Timestamp changed: ${timestampChanged}`);
+
+            if (item.title !== newTitle || item.updatedAt !== newTimestamp) {
+              console.log(`[History Effect] Updating item ${item.id} title to '${newTitle}'`);
+              return { ...item, title: newTitle, updatedAt: newTimestamp };
+            }
+          }
+          // Otherwise, return the item unchanged
+          return item;
+        })
+      );
+    }
+  // Watch for changes in the active conversation's ID, title, or timestamp
+  }, [conversation?.id, conversation?.title, conversation?.updatedAt, activeConversationId]);
 
   // Add a helper function to find the latest message ID in the main thread
   const findLatestMessageId = (messages: Record<string, MessageNode>, rootId: string | null): string | null => {
@@ -198,7 +240,11 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation }
               <li key={item.id} className="mb-2 list-none">
                 <button
                   onClick={() => loadConversation(item.id)}
-                  className="w-full text-left px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                  className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out ${ 
+                    item.id === activeConversationId 
+                      ? 'bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-800' 
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
                 >
                   <div className="font-medium text-gray-900 dark:text-gray-200">{item.title}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>

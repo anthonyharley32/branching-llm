@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, Dispatch, SetStateAction, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, Dispatch, SetStateAction, useCallback, useRef } from 'react';
 // Assuming types are defined here - adjust path if needed
 import { Conversation, MessageNode } from '../types/conversation'; 
 import { v4 as uuidv4 } from 'uuid'; // Need uuid for generating IDs
@@ -83,16 +83,8 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   const [isLoading, setIsLoading] = useState<boolean>(true); // Internal loading state for context
   const [isSaving, setIsSaving] = useState<boolean>(false); // Add saving state
 
-  // Debounce save function
-  const debouncedSave = useCallback(
-    debounce((conv: Conversation) => {
-      if (conv.userId) { // Only save to Supabase if userId is present
-        setIsSaving(true);
-        saveConversationToSupabase(conv).finally(() => setIsSaving(false));
-      }
-    }, 1500), // Debounce for 1.5 seconds
-    [] // Empty dependency array for useCallback
-  );
+  // Debounced save function reference using useRef to persist across renders
+  const debouncedSaveRef = useRef(debounce(saveConversationToSupabase, 1500)); // Store the whole object
 
   // Load state from local storage or initialize based on auth state
   useEffect(() => {
@@ -221,7 +213,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
         // --- USER IS LOGGED IN --- 
         // Ensure userId is attached before saving
         const convWithUser = { ...conversation, userId: session.user.id }; 
-        debouncedSave(convWithUser); // Debounce Supabase saves
+        debouncedSaveRef.current.debounced(convWithUser); // Call the .debounced method
       } else {
         // --- USER IS GUEST --- 
         try {
@@ -231,7 +223,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
         }
       }
     }
-  }, [conversation, isLoading, session, debouncedSave]); // Rerun when conversation, loading, or session changes
+  }, [conversation, isLoading, session, debouncedSaveRef]); // Rerun when conversation, loading, or session changes
 
   // NEW: Save active message ID for guests
   useEffect(() => {
@@ -452,6 +444,9 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     } catch (dbError) {
       console.error('Unexpected error saving title to DB:', dbError);
     }
+
+    // Inside updateConversationTitle, call the cancel method of the debouncedSaveRef
+    debouncedSaveRef.current.cancel();
   }, []); // No dependencies needed as it operates on passed IDs/values
 
   // Render children only after loading is complete
@@ -493,18 +488,24 @@ export const useConversation = (): ConversationContextType => {
   return context;
 };
 
-// Add debounce function utility (if not already available globally)
-// Simple debounce implementation
+// Utility debounce function - MODIFIED
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   const debounced = (...args: Parameters<F>) => {
-    if (timeout !== null) {
-      clearTimeout(timeout);
-      timeout = null;
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
     }
-    timeout = setTimeout(() => func(...args), waitFor);
+    timeoutId = setTimeout(() => func(...args), waitFor);
   };
 
-  return debounced as (...args: Parameters<F>) => ReturnType<F>;
+  const cancel = () => {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+
+  // Return object with debounced function and cancel method
+  return { debounced, cancel };
 } 

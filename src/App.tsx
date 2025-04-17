@@ -593,15 +593,14 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
             animate={{ width: '20rem', opacity: 1 }}
             exit={{ width: 0, opacity: 1 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="flex-shrink-0 h-full z-20 overflow-hidden"
-            style={{ position: 'relative', boxShadow: isHistoryOpen ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none' }}
+            className="flex-shrink-0 h-full z-20 overflow-hidden bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
+            style={{ boxShadow: isHistoryOpen ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none' }}
           >
-            <div className="absolute top-0 left-0 w-80 h-full">
-              <ChatHistory 
-                onClose={() => setIsHistoryOpen(false)} 
-                onLoadConversation={() => setBranchStack([])} 
-              />
-            </div>
+            <ChatHistory 
+              onClose={() => setIsHistoryOpen(false)} 
+              onLoadConversation={() => setBranchStack([])} 
+              activeConversationId={conversation?.id}
+            />
           </motion.div>
         )}
       </AnimatePresence>
