@@ -32,6 +32,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
   
   // Sidebar navigation state
   const [activeSetting, setActiveSetting] = useState<ActiveSetting>('account');
+  
+  // State for custom preferences
+  const [highlightColor, setHighlightColor] = useState(() => 
+    localStorage.getItem('branchHighlightColor') || '#f5f0a8'
+  );
 
   useEffect(() => {
     if (user) {
@@ -424,8 +429,63 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
         {activeSetting === 'customize' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Customize</h3>
-            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <p className="text-gray-600 dark:text-gray-400">UI customization options would go here.</p>
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Text Selection</h4>
+                
+                <div className="space-y-4">
+                  {/* Branch Highlight Color Selection */}
+                  <div className="flex flex-col">
+                    <label htmlFor="highlight-color" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Branch Selection Highlight Color
+                    </label>
+                    <div className="flex items-center space-x-4">
+                      <input 
+                        type="color" 
+                        id="highlight-color" 
+                        value={highlightColor}
+                        className="w-10 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+                        onChange={(e) => {
+                          const newColor = e.target.value;
+                          // Update state 
+                          setHighlightColor(newColor);
+                          
+                          // Update stored preference in localStorage
+                          localStorage.setItem('branchHighlightColor', newColor);
+                          
+                          // Update CSS variable
+                          document.documentElement.style.setProperty('--branch-highlight-color', newColor);
+                          
+                          // Update via style element
+                          const styleElement = document.getElementById('dynamic-styles') || document.createElement('style');
+                          if (!styleElement.id) {
+                            styleElement.id = 'dynamic-styles';
+                            document.head.appendChild(styleElement);
+                          }
+                          styleElement.textContent = `.branch-source-highlight { background-color: ${newColor} !important; }`;
+                        }}
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Choose the color used to highlight text when creating branches or viewing branch sources.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                      <p className="text-sm">
+                        <span className="inline-block px-2 py-1 mr-1" style={{backgroundColor: highlightColor}}>
+                          Preview
+                        </span>
+                        of how your selected text will appear when highlighted.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <p className="text-gray-600 dark:text-gray-400">More UI customization options will be added here.</p>
+              </div>
             </div>
           </motion.div>
         )}
