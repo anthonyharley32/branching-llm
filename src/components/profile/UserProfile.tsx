@@ -256,13 +256,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
   }> = ({ setting, icon: Icon, label }) => (
     <button
       onClick={() => setActiveSetting(setting)}
-      className={`flex items-center w-full px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 ease-in-out ${ // Adjusted padding
+      className={`flex items-center w-full px-4 py-3 rounded-md text-base font-medium transition-colors duration-150 ease-in-out ${ // Changed text-sm to text-base and increased py-2 to py-3
         activeSetting === setting
           ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' // Adjusted active background
           : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-gray-100' // Adjusted hover background
       }`}
     >
-      <Icon className="mr-3 h-5 w-5 flex-shrink-0" />
+      <Icon className="mr-3 h-6 w-6 flex-shrink-0" /> {/* Increased icon size from h-5 w-5 to h-6 w-6 */}
       <span>{label}</span>
     </button>
   );
@@ -271,8 +271,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
     <div className="w-full flex"> {/* Removed minHeight style */}
       {/* Sidebar */} 
       <div className="w-60 border-r border-gray-200 dark:border-gray-700 p-4 flex flex-col shrink-0"> {/* Reduced width w-60 */} 
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6 px-2">Settings</h2>
-        <nav className="flex-1 space-y-1">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6 px-2">Settings</h2> {/* Changed from text-lg to text-xl */}
+        <nav className="flex-1 space-y-2"> {/* Changed from space-y-1 to space-y-2 */}
           <SidebarItem setting="account" icon={FiUser} label="Account" />
           <SidebarItem setting="appearance" icon={FiEdit3} label="Appearance" /> {/* Updated Icon */} 
           <SidebarItem setting="behavior" icon={FiMousePointer} label="Behavior" /> {/* Updated Icon */} 

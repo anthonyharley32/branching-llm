@@ -28,7 +28,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
   return (
     <form 
       onSubmit={handleSubmit} 
-      className="flex items-end p-4 m-4 border border-gray-300 rounded-xl bg-white shadow-sm"
+      className="flex items-end p-3 mx-4 mb-4 border border-gray-200 rounded-2xl bg-white shadow-md transition-all hover:shadow-lg"
     >
       <button 
         type="button" 
@@ -50,7 +50,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
         onKeyDown={handleKeyDown}
         placeholder="How can Grok help?"
         disabled={isLoading}
-        className="flex-grow px-2 py-1.5 bg-transparent border-none focus:outline-none focus:ring-0 resize-none max-h-40 overflow-y-auto text-sm"
+        className="flex-grow px-3 py-2 bg-transparent border-none focus:outline-none focus:ring-0 resize-none max-h-40 overflow-y-auto text-sm"
         rows={1}
       />
 

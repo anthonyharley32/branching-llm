@@ -619,7 +619,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
           {/* Left Side: Show logo title */}
           {branchStack.length === 0 && (
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold">LearningLLM</h1>
+              <img src="/PNG_Navi-removebg-preview.png" alt="Navi" className="h-10 w-auto" />
             </div>
           )}
 
@@ -842,7 +842,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
           {!session && (
               <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-1">
                   Chat history isn't saved for guest users. 
-                  <span onClick={() => console.log("TODO: Show Auth Modal")} className="text-blue-500 hover:underline cursor-pointer ml-1">Login/Register </span> 
+                  <span onClick={openAuthModal} className="text-blue-500 hover:underline cursor-pointer ml-1">Login/Register </span> 
                   to save your conversations.
               </p>
           )}
