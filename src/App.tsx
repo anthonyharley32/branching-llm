@@ -131,6 +131,13 @@ function AppContent() {
   }, [isProfileDropdownOpen]);
   // ---------------------------------------------
 
+  // Open history sidebar for logged-in users on page load
+  useEffect(() => {
+    if (session && !isAuthLoading) {
+      setIsHistoryOpen(true);
+    }
+  }, [session, isAuthLoading]);
+
   // Load guest message count from localStorage on initial load if not logged in
   useEffect(() => {
     if (!isAuthLoading && !session) {
@@ -720,8 +727,10 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
               onClick={() => { 
                 startNewConversation(); 
                 setBranchStack([]);
-                // Keep the history sidebar open
+                // Keep the history sidebar open and make sure it knows we started a new chat
                 setIsHistoryOpen(true);
+                // Clear any error messages that might be showing
+                setError(null);
               }}
               className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-offset-gray-850 transition-colors"
               title="Start a new conversation thread"

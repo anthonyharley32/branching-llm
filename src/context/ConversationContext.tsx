@@ -84,7 +84,39 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   const [isSaving, setIsSaving] = useState<boolean>(false); // Add saving state
 
   // Debounced save function reference using useRef to persist across renders
-  const debouncedSaveRef = useRef(debounce(saveConversationToSupabase, 1500)); // Store the whole object
+  const debouncedSaveRef = useRef(debounce(saveConversationToSupabase, 1500));
+
+  // Helper function to find the latest message ID in the main thread
+  const findLatestMessageId = (messages: Record<string, MessageNode>, rootId: string | null): string | null => {
+    if (!rootId || !messages[rootId]) return rootId; // Return root if invalid
+
+    let latestId = rootId;
+    let latestTimestamp = messages[rootId].createdAt.getTime();
+    let currentId: string | null = rootId;
+
+    while (currentId) {
+      const children = Object.values(messages)
+        .filter(msg => 
+          msg.parentId === currentId && 
+          !(msg.metadata?.isBranchStart === true) // Exclude branch starts
+        )
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); // Sort descending by time
+
+      if (children.length === 0) {
+        break; // No more children in the main thread
+      }
+
+      // The latest child is the next step in the main thread
+      const nextNode = children[0];
+      if (nextNode.createdAt.getTime() >= latestTimestamp) {
+        latestId = nextNode.id;
+        latestTimestamp = nextNode.createdAt.getTime();
+      }
+      currentId = nextNode.id;
+    }
+    
+    return latestId;
+  };
 
   // Load state from local storage or initialize based on auth state
   useEffect(() => {
@@ -95,60 +127,49 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
         return; 
       }
 
+      // Always initialize a fresh conversation when the app loads
+      // This will give users a blank chat experience on first load
+      initializeNewConversation(session?.user?.id);
+
+      // For logged-in users, still load their conversations for the sidebar
+      // but don't display them automatically in the chat area
       if (session) {
-        // --- USER IS LOGGED IN --- 
         // Clear any old guest data
         localStorage.removeItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
         localStorage.removeItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
 
-        const loadedConversation = await loadConversationFromSupabase(session.user.id);
-        if (loadedConversation) {
-           // Add userId to the loaded conversation object if not already present
-          loadedConversation.userId = session.user.id;
-          setConversation(loadedConversation);
-          setActiveMessageId(loadedConversation.rootMessageId);
-        } else {
-          initializeNewConversation(session.user.id);
-        }
+        // We load conversations for the sidebar but don't set them active
+        // The ChatHistory component will handle displaying these in the sidebar
       } else {
         // --- USER IS GUEST --- 
         // Clear any potential logged-in user data (e.g., if they logged out)
         localStorage.removeItem(LOCAL_STORAGE_CONVERSATION_KEY); 
-        localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY); 
-
+        localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
+        
+        // For guests, we can still keep the local storage clean
         try {
           const storedConversation = localStorage.getItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
-          if (storedConversation) {
-            const parsedConversation = JSON.parse(storedConversation) as Conversation;
-            // Basic validation
-            if (parsedConversation && typeof parsedConversation === 'object' && parsedConversation.messages) {
-              setConversation(parsedConversation);
-              const storedActiveId = localStorage.getItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
-              if (storedActiveId && parsedConversation.messages[storedActiveId]) {
-                setActiveMessageId(storedActiveId);
-              } else if (parsedConversation.rootMessageId) {
-                setActiveMessageId(parsedConversation.rootMessageId);
-              }
-            } else {
-              // Invalid data found, initialize fresh
+          if (!storedConversation) {
+            // If no stored conversation, we already initialized a new one above
+          } else {
+            // We still want to clean up any invalid data
+            try {
+              JSON.parse(storedConversation);
+            } catch (error) {
               localStorage.removeItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
               localStorage.removeItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
-              initializeNewConversation(); // Initialize guest conversation
             }
-          } else {
-            initializeNewConversation(); // Initialize guest conversation
           }
         } catch (error) {
-           localStorage.removeItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
-           localStorage.removeItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
-           initializeNewConversation(); // Initialize fresh on error
+          localStorage.removeItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
+          localStorage.removeItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
         }
       }
       setIsLoading(false); // Loading finished
     };
 
     loadState();
-  }, [session, isAuthLoading]); // Rerun when auth state changes
+  }, [session, isAuthLoading]);
 
   // Helper to initialize a new conversation, now accepts optional userId
   const initializeNewConversation = (userId?: string) => {

@@ -4,8 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import { useConversation } from '../context/ConversationContext';
 import { Conversation as DbConversation, ConversationMessage as DbMessage } from '../types/database';
 import { MessageNode } from '../types/conversation';
-import { FiEdit } from 'react-icons/fi';
+import { FiEdit, FiChevronLeft } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion'; // Import framer-motion for animations
 
 interface HistoryItem {
   id: string;
@@ -31,6 +32,14 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingConversation, setLoadingConversation] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Track if we have an unused new chat
+  const [unusedChatId, setUnusedChatId] = useState<string | null>(null);
+  // Track animations for removing items
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  // Track the previous conversation ID to help with cleanup
+  const [prevConversationId, setPrevConversationId] = useState<string | null>(null);
+  // Track if previous conversation was unused
+  const [prevConversationUnused, setPrevConversationUnused] = useState<boolean>(false);
 
   // Extract fetchHistory to be reusable and memoize it with useCallback
   const fetchHistory = useCallback(async () => {
@@ -76,15 +85,90 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
              [newHistoryItem, ...prevHistory]
              .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()) 
           );
-          // No need to call fetchHistory() immediately after optimistic update, 
-          // let the title/update effect handle subsequent refreshes if needed.
       }
-      // Removed the direct call to fetchHistory() here to avoid immediate overwrite
-      // The background save will eventually happen, and subsequent loads/refreshes will be correct.
     }
-  // Watch the core conversation identifiers and fetchHistory function
   }, [conversation?.id, conversation?.rootMessageId, conversation?.title, conversation?.updatedAt, fetchHistory, history]); 
-  // Note: Added history to dependency array for checking existsInHistory
+
+  // Detect if current conversation is an unused new chat and track previous conversation
+  useEffect(() => {
+    if (conversation) {
+      // Store previous conversation ID before updating it
+      if (conversation.id !== prevConversationId) {
+        // Save the current conversation ID as previous before updating
+        if (prevConversationId) {
+          console.log(`Switching from conversation ${prevConversationId} to ${conversation.id}`);
+        }
+        
+        // If we're switching away from an unused chat, mark it for potential removal
+        if (unusedChatId && unusedChatId === prevConversationId) {
+          console.log(`Marking previous conversation ${prevConversationId} as unused`);
+          setPrevConversationUnused(true);
+        }
+        
+        // Update the previous conversation ID
+        setPrevConversationId(conversation.id);
+      }
+      
+      // Check if current conversation is unused
+      const messagesArray = Object.values(conversation.messages);
+      // Consider a chat unused if it has only one message (system) or it has no user messages
+      const isUnused = messagesArray.length === 1 || 
+                      !messagesArray.some(msg => msg.role === 'user');
+      
+      if (isUnused) {
+        // This is an unused new chat
+        setUnusedChatId(conversation.id);
+      } else {
+        // This is not an unused new chat
+        setUnusedChatId(null);
+      }
+    }
+  }, [conversation, prevConversationId, unusedChatId]);
+
+  // Track when user switches from an unused new chat to another conversation
+  useEffect(() => {
+    // Check for direct switch from unused chat
+    if (activeConversationId && unusedChatId && activeConversationId !== unusedChatId) {
+      // User switched away from an unused new chat - let's remove it with animation
+      removeUnusedChat(unusedChatId);
+      setPrevConversationUnused(false);
+    }
+    // Also check for switch using the previous conversation tracking
+    else if (activeConversationId && prevConversationUnused && prevConversationId && 
+             activeConversationId !== prevConversationId) {
+      // We switched away from an unused previous conversation
+      removeUnusedChat(prevConversationId);
+      setPrevConversationUnused(false);
+    }
+  }, [activeConversationId, unusedChatId, prevConversationId, prevConversationUnused, session]);
+
+  // Helper function to remove an unused chat
+  const removeUnusedChat = (chatId: string) => {
+    console.log(`Removing unused chat: ${chatId}`);
+    setRemovingId(chatId);
+    
+    // After animation completes, actually remove from history and database
+    setTimeout(async () => {
+      // Remove from UI
+      setHistory(prevHistory => prevHistory.filter(item => item.id !== chatId));
+      
+      // Remove from database if user is logged in
+      if (session) {
+        try {
+          await supabase
+            .from('conversations')
+            .delete()
+            .eq('id', chatId);
+          console.log(`Removed unused chat from database: ${chatId}`);
+        } catch (error) {
+          console.error('Error deleting unused chat:', error);
+        }
+      }
+      
+      setRemovingId(null);
+      setUnusedChatId(null);
+    }, 500);
+  };
 
   // --- Effect to update the current conversation's title/timestamp in the history list LIVE ---
   useEffect(() => {
@@ -126,8 +210,6 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
         .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       );
     }
-  // Watch for changes in the active conversation's ID, title, or timestamp
-  // Using conversation.id ensures this runs whenever the conversation context changes
   }, [conversation?.id, conversation?.title, conversation?.updatedAt]);
 
   // Add a helper function to find the latest message ID in the main thread
@@ -256,9 +338,161 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
   };
 
   const handleNewChat = () => {
+    // Clear any previous errors when starting a new conversation
+    setError(null);
+    
+    // Find any unused chats in the list to clean up
+    const unusedChats = history.filter(item => item.title === "New Chat");
+    
+    if (unusedChats.length > 0) {
+      // Clean up all unused chats
+      for (const chat of unusedChats) {
+        // Skip the current chat for now - it will be replaced automatically
+        if (chat.id === conversation?.id) continue;
+        
+        // Remove any other unused chats with animation
+        setRemovingId(chat.id);
+        
+        // Clean up from state and database
+        setTimeout(async () => {
+          setHistory(prevHistory => prevHistory.filter(item => item.id !== chat.id));
+          
+          // Also remove from database if user is logged in
+          if (session) {
+            try {
+              await supabase
+                .from('conversations')
+                .delete()
+                .eq('id', chat.id);
+            } catch (error) {
+              console.error('Error deleting unused chat:', error);
+            }
+          }
+          
+          // Clear removing state
+          setRemovingId(null);
+        }, 300);
+      }
+    }
+    
+    // Start a new conversation (will replace current one if unused)
     startNewConversation();
-    // Refresh history after creating a new conversation
-    fetchHistory();
+  };
+
+  // Add effect to clear error if we're looking at a new/empty chat
+  useEffect(() => {
+    // Check if current conversation is a new/empty chat (only has system message)
+    if (conversation) {
+      const messagesArray = Object.values(conversation.messages);
+      const isNewChat = messagesArray.length === 1 && messagesArray[0].role === 'system';
+      
+      if (isNewChat) {
+        // Clear any previous error if we're viewing a new chat
+        setError(null);
+      }
+    }
+  }, [conversation]);
+
+  // Also clear errors whenever we change the active conversation
+  useEffect(() => {
+    if (activeConversationId) {
+      setError(null);
+    }
+  }, [activeConversationId]);
+
+  // Custom double chevron component
+  const DoubleChevronLeft = () => (
+    <div className="flex items-center">
+      <FiChevronLeft className="h-5 w-5" />
+      <FiChevronLeft className="h-5 w-5 -ml-3" />
+    </div>
+  );
+
+  // Fix for handling clicks on non-active chats that might be new/unused
+  const handleConversationClick = async (item: HistoryItem) => {
+    // If this is the active conversation and a New Chat, just create a new one
+    if (item.id === activeConversationId && item.title === "New Chat") {
+      startNewConversation();
+      return;
+    }
+    
+    // Check if this conversation is already marked as unused
+    if (item.id === unusedChatId) {
+      // Just start a new conversation since this chat is unused anyway
+      startNewConversation();
+      
+      // Remove the unused chat with animation
+      setRemovingId(item.id);
+      setTimeout(async () => {
+        setHistory(prevHistory => prevHistory.filter(hist => hist.id !== item.id));
+        
+        // Clean up from database if user is logged in
+        if (session) {
+          try {
+            await supabase
+              .from('conversations')
+              .delete()
+              .eq('id', item.id);
+          } catch (error) {
+            console.error('Error deleting unused chat:', error);
+          }
+        }
+        
+        setRemovingId(null);
+      }, 500);
+      
+      return;
+    }
+    
+    // For any other case, try to load the conversation first
+    if (!session) return;
+    
+    // Track which conversation is loading without showing loading UI immediately
+    setLoadingConversation(item.id);
+    
+    try {
+      // Check if this is a valid conversation by fetching its messages
+      const { data: msgs, error: msgsError } = await supabase
+        .from('conversation_messages')
+        .select('*')
+        .eq('conversation_id', item.id);
+      
+      // Special handling for conversations with no messages or just a system message
+      if (!msgsError && (msgs.length === 0 || (msgs.length === 1 && msgs[0].role === 'system'))) {
+        // This is an unused chat that wasn't caught by our main detector
+        // Start a new conversation instead
+        startNewConversation();
+        
+        // And remove this one
+        setRemovingId(item.id);
+        setTimeout(async () => {
+          setHistory(prevHistory => prevHistory.filter(hist => hist.id !== item.id));
+          
+          // Clean up from database
+          try {
+            await supabase
+              .from('conversations')
+              .delete()
+              .eq('id', item.id);
+          } catch (error) {
+            console.error('Error deleting unused chat:', error);
+          }
+          
+          setRemovingId(null);
+          setLoadingConversation(null);
+        }, 500);
+        
+        return;
+      }
+      
+      // Otherwise, proceed with normal loading
+      loadConversation(item.id);
+      
+    } catch (error) {
+      console.error('Error checking conversation status:', error);
+      // Fall back to normal loading in case of errors
+      loadConversation(item.id);
+    }
   };
 
   return (
@@ -266,7 +500,9 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center justify-between w-full">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Chat History</h2>
-          <button onClick={onClose} className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100">✕</button>
+          <button onClick={onClose} className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer">
+            <DoubleChevronLeft />
+          </button>
         </div>
       </div>
       
@@ -282,31 +518,56 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
       
       {/* Only show loading when there's no history content yet */}
       {loading && history.length === 0 && <p className="text-gray-500">Loading...</p>}
-      {error && <p className="text-red-600">{error}</p>}
+      
+      {/* Only show error messages for actual load failures, not when we have a valid conversation */}
+      {error && !(conversation && Object.keys(conversation.messages).length > 0) && 
+        <p className="text-red-600">{error}</p>
+      }
       
       {/* Always show history list if it exists, even during subsequent loads */}
       {history.length > 0 ? (
         <ul className="list-none p-0 m-0">
-          {history.map(item => (
-            <li key={item.id} className="mb-2 list-none">
-              <button
-                onClick={() => loadConversation(item.id)}
-                disabled={loadingConversation === item.id}
-                className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out ${ 
-                  item.id === activeConversationId 
-                    ? 'bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-800' 
-                    : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
-              >
-                <div className="font-medium text-gray-900 dark:text-gray-200 flex items-center">
-                  {item.title}
-                  {loadingConversation === item.id && (
-                    <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
-                  )}
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
-              </button>
-            </li>
+          {history.filter((item, index, self) => 
+            // Filter out duplicate IDs - keep only the first occurrence
+            index === self.findIndex(t => t.id === item.id)
+          ).map(item => (
+            <AnimatePresence mode="popLayout" key={item.id}>
+              {removingId !== item.id && (
+                <motion.li 
+                  key={item.id}
+                  className="mb-2 list-none"
+                  initial={{ opacity: 1, height: 'auto' }}
+                  exit={{ 
+                    opacity: 0,
+                    height: 0,
+                    marginBottom: 0,
+                    transition: { 
+                      opacity: { duration: 0.2 },
+                      height: { duration: 0.3, delay: 0.1 }
+                    }
+                  }}
+                  layout
+                >
+                  <button
+                    onClick={() => handleConversationClick(item)}
+                    disabled={loadingConversation === item.id}
+                    className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out ${ 
+                      item.id === activeConversationId 
+                        ? 'bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-800' 
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                    } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
+                  >
+                    <div className="font-medium text-gray-900 dark:text-gray-200 flex items-center">
+                      {item.title}
+                      {loadingConversation === item.id && (
+                        <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
+                  </button>
+                </motion.li>
+              )}
+            </AnimatePresence>
           ))}
         </ul>
       ) : !loading && !error ? (

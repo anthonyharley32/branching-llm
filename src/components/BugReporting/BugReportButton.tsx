@@ -72,7 +72,7 @@ const BugReportButton: React.FC<BugReportButtonProps> = ({
             >
               <button
                 onClick={closeModal}
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 z-10"
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 z-10 cursor-pointer"
                 aria-label="Close"
               >
                 <FiX size={24} />

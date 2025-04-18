@@ -282,7 +282,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
         {onClose && (
           <button 
             onClick={onClose} 
-            className="absolute top-4 right-4 p-1 rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors z-10" // Added z-10
+            className="absolute top-4 right-4 p-1 rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors z-10 cursor-pointer" // Added cursor-pointer
             aria-label="Close"
           >
             <FiX className="h-5 w-5" />
