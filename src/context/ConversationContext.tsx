@@ -179,20 +179,28 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   // NEW: Save conversation state based on auth status
   useEffect(() => {
     if (!isLoading && conversation) {
-      if (session) {
-        // --- USER IS LOGGED IN --- 
-        // Ensure userId is attached before saving and retain title if it exists
-        const convWithUser = { 
-          ...conversation, 
-          userId: session.user.id 
-        }; 
-        debouncedSaveRef.current.debounced(convWithUser);
-      } else {
-        // --- USER IS GUEST --- 
-        try {
-          localStorage.setItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY, JSON.stringify(conversation));
-        } catch (error) {
-           console.error("Error saving guest conversation to localStorage:", error);
+      // Only save if the conversation has changed content-wise
+      // Check for specific content-changing actions rather than any viewing
+      if (conversation._hasContentChanges) {
+        if (session) {
+          // --- USER IS LOGGED IN --- 
+          // Ensure userId is attached before saving and retain title if it exists
+          const convWithUser = { 
+            ...conversation, 
+            userId: session.user.id,
+            updatedAt: new Date().getTime() // Only update timestamp when content has changed
+          }; 
+          debouncedSaveRef.current.debounced(convWithUser);
+          
+          // Reset the flag after saving
+          setConversation(prev => prev ? { ...prev, _hasContentChanges: false } : prev);
+        } else {
+          // --- USER IS GUEST --- 
+          try {
+            localStorage.setItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY, JSON.stringify(conversation));
+          } catch (error) {
+             console.error("Error saving guest conversation to localStorage:", error);
+          }
         }
       }
     }
@@ -253,7 +261,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
           ...prevConv.messages,
           [messageId]: updatedMessage,
         },
-        updatedAt: new Date().getTime(),
+        _hasContentChanges: true, // Mark that content has changed
       };
     });
   }, [isLoading]); // Dependency on isLoading
@@ -303,6 +311,8 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
           rootMessageId: newId,
           messages: { [newId]: finalNode! }, // Use the pre-calculated finalNode
           createdAt: now.getTime(),
+          updatedAt: now.getTime(),
+          _hasContentChanges: true // Mark that content has changed
         };
         setActiveMessageId(newId);
       } else {
@@ -313,6 +323,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
             [newId]: finalNode!, // Use the pre-calculated finalNode
           },
           updatedAt: now.getTime(),
+          _hasContentChanges: true // Mark that content has changed
         };
         setActiveMessageId(newId);
       }
@@ -338,6 +349,9 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     if (!conversation.messages[sourceMessageId]) {
         return null;
     }
+
+    // Set the flag to indicate content changes
+    setConversation(prev => prev ? { ...prev, _hasContentChanges: true } : prev);
 
     // Generate a unique branch ID
     const branchId = `branch-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -387,7 +401,8 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
         return {
           ...prev,
           title: title,
-          updatedAt: new Date().getTime() // Also update timestamp
+          updatedAt: new Date().getTime(), // Also update timestamp
+          _hasContentChanges: true // Mark that content has changed to trigger database save
         };
       }
       return prev;

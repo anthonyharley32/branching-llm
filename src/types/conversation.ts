@@ -33,6 +33,7 @@ export interface Conversation {
   createdAt: number; // Unix timestamp (milliseconds) when conversation started
   updatedAt?: number; // Optional: Unix timestamp for the last update
   userId?: string; // Optional: Identifier for the user associated with the conversation
+  _hasContentChanges?: boolean; // Internal flag to track when conversation content has changed
   // Optional: Other conversation-level metadata
   // title?: string;
 } 

@@ -219,6 +219,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
         updatedAt: new Date(meta.updated_at).getTime(),
         userId: session.user.id,
         title: meta.title || undefined,
+        _hasContentChanges: false, // Explicitly set to false when loading to prevent timestamp updates
       };
       console.log(`[ChatHistory] Setting conversation context with data:`, conversationData);
       setConversation(conversationData);
