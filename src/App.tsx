@@ -290,18 +290,13 @@ function AppContent() {
 
     // We also need the conversation ID, so check conversation exists too
     if (addResult && conversation && isFirstUserMessage) {
-      console.log(`[Title Gen] First user message detected (ID: ${addResult.newNode.id}). Triggering title generation for conversation ${conversation.id}...`);
       // Don't await this - let it run in the background
       generateTitle(text).then(generatedTitle => {
-        console.log(`[Title Gen] Received title: '${generatedTitle}'`);
         if (generatedTitle && generatedTitle !== "New Chat") {
-          console.log(`[Title Gen] Updating conversation ${conversation.id} title.`);
           updateConversationTitle(conversation.id, generatedTitle);
-        } else {
-          console.log(`[Title Gen] Title is default or empty, not updating.`);
         }
       }).catch(err => {
-        console.error("[Title Gen] Background title generation failed:", err);
+        // Silently handle errors in background title generation
       });
     }
     // --- End Title Generation ---
@@ -597,8 +592,15 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
             style={{ boxShadow: isHistoryOpen ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none' }}
           >
             <ChatHistory 
-              onClose={() => setIsHistoryOpen(false)} 
-              onLoadConversation={() => setBranchStack([])} 
+              onClose={() => {
+                console.log('Sidebar closing via onClose callback');
+                setIsHistoryOpen(false);
+              }} 
+              onLoadConversation={() => {
+                console.log('Loading conversation, keeping sidebar open');
+                // Only reset branch stack, don't close sidebar
+                setBranchStack([]);
+              }} 
               activeConversationId={conversation?.id}
             />
           </motion.div>
@@ -622,16 +624,6 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
               <div className="flex items-center gap-4 relative"> {/* Added relative positioning for dropdown */}
                   {/* Bug Report Button */}
                   <BugReportButton buttonText="Report Bug" className="text-sm cursor-pointer" />
-                  {/* New Conversation */}
-                  {session && (
-                    <button
-                      onClick={() => { startNewConversation(); setBranchStack([]); }}
-                      className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                      title="Start New Conversation"
-                    >
-                      <FiPlusSquare className="h-5 w-5" />
-                    </button>
-                  )}
                   
                   {/* Guest Limit Warning */}
                   {guestLimitWarning && (
@@ -725,7 +717,12 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
               <FiMenu className="h-5 w-5" />
             </button>
             <button 
-              onClick={() => { startNewConversation(); setBranchStack([]); }}
+              onClick={() => { 
+                startNewConversation(); 
+                setBranchStack([]);
+                // Keep the history sidebar open
+                setIsHistoryOpen(true);
+              }}
               className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-offset-gray-850 transition-colors"
               title="Start a new conversation thread"
             >

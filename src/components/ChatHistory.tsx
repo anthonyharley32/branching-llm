@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConversation } from '../context/ConversationContext';
@@ -29,65 +29,106 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
   } = useConversation();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingConversation, setLoadingConversation] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Extract fetchHistory to be reusable and memoize it with useCallback
+  const fetchHistory = useCallback(async () => {
+    if (!session) return;
+    setLoading(true);
+    const { data, error: fetchError } = await supabase
+      .from('conversations')
+      .select('id, title, updated_at')
+      .eq('user_id', session.user.id)
+      .order('updated_at', { ascending: false });
+    if (fetchError) {
+      setError('Failed to load history.');
+    } else if (data) {
+      setHistory(
+        data.map(conv => ({ id: conv.id, title: conv.title || 'Untitled', updatedAt: conv.updated_at }))
+      );
+    }
+    setLoading(false);
+  }, [session, setLoading, setError, setHistory]);
+
   useEffect(() => {
-    const fetchHistory = async () => {
-      if (!session) return;
-      setLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from('conversations')
-        .select('id, title, updated_at')
-        .eq('user_id', session.user.id)
-        .order('updated_at', { ascending: false });
-      if (fetchError) {
-        console.error('Error loading conversation history:', fetchError);
-        setError('Failed to load history.');
-      } else if (data) {
-        setHistory(
-          data.map(conv => ({ id: conv.id, title: conv.title || 'Untitled', updatedAt: conv.updated_at }))
-        );
-      }
-      setLoading(false);
-    };
     fetchHistory();
-  }, [session]);
+  }, [session, fetchHistory]);
+
+  // Add another useEffect to refresh history when conversation ID changes (new conversation created)
+  // AND optimistically add the new conversation if it's not already present
+  useEffect(() => {
+    if (conversation?.id && conversation.rootMessageId) { // Check for ID and rootMessageId
+      // Check if this conversation ID is already in our history list
+      const existsInHistory = history.some(item => item.id === conversation.id);
+      
+      // If it's a *new* conversation (not in the list yet)
+      if (!existsInHistory) {
+          // Optimistically add the new conversation to the top of the list
+          const newHistoryItem: HistoryItem = {
+              id: conversation.id,
+              title: conversation.title || 'New Chat', // Use current title or default
+              // Ensure updatedAt exists and is valid, otherwise use current time
+              updatedAt: new Date(conversation.updatedAt || Date.now()).toISOString() 
+          };
+          // Prepend the new item and re-sort immediately
+          setHistory(prevHistory => 
+             [newHistoryItem, ...prevHistory]
+             .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()) 
+          );
+          // No need to call fetchHistory() immediately after optimistic update, 
+          // let the title/update effect handle subsequent refreshes if needed.
+      }
+      // Removed the direct call to fetchHistory() here to avoid immediate overwrite
+      // The background save will eventually happen, and subsequent loads/refreshes will be correct.
+    }
+  // Watch the core conversation identifiers and fetchHistory function
+  }, [conversation?.id, conversation?.rootMessageId, conversation?.title, conversation?.updatedAt, fetchHistory, history]); 
+  // Note: Added history to dependency array for checking existsInHistory
 
   // --- Effect to update the current conversation's title/timestamp in the history list LIVE ---
   useEffect(() => {
-    // Only run if we have an active conversation and its ID matches the one passed via props
-    if (conversation && activeConversationId && conversation.id === activeConversationId) {
+    // Only run if we have a valid conversation object loaded
+    if (conversation) {
       setHistory(prevHistory => 
         prevHistory.map(item => {
-          // If this list item matches the active conversation ID...
+          // If this list item's ID matches the currently loaded conversation's ID...
           if (item.id === conversation.id) {
             // ...update its title and updatedAt timestamp if they differ
-            const newTitle = conversation.title || 'New Chat'; // Use current title or default
-            // Ensure updatedAt is a valid number before creating a Date
+            const newTitle = conversation.title || 'New Chat'; 
             const newTimestamp = typeof conversation.updatedAt === 'number' 
               ? new Date(conversation.updatedAt).toISOString() 
               : item.updatedAt; // Fallback to existing timestamp if invalid
             
-            // Detailed logging for comparison
-            console.log(`[History Effect] Comparing ID: ${item.id} vs ${conversation.id}`);
-            console.log(`[History Effect] Comparing Title: '${item.title}'(${typeof item.title}) vs '${newTitle}'(${typeof newTitle})`);
-            console.log(`[History Effect] Comparing Timestamp: '${item.updatedAt}'(${typeof item.updatedAt}) vs '${newTimestamp}'(${typeof newTimestamp})`);
             const titleChanged = item.title !== newTitle;
-            const timestampChanged = item.updatedAt !== newTimestamp;
-            console.log(`[History Effect] Title changed: ${titleChanged}, Timestamp changed: ${timestampChanged}`);
+            // Compare timestamps more reliably by converting both to Date objects if possible
+            let timestampChanged = false;
+            try {
+              const itemDate = new Date(item.updatedAt).getTime();
+              const convDate = new Date(newTimestamp).getTime();
+              // Only compare if both are valid dates
+              if (!isNaN(itemDate) && !isNaN(convDate)) {
+                timestampChanged = itemDate !== convDate;
+              }
+            } catch (e) {
+              // Handle potential invalid date strings gracefully
+              timestampChanged = item.updatedAt !== newTimestamp;
+            }
 
-            if (item.title !== newTitle || item.updatedAt !== newTimestamp) {
-              console.log(`[History Effect] Updating item ${item.id} title to '${newTitle}'`);
+            if (titleChanged || timestampChanged) {
               return { ...item, title: newTitle, updatedAt: newTimestamp };
             }
           }
           // Otherwise, return the item unchanged
           return item;
         })
+        // Sort history after potential updates to ensure correct order
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       );
     }
   // Watch for changes in the active conversation's ID, title, or timestamp
-  }, [conversation?.id, conversation?.title, conversation?.updatedAt, activeConversationId]);
+  // Using conversation.id ensures this runs whenever the conversation context changes
+  }, [conversation?.id, conversation?.title, conversation?.updatedAt]);
 
   // Add a helper function to find the latest message ID in the main thread
   const findLatestMessageId = (messages: Record<string, MessageNode>, rootId: string | null): string | null => {
@@ -123,7 +164,14 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
 
   const loadConversation = async (convId: string) => {
     if (!session) return;
-    setLoading(true);
+    
+    // Track which conversation is loading without showing loading UI immediately
+    setLoadingConversation(convId);
+    
+    // Don't show loading state immediately, only if operation takes longer than expected
+    let showLoadingTimeout: NodeJS.Timeout | null = setTimeout(() => {
+      setLoading(true);
+    }, 300); // Short delay before showing loading indicator
     
     try {
       // 1. Fetch conversation metadata
@@ -134,9 +182,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
         .single();
         
       if (metaError || !meta) {
-        console.error('Error loading conversation metadata:', metaError);
         setError('Failed to load conversation.');
-        setLoading(false);
         return;
       }
       
@@ -147,9 +193,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
         .eq('conversation_id', convId);
         
       if (msgsError || !msgs) {
-        console.error('Error loading conversation messages:', msgsError);
         setError('Failed to load conversation messages.');
-        setLoading(false);
         return;
       }
       
@@ -174,7 +218,9 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
         createdAt: new Date(meta.created_at).getTime(),
         updatedAt: new Date(meta.updated_at).getTime(),
         userId: session.user.id,
+        title: meta.title || undefined,
       };
+      console.log(`[ChatHistory] Setting conversation context with data:`, conversationData);
       setConversation(conversationData);
       
       // 5. Find the ID of the LATEST message in the main thread
@@ -184,31 +230,34 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
       // This is crucial for displaying the conversation correctly
       if (latestMessageId) {
         setActiveMessageId(latestMessageId);
-        console.log(`Loaded conversation ${meta.id}. Active message set to latest: ${latestMessageId}`);
+        console.log(`Loading conversation: ${meta.id} (Latest message: ${latestMessageId})`);
       } else {
          // Fallback if latest couldn't be found (shouldn't usually happen if root exists)
          setActiveMessageId(meta.root_message_id);
-         console.log(`Loaded conversation ${meta.id}. Could not find latest message, setting active to root: ${meta.root_message_id}`);
+         console.log(`Loading conversation: ${meta.id} (Root message: ${meta.root_message_id})`);
       }
       
       // 7. Reset branch stack if provided
       if (onLoadConversation) {
         onLoadConversation();
       }
-      
-      // Close the sidebar only after successful loading
-      onClose();
     } catch (error) {
-      console.error('Unexpected error loading conversation:', error);
       setError('An unexpected error occurred.');
     } finally {
+      // Clear the loading timeout if it hasn't fired yet
+      if (showLoadingTimeout) {
+        clearTimeout(showLoadingTimeout);
+        showLoadingTimeout = null;
+      }
       setLoading(false);
+      setLoadingConversation(null);
     }
   };
 
   const handleNewChat = () => {
     startNewConversation();
-    onClose();
+    // Refresh history after creating a new conversation
+    fetchHistory();
   };
 
   return (
@@ -229,31 +278,39 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
       </button>
       
       <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Recent conversations</div>
-      {loading && <p className="text-gray-500">Loading...</p>}
+      
+      {/* Only show loading when there's no history content yet */}
+      {loading && history.length === 0 && <p className="text-gray-500">Loading...</p>}
       {error && <p className="text-red-600">{error}</p>}
-      {!loading && !error && (
-        history.length === 0 ? (
-          <p className="text-gray-500">No conversations found.</p>
-        ) : (
-          <ul className="list-none p-0 m-0">
-            {history.map(item => (
-              <li key={item.id} className="mb-2 list-none">
-                <button
-                  onClick={() => loadConversation(item.id)}
-                  className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out ${ 
-                    item.id === activeConversationId 
-                      ? 'bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-800' 
-                      : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  <div className="font-medium text-gray-900 dark:text-gray-200">{item.title}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )
-      )}
+      
+      {/* Always show history list if it exists, even during subsequent loads */}
+      {history.length > 0 ? (
+        <ul className="list-none p-0 m-0">
+          {history.map(item => (
+            <li key={item.id} className="mb-2 list-none">
+              <button
+                onClick={() => loadConversation(item.id)}
+                disabled={loadingConversation === item.id}
+                className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out ${ 
+                  item.id === activeConversationId 
+                    ? 'bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-800' 
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
+              >
+                <div className="font-medium text-gray-900 dark:text-gray-200 flex items-center">
+                  {item.title}
+                  {loadingConversation === item.id && (
+                    <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : !loading && !error ? (
+        <p className="text-gray-500">No conversations found.</p>
+      ) : null}
     </div>
   );
 };

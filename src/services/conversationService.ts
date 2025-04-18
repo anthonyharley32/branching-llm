@@ -10,7 +10,7 @@ import { Conversation as DbConversation, ConversationMessage as DbMessage } from
  * @returns The user's conversation in frontend format, or null if not found or error.
  */
 export const loadConversationFromSupabase = async (userId: string): Promise<FrontendConversation | null> => {
-  console.log(`Attempting to load conversation for user ${userId}...`);
+  // console.log(`Attempting to load conversation for user ${userId}...`);
   try {
     // 1. Fetch the latest conversation metadata for the user
     const { data: convData, error: convError } = await supabase
@@ -32,7 +32,7 @@ export const loadConversationFromSupabase = async (userId: string): Promise<Fron
     }
 
     const dbConversation = convData as DbConversation;
-    console.log(`Found conversation ${dbConversation.id}. Fetching messages...`);
+    // console.log(`Found conversation ${dbConversation.id}. Fetching messages...`);
 
     // 2. Fetch all messages for that conversation
     const { data: messagesData, error: messagesError } = await supabase
@@ -47,7 +47,7 @@ export const loadConversationFromSupabase = async (userId: string): Promise<Fron
     }
 
     const dbMessages = (messagesData || []) as DbMessage[];
-    console.log(`Fetched ${dbMessages.length} messages for conversation ${dbConversation.id}.`);
+    // console.log(`Fetched ${dbMessages.length} messages for conversation ${dbConversation.id}.`);
 
     // 3. Convert DB messages to frontend MessageNode format
     const frontendMessages: Record<string, MessageNode> = {};
@@ -72,10 +72,11 @@ export const loadConversationFromSupabase = async (userId: string): Promise<Fron
       createdAt: new Date(dbConversation.created_at).getTime(), // Convert to timestamp
       updatedAt: dbConversation.updated_at ? new Date(dbConversation.updated_at).getTime() : undefined,
       userId: dbConversation.user_id,
-      // Map other fields like title, description from dbConversation.metadata if needed
+      // Add the title from database
+      title: dbConversation.title || 'New Chat',
     };
 
-    console.log(`Successfully loaded and formatted conversation ${frontendConversation.id} for user ${userId}.`);
+    // console.log(`Successfully loaded and formatted conversation ${frontendConversation.id} for user ${userId}.`);
     return frontendConversation;
 
   } catch (error) {
@@ -97,7 +98,7 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
       console.error("Cannot save conversation without a userId.");
       return false;
   }
-   console.log(`Attempting to save conversation ${conversation.id} for user ${conversation.userId}...`);
+  // console.log(`Attempting to save conversation ${conversation.id} for user ${conversation.userId}...`);
 
   try {
     // 1. Prepare conversation metadata for upsert
@@ -105,11 +106,11 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
       id: conversation.id, // Use the existing ID for upsert
       user_id: conversation.userId,
       root_message_id: conversation.rootMessageId,
-      // Extract title/description from metadata if stored there, otherwise set defaults
-      title: conversation.messages[conversation.rootMessageId || '']?.content.substring(0, 50) || 'New Chat',
-      // metadata: conversation.metadata || {}, // Assuming metadata exists on FrontendConversation
+      // Don't override existing title with a default value
+      title: conversation.title || 'New Chat',
+      // Keep created_at if it exists in the conversation object
+      created_at: conversation.createdAt ? new Date(conversation.createdAt).toISOString() : undefined,
       updated_at: new Date().toISOString(), // Ensure updated_at is set
-      // created_at is handled by DB default on insert
     };
 
     const { error: convUpsertError } = await supabase
@@ -120,7 +121,7 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
         console.error('Error upserting conversation metadata:', convUpsertError);
         return false; // Stop if conversation metadata fails
     }
-     console.log(`Conversation metadata ${conversation.id} upserted.`);
+    // console.log(`Conversation metadata ${conversation.id} upserted.`);
 
     // 2. Prepare messages for upsert
     const messagesForDb: Partial<DbMessage>[] = Object.values(conversation.messages).map(node => ({
@@ -133,27 +134,24 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
         // Ensure dates are ISO strings for Supabase
         created_at: node.createdAt instanceof Date ? node.createdAt.toISOString() : new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        // Other fields like branch_id, selected_text, thinking_content would go here if used
     }));
 
     if (messagesForDb.length > 0) {
-         console.log(`Upserting ${messagesForDb.length} messages for conversation ${conversation.id}...`);
+        // console.log(`Upserting ${messagesForDb.length} messages for conversation ${conversation.id}...`);
         const { error: messagesUpsertError } = await supabase
             .from('conversation_messages')
             .upsert(messagesForDb, { onConflict: 'id' }); // Upsert based on message ID
 
         if (messagesUpsertError) {
             console.error('Error upserting messages:', messagesUpsertError);
-            // Decide if partial success is acceptable. Returning false for now.
             return false;
         }
-         console.log(`Messages for conversation ${conversation.id} upserted successfully.`);
+        // console.log(`Messages for conversation ${conversation.id} upserted successfully.`);
     } else {
-         console.log(`No messages to upsert for conversation ${conversation.id}.`);
+        // console.log(`No messages to upsert for conversation ${conversation.id}.`);
     }
 
-
-     console.log(`Conversation ${conversation.id} saved successfully for user ${conversation.userId}.`);
+    // console.log(`Conversation ${conversation.id} saved successfully for user ${conversation.userId}.`);
     return true; // Success
 
   } catch (error) {

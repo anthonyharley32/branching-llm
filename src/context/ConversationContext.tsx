@@ -182,38 +182,19 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     // Persisting the *new* conversation will be handled by the useEffect that watches `conversation`
   };
 
-  // Save conversation state to local storage ONLY if logged in
-  // useEffect(() => {
-  //   if (!isLoading && session && conversation) { // Check for session
-  //     try {
-  //       localStorage.setItem(LOCAL_STORAGE_CONVERSATION_KEY, JSON.stringify(conversation));
-  //     } catch (error) {
-  //     }
-  //   }
-  // }, [conversation, isLoading, session]); // Add session dependency
-
-  // Save active message ID ONLY if logged in
-  // useEffect(() => {
-  //   if (!isLoading && session && activeMessageId) { // Check for session
-  //     try {
-  //       localStorage.setItem(LOCAL_STORAGE_ACTIVE_ID_KEY, activeMessageId);
-  //     } catch (error) {
-  //     }
-  //   } else if (!isLoading && session && activeMessageId === null) {
-  //     // Remove if user is logged in and ID becomes null
-  //     localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
-  //   }
-  //   // No need to handle removal for guests, as it\'s done during initialization
-  // }, [activeMessageId, isLoading, session]); // Add session dependency
-
   // NEW: Save conversation state based on auth status
   useEffect(() => {
     if (!isLoading && conversation) {
       if (session) {
         // --- USER IS LOGGED IN --- 
-        // Ensure userId is attached before saving
-        const convWithUser = { ...conversation, userId: session.user.id }; 
-        debouncedSaveRef.current.debounced(convWithUser); // Call the .debounced method
+        // Ensure userId is attached before saving and retain title if it exists
+        const convWithUser = { 
+          ...conversation, 
+          userId: session.user.id 
+        }; 
+        // Log that we're scheduling a save to help with debugging
+        // console.log(`Scheduling save for conversation ${convWithUser.id} (title: ${convWithUser.title || 'untitled'})`);
+        debouncedSaveRef.current.debounced(convWithUser);
       } else {
         // --- USER IS GUEST --- 
         try {
@@ -223,7 +204,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
         }
       }
     }
-  }, [conversation, isLoading, session, debouncedSaveRef]); // Rerun when conversation, loading, or session changes
+  }, [conversation, isLoading, session, debouncedSaveRef]);
 
   // NEW: Save active message ID for guests
   useEffect(() => {
@@ -245,13 +226,13 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   useEffect(() => {
     if (conversation?.messages && activeMessageId) {
       const path = getPathToNode(conversation.messages, activeMessageId);
-      console.log(`[Effect] Calculated path length: ${path.length}`);
+      // console.log(`[Effect] Calculated path length: ${path.length}`);
       setCurrentMessages(path);
       // Example: Update children state if needed
       // const children = getChildrenOfNode(conversation.messages, activeMessageId);
       // setCurrentBranchNodes(children);
     } else {
-      console.log(`[Effect] Clearing path. Active ID: ${activeMessageId}, Conversation exists: ${!!conversation}`);
+      // console.log(`[Effect] Clearing path. Active ID: ${activeMessageId}, Conversation exists: ${!!conversation}`);
       setCurrentMessages([]);
       // setCurrentBranchNodes([]);
     }
@@ -444,9 +425,6 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     } catch (dbError) {
       console.error('Unexpected error saving title to DB:', dbError);
     }
-
-    // Inside updateConversationTitle, call the cancel method of the debouncedSaveRef
-    debouncedSaveRef.current.cancel();
   }, []); // No dependencies needed as it operates on passed IDs/values
 
   // Render children only after loading is complete
@@ -493,10 +471,19 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   const debounced = (...args: Parameters<F>) => {
+    // Log the debounce call to help with debugging
+    // const convArg = args[0] as any;
+    // if (convArg && convArg.id) {
+    //   console.log(`Debounced save for conversation ${convArg.id} (title: ${convArg.title || 'untitled'})`);
+    // }
+    
     if (timeoutId !== null) {
       clearTimeout(timeoutId);
     }
-    timeoutId = setTimeout(() => func(...args), waitFor);
+    timeoutId = setTimeout(() => {
+      // console.log('Executing debounced save now');
+      func(...args);
+    }, waitFor);
   };
 
   const cancel = () => {
