@@ -49,6 +49,13 @@ const shadeColor = (color: string, percent: number) => {
   const BB = ((B.toString(16).length === 1) ? "0" + B.toString(16) : B.toString(16));
 
   return "#" + RR + GG + BB;
+};
+
+// The main component function
+const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNodeId, onBranchCreated }) => {
+  // Determine if this is a user message
+  const isUser = message.role === 'user';
+  
   // --- DEBUGGING: Log raw AI message content ONCE per message ---
   useEffect(() => {
     if (!isUser) {

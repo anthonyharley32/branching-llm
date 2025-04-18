@@ -173,44 +173,80 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
   // --- Effect to update the current conversation's title/timestamp in the history list LIVE ---
   useEffect(() => {
     // Only run if we have a valid conversation object loaded
-    if (conversation) {
-      setHistory(prevHistory => 
-        prevHistory.map(item => {
-          // If this list item's ID matches the currently loaded conversation's ID...
-          if (item.id === conversation.id) {
-            // ...update its title and updatedAt timestamp if they differ
-            const newTitle = conversation.title || 'New Chat'; 
-            const newTimestamp = typeof conversation.updatedAt === 'number' 
-              ? new Date(conversation.updatedAt).toISOString() 
-              : item.updatedAt; // Fallback to existing timestamp if invalid
-            
-            const titleChanged = item.title !== newTitle;
-            // Compare timestamps more reliably by converting both to Date objects if possible
-            let timestampChanged = false;
-            try {
-              const itemDate = new Date(item.updatedAt).getTime();
-              const convDate = new Date(newTimestamp).getTime();
-              // Only compare if both are valid dates
-              if (!isNaN(itemDate) && !isNaN(convDate)) {
-                timestampChanged = itemDate !== convDate;
-              }
-            } catch (e) {
-              // Handle potential invalid date strings gracefully
-              timestampChanged = item.updatedAt !== newTimestamp;
-            }
+    if (!conversation) return; // Exit early if no conversation
 
-            if (titleChanged || timestampChanged) {
-              return { ...item, title: newTitle, updatedAt: newTimestamp };
+    setHistory(prevHistory => {
+      let itemFound = false;
+      let needsUpdate = false; // Tracks if any change (title or time) occurred
+      let needsSort = false;   // Tracks if sorting is necessary due to time change
+
+      const updatedHistory = prevHistory.map(item => {
+        // If this list item's ID matches the currently loaded conversation's ID...
+        if (item.id === conversation.id) {
+          itemFound = true;
+          // ...update its title and updatedAt timestamp if they differ
+          const newTitle = conversation.title || 'New Chat';
+          // Ensure updatedAt is a valid timestamp string
+          const newTimestamp = typeof conversation.updatedAt === 'number'
+            ? new Date(conversation.updatedAt).toISOString()
+            : item.updatedAt; // Fallback to existing timestamp if invalid
+
+          const titleChanged = item.title !== newTitle;
+          let timestampChanged = false;
+          try {
+            const itemDate = new Date(item.updatedAt).getTime();
+            const convDate = new Date(newTimestamp).getTime();
+            if (!isNaN(itemDate) && !isNaN(convDate)) {
+              timestampChanged = itemDate !== convDate;
+              // If timestamp changed AND this item is not already at the top, we might need to re-sort
+              // (Assuming list is sorted descending by date)
+              if (timestampChanged && prevHistory.length > 0 && prevHistory[0]?.id !== item.id) {
+                needsSort = true;
+              }
+            }
+          } catch (e) {
+            // Handle potential invalid date strings gracefully
+            timestampChanged = item.updatedAt !== newTimestamp;
+            // Check again if sorting might be needed
+            if (timestampChanged && prevHistory.length > 0 && prevHistory[0]?.id !== item.id) {
+               needsSort = true;
             }
           }
-          // Otherwise, return the item unchanged
-          return item;
-        })
-        // Sort history after potential updates to ensure correct order
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      );
-    }
-  }, [conversation?.id, conversation?.title, conversation?.updatedAt]);
+
+          if (titleChanged || timestampChanged) {
+            needsUpdate = true; // Mark that an update happened
+            return { ...item, title: newTitle, updatedAt: newTimestamp };
+          }
+        }
+        // Otherwise, return the item unchanged
+        return item;
+      });
+
+      // If the currently active conversation wasn't found in the history list yet,
+      // don't modify the list here. Another effect handles adding new items.
+      if (!itemFound) {
+        return prevHistory;
+      }
+
+      // Only trigger a state update if an actual change occurred
+      if (needsUpdate) {
+        // Only re-sort if the timestamp changed in a way that requires it
+        if (needsSort) {
+           // console.log("Sorting history due to timestamp update");
+           return updatedHistory.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        } else {
+           // console.log("Updating history item without sorting");
+           // Return the updated array, but maintain the existing order
+           return updatedHistory;
+        }
+      } else {
+        // If no changes detected, return the exact previous state object
+        // This prevents an unnecessary re-render cycle
+        // console.log("No history item update needed");
+        return prevHistory;
+      }
+    });
+  }, [conversation?.id, conversation?.title, conversation?.updatedAt]); // Keep dependencies as they are
 
   // Add a helper function to find the latest message ID in the main thread
   const findLatestMessageId = (messages: Record<string, MessageNode>, rootId: string | null): string | null => {
