@@ -600,6 +600,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                 console.log('Loading conversation, keeping sidebar open');
                 // Only reset branch stack, don't close sidebar
                 setBranchStack([]);
+                console.log('[DEBUG] App.tsx: ChatHistory.onLoadConversation finished.'); 
               }} 
               activeConversationId={conversation?.id}
             />

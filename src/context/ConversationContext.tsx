@@ -68,6 +68,28 @@ interface ConversationContextType {
 // Create the context with a default value
 const ConversationContext = createContext<ConversationContextType | undefined>(undefined);
 
+// Wrapper functions for state setters to add logging
+const logSetConversation = (setter: Dispatch<SetStateAction<Conversation | null>>) => (value: Conversation | null | ((prevState: Conversation | null) => Conversation | null)) => {
+    let newTitle = '(unknown)';
+    if (typeof value === 'function') {
+        // If it's a function, we can't easily know the title without calling it, which might have side effects
+        // So we just log that a function updater is used.
+        console.log('[DEBUG] ConversationContext: setConversation called with function updater.');
+    } else if (value) {
+        newTitle = value.title || '(none)';
+        console.log(`[DEBUG] ConversationContext: setConversation called. New conversation ID: ${value.id}, Title: ${newTitle}`);
+    }
+    else {
+         console.log('[DEBUG] ConversationContext: setConversation called with null.');
+    }
+    setter(value);
+};
+
+const logSetActiveMessageId = (setter: Dispatch<SetStateAction<string | null>>) => (value: string | null | ((prevState: string | null) => string | null)) => {
+    console.log(`[DEBUG] ConversationContext: setActiveMessageId called with: ${value instanceof Function ? '(function updater)' : value}`);
+    setter(value);
+};
+
 // Create the provider component
 interface ConversationProviderProps {
   children: ReactNode;
@@ -77,11 +99,17 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   const { session, isLoading: isAuthLoading } = useAuth(); // Get auth state
 
   // Initialize state - Always start null/empty, loading logic is in useEffect
-  const [conversation, setConversation] = useState<Conversation | null>(null);
-  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
+  const [_conversation, _setConversation] = useState<Conversation | null>(null);
+  const [_activeMessageId, _setActiveMessageId] = useState<string | null>(null);
   const [currentMessages, setCurrentMessages] = useState<MessageNode[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Internal loading state for context
   const [isSaving, setIsSaving] = useState<boolean>(false); // Add saving state
+
+  // Wrap setters with logging functions
+  const setConversation = logSetConversation(_setConversation);
+  const setActiveMessageId = logSetActiveMessageId(_setActiveMessageId);
+  const conversation = _conversation; // Use the original state variable for reading
+  const activeMessageId = _activeMessageId; // Use the original state variable for reading
 
   // Debounced save function reference using useRef to persist across renders
   const debouncedSaveRef = useRef(debounce(saveConversationToSupabase, 1500)); // Store the whole object
@@ -89,6 +117,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   // Load state from local storage or initialize based on auth state
   useEffect(() => {
     const loadState = async () => {
+      console.log('[DEBUG] ConversationContext: loadState started.'); // <<< ADDED LOG
       setIsLoading(true);
       // Wait until auth state is determined
       if (isAuthLoading) {
@@ -105,13 +134,11 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
         if (loadedConversation) {
            // Add userId to the loaded conversation object if not already present
           loadedConversation.userId = session.user.id; 
+          console.log(`[DEBUG] ConversationContext: Loaded conversation ${loadedConversation.id} from Supabase. Title: ${loadedConversation.title || '(none)'}, Setting active message ID to root: ${loadedConversation.rootMessageId}`); // <<< ADDED LOG
           setConversation(loadedConversation);
-          // TODO: Decide how to handle activeMessageId persistence for logged-in users. 
-          // Maybe store it in conversation metadata in Supabase? 
-          // For now, default to root.
           setActiveMessageId(loadedConversation.rootMessageId); 
         } else {
-          // No conversation in Supabase, initialize fresh and assign userId
+          console.log('[DEBUG] ConversationContext: No conversation found in Supabase, initializing new.'); // <<< ADDED LOG
           initializeNewConversation(session.user.id); 
         }
       } else {
@@ -126,11 +153,14 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
             const parsedConversation = JSON.parse(storedConversation) as Conversation;
             // Basic validation
             if (parsedConversation && typeof parsedConversation === 'object' && parsedConversation.messages) {
+              console.log(`[DEBUG] ConversationContext: Loaded guest conversation ${parsedConversation.id} from localStorage. Title: ${parsedConversation.title || '(none)'}`); // <<< ADDED LOG
               setConversation(parsedConversation);
               const storedActiveId = localStorage.getItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
               if (storedActiveId && parsedConversation.messages[storedActiveId]) {
+                console.log(`[DEBUG] ConversationContext: Setting active message ID for guest from localStorage: ${storedActiveId}`); // <<< ADDED LOG
                 setActiveMessageId(storedActiveId);
               } else if (parsedConversation.rootMessageId) {
+                console.log(`[DEBUG] ConversationContext: Setting active message ID for guest to root: ${parsedConversation.rootMessageId}`); // <<< ADDED LOG
                 setActiveMessageId(parsedConversation.rootMessageId);
               }
             } else {
@@ -150,6 +180,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
            initializeNewConversation(); // Initialize fresh on error
         }
       }
+      console.log('[DEBUG] ConversationContext: loadState finished.'); // <<< ADDED LOG
       setIsLoading(false); // Loading finished
     };
 
@@ -158,6 +189,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
 
   // Helper to initialize a new conversation, now accepts optional userId
   const initializeNewConversation = (userId?: string) => {
+    console.log(`[DEBUG] ConversationContext: initializeNewConversation called. User ID: ${userId || 'guest'}`); // <<< ADDED LOG
     const rootId = uuidv4();
     const initialMessage: MessageNode = {
       id: rootId,
@@ -178,6 +210,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
 
   // Function to start a new conversation
   const startNewConversation = () => {
+    console.log('[DEBUG] ConversationContext: startNewConversation called.'); // <<< ADDED LOG
     initializeNewConversation(session?.user?.id); // Pass user ID if logged in
     // Persisting the *new* conversation will be handled by the useEffect that watches `conversation`
   };
@@ -185,6 +218,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   // NEW: Save conversation state based on auth status
   useEffect(() => {
     if (!isLoading && conversation) {
+      console.log(`[DEBUG] ConversationContext: useEffect[conversation] triggered. Saving conversation ID: ${conversation.id}, Title: ${conversation.title || '(none)'}`); // <<< ADDED LOG
       if (session) {
         // --- USER IS LOGGED IN --- 
         // Ensure userId is attached before saving and retain title if it exists
@@ -393,6 +427,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
 
   // --- Function to update conversation title --- 
   const updateConversationTitle = useCallback(async (conversationId: string, title: string) => {
+    console.log(`[DEBUG] ConversationContext: updateConversationTitle called. ID: ${conversationId}, New Title: ${title}`); // <<< ADDED LOG
     if (!conversationId) return;
 
     // 1. Update local state optimistically
