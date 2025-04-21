@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConversation } from '../context/ConversationContext';
 import { Conversation as DbConversation, ConversationMessage as DbMessage } from '../types/database';
 import { MessageNode } from '../types/conversation';
-import { FiEdit, FiChevronLeft } from 'react-icons/fi';
+import { FiEdit, FiChevronLeft, FiMoreVertical, FiTrash2, FiEdit2 } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion'; // Import framer-motion for animations
 
@@ -40,6 +40,11 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
   const [prevConversationId, setPrevConversationId] = useState<string | null>(null);
   // Track if previous conversation was unused
   const [prevConversationUnused, setPrevConversationUnused] = useState<boolean>(false);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [isRenaming, setIsRenaming] = useState<string | null>(null);
+  const [newTitle, setNewTitle] = useState<string>('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Extract fetchHistory to be reusable and memoize it with useCallback
   const fetchHistory = useCallback(async () => {
@@ -531,6 +536,97 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
     }
   };
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setActiveMenu(null);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Focus the rename input when it appears
+  useEffect(() => {
+    if (isRenaming && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [isRenaming]);
+
+  // Handle renaming a conversation
+  const handleRename = async (id: string) => {
+    if (!session || !newTitle.trim()) return;
+    
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ title: newTitle.trim() })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setHistory(prevHistory => 
+        prevHistory.map(item => 
+          item.id === id ? { ...item, title: newTitle.trim() } : item
+        )
+      );
+      
+      // If this is the active conversation, update the conversation context
+      if (id === activeConversationId && conversation) {
+        setConversation({
+          ...conversation,
+          title: newTitle.trim()
+        });
+      }
+    } catch (error) {
+      console.error('Error renaming conversation:', error);
+    } finally {
+      setIsRenaming(null);
+      setNewTitle('');
+      setActiveMenu(null);
+    }
+  };
+
+  // Handle deleting a conversation
+  const handleDelete = async (id: string) => {
+    if (!session) return;
+    
+    try {
+      setRemovingId(id);
+      
+      // Delete from database
+      const { error } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      // Update local state after animation
+      setTimeout(() => {
+        setHistory(prevHistory => prevHistory.filter(item => item.id !== id));
+        
+        // If this was the active conversation, start a new one
+        if (id === activeConversationId) {
+          startNewConversation();
+        }
+        
+        setRemovingId(null);
+      }, 500);
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      setRemovingId(null);
+    } finally {
+      setActiveMenu(null);
+    }
+  };
+
   return (
     <div className="h-full w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto p-4 flex flex-col">
       <div className="flex justify-between items-center mb-6">
@@ -571,7 +667,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
               {removingId !== item.id && (
                 <motion.li 
                   key={item.id}
-                  className="mb-2 list-none"
+                  className="mb-2 list-none relative"
                   initial={{ opacity: 1, height: 'auto' }}
                   exit={{ 
                     opacity: 0,
@@ -584,23 +680,101 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                   }}
                   layout
                 >
-                  <button
-                    onClick={() => handleConversationClick(item)}
-                    disabled={loadingConversation === item.id}
-                    className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out ${ 
-                      item.id === activeConversationId 
-                        ? 'bg-gray-900 text-white dark:bg-gray-900 hover:bg-gray-800 dark:hover:bg-gray-800' 
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                    } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
-                  >
-                    <div className={`font-medium ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'} flex items-center`}>
-                      {item.title}
-                      {loadingConversation === item.id && (
-                        <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
+                  {isRenaming === item.id ? (
+                    <div className="w-full flex items-center">
+                      <input
+                        ref={renameInputRef}
+                        type="text"
+                        value={newTitle}
+                        onChange={(e) => setNewTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRename(item.id);
+                          if (e.key === 'Escape') {
+                            setIsRenaming(null);
+                            setNewTitle('');
+                          }
+                        }}
+                        className="flex-1 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded mr-1 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="Enter new title"
+                      />
+                      <button
+                        onClick={() => handleRename(item.id)}
+                        className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <button
+                        onClick={() => handleConversationClick(item)}
+                        disabled={loadingConversation === item.id}
+                        className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
+                          item.id === activeConversationId 
+                            ? 'bg-gray-900 text-white dark:bg-gray-900 hover:bg-gray-800 dark:hover:bg-gray-800' 
+                            : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                        } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
+                      >
+                        <div className={`font-medium ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'} flex items-center`}>
+                          {item.title}
+                          {loadingConversation === item.id && (
+                            <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
+                          )}
+                        </div>
+                        <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
+                        
+                        {/* 3-dot menu button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenu(activeMenu === item.id ? null : item.id);
+                          }}
+                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full ${
+                            item.id === activeConversationId 
+                              ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                              : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200 dark:hover:text-gray-200 dark:hover:bg-gray-600'
+                          } ${(activeMenu === item.id || item.id === activeConversationId) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                        >
+                          <FiMoreVertical className="h-4 w-4" />
+                        </button>
+                      </button>
+                      
+                      {/* Dropdown menu */}
+                      {activeMenu === item.id && (
+                        <div 
+                          ref={menuRef}
+                          className="absolute right-0 z-10 mt-1 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+                        >
+                          <div className="py-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsRenaming(item.id);
+                                setNewTitle(item.title);
+                                setActiveMenu(null);
+                              }}
+                              className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                              <FiEdit2 className="mr-2 h-4 w-4" />
+                              Rename
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm('Are you sure you want to delete this conversation?')) {
+                                  handleDelete(item.id);
+                                }
+                              }}
+                              className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                              <FiTrash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
-                    <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
-                  </button>
+                  )}
                 </motion.li>
               )}
             </AnimatePresence>
