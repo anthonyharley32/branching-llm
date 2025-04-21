@@ -1,100 +1,102 @@
 /**
- * Key Manager for LLM Services
- * Securely manages API keys for different LLM providers
+ * Key Management Module
+ * Handles API key storage, retrieval, and validation
  */
 
 import { LLMProvider } from './config';
 
-/**
- * Prefix for storing keys in local storage to avoid collisions.
- */
-const KEY_STORAGE_PREFIX = 'LearningLLM_llm_key_';
+// Storage keys
+const STORAGE_PREFIX = 'llm-app';
+const getStorageKey = (provider: LLMProvider) => `${STORAGE_PREFIX}.${provider}.api_key`;
 
-// Store API key securely
-export function storeApiKey(provider: LLMProvider, apiKey: string): void {
-  if (!apiKey || apiKey.trim() === '') {
+/**
+ * Check if an API key is configured via environment variables or browser storage
+ */
+export function hasApiKey(provider: LLMProvider): boolean {
+  switch (provider) {
+    case LLMProvider.OPENROUTER:
+      // Check environment variables first (for development)
+      if (import.meta.env.VITE_OPENROUTER_API_KEY) {
+        return true;
+      }
+      
+      // Check browser storage
+      const key = localStorage.getItem(getStorageKey(provider));
+      return key !== null && key.trim() !== '';
+      
+    default:
+      return false;
+  }
+}
+
+/**
+ * Get the API key for the specified provider
+ */
+export function getApiKey(provider: LLMProvider): string | null {
+  switch (provider) {
+    case LLMProvider.OPENROUTER:
+      // Check environment variables first (for development)
+      if (import.meta.env.VITE_OPENROUTER_API_KEY) {
+        return import.meta.env.VITE_OPENROUTER_API_KEY;
+      }
+      
+      // Fall back to browser storage
+      return localStorage.getItem(getStorageKey(provider));
+      
+    default:
+      return null;
+  }
+}
+
+/**
+ * Save the API key for the specified provider
+ */
+export function saveApiKey(provider: LLMProvider, key: string): void {
+  if (!key || key.trim() === '') {
     throw new Error('API key cannot be empty');
   }
   
-  try {
-    // In a production environment, consider using more secure methods
-    // like browser's Web Crypto API for encryption before storage
-    localStorage.setItem(`${KEY_STORAGE_PREFIX}${provider}`, apiKey);
-  } catch (error: unknown) {
-    console.error(`Failed to store API key for ${provider}:`, error);
-    throw new Error(`Failed to store API key: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-// Retrieve API key
-export function getApiKey(provider: LLMProvider): string | null {
-  try {
-    // First try to get from environment variables (preferred)
-    if (provider === LLMProvider.OPENAI && import.meta.env.VITE_OPENAI_API_KEY) {
-      return import.meta.env.VITE_OPENAI_API_KEY;
-    }
-    
-    // Check for OpenRouter key
-    if (provider === LLMProvider.OPENROUTER && import.meta.env.VITE_OPENROUTER_API_KEY) {
-      return import.meta.env.VITE_OPENROUTER_API_KEY;
-    }
-    
-    // Fall back to localStorage if not in environment
-    return localStorage.getItem(`${KEY_STORAGE_PREFIX}${provider}`);
-  } catch (error: unknown) {
-    console.error(`Failed to retrieve API key for ${provider}:`, error);
-    throw new Error(`Failed to retrieve API key: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-// Check if API key exists
-export function hasApiKey(provider: LLMProvider): boolean {
-  // First check environment variables
-  if (provider === LLMProvider.OPENAI && import.meta.env.VITE_OPENAI_API_KEY) {
-    return true;
-  }
+  localStorage.setItem(getStorageKey(provider), key.trim());
   
-  // Check for OpenRouter key
-  if (provider === LLMProvider.OPENROUTER && import.meta.env.VITE_OPENROUTER_API_KEY) {
-    return true;
-  }
-  
-  // Then check localStorage
-  try {
-    const key = localStorage.getItem(`${KEY_STORAGE_PREFIX}${provider}`);
-    return key !== null && key.trim() !== '';
-  } catch (error: unknown) {
-    console.error(`Failed to check API key for ${provider}:`, error);
-    return false;
-  }
+  // Log success (but don't log the actual key)
+  console.log(`Saved API key for ${provider}`);
 }
 
-// Remove API key
+/**
+ * Remove the stored API key for the specified provider
+ */
 export function removeApiKey(provider: LLMProvider): void {
-  try {
-    localStorage.removeItem(`${KEY_STORAGE_PREFIX}${provider}`);
-  } catch (error: unknown) {
-    console.error(`Failed to remove API key for ${provider}:`, error);
-    throw new Error(`Failed to remove API key: ${error instanceof Error ? error.message : String(error)}`);
+  localStorage.removeItem(getStorageKey(provider));
+  console.log(`Removed API key for ${provider}`);
+}
+
+/**
+ * Get a display-friendly name for the provider
+ */
+export function getProviderDisplayName(provider: LLMProvider): string {
+  switch (provider) {
+    case LLMProvider.OPENROUTER:
+      return 'OpenRouter';
+    default:
+      return 'Unknown Provider';
   }
 }
 
-// Validate API key format
-export function validateApiKeyFormat(provider: LLMProvider, apiKey: string): boolean {
+/**
+ * Validate API key format
+ * Returns boolean indicating if the key appears to be valid
+ */
+export function validateApiKey(provider: LLMProvider, apiKey: string): boolean {
   if (!apiKey || apiKey.trim() === '') {
     return false;
   }
   
-  // Basic validation patterns by provider
   switch (provider) {
-    case LLMProvider.OPENAI:
-      // OpenAI keys typically start with "sk-" and are 51 characters long
-      return /^sk-[a-zA-Z0-9]{48}$/.test(apiKey);
     case LLMProvider.OPENROUTER:
-      // OpenRouter keys start with "sk-or-v1-" and are 64 characters long
-      return /^sk-or-v1-[a-zA-Z0-9]{40,}$/.test(apiKey);
+      // OpenRouter keys are 32 character alphanumeric strings
+      return /^[a-zA-Z0-9_-]{32,}$/.test(apiKey.trim());
     default:
-      // For unknown providers, just check it's not empty
+      // For any unknown provider, just check it's not empty
       return apiKey.trim().length > 0;
   }
 } 

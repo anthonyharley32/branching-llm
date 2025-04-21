@@ -411,32 +411,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
         {activeSetting === 'appearance' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Appearance</h3>
-            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <p className="text-gray-600 dark:text-gray-400">Theme settings (Light/Dark/System) would go here.</p>
-              {/* Example Theme Toggle */} 
-              <div className="mt-4 flex items-center gap-4">
-                 <button className="flex items-center gap-2 p-2 rounded-md border border-gray-300 dark:border-gray-600"><FiSun/> Light</button>
-                 <button className="flex items-center gap-2 p-2 rounded-md border border-gray-300 dark:border-gray-600"><FiMoon/> Dark</button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-        
-        {/* Behavior Settings Content (Placeholder) */} 
-        {activeSetting === 'behavior' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Behavior</h3>
-            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <p className="text-gray-600 dark:text-gray-400">Application behavior settings (e.g., notifications, startup) would go here.</p>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Customize Settings Content (Placeholder) */} 
-        {activeSetting === 'customize' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Customize</h3>
             <div className="space-y-4">
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <p className="text-gray-600 dark:text-gray-400">Theme settings (Light/Dark/System) would go here.</p>
+                {/* Example Theme Toggle */} 
+                <div className="mt-4 flex items-center gap-4">
+                   <button className="flex items-center gap-2 p-2 rounded-md border border-gray-300 dark:border-gray-600"><FiSun/> Light</button>
+                   <button className="flex items-center gap-2 p-2 rounded-md border border-gray-300 dark:border-gray-600"><FiMoon/> Dark</button>
+                </div>
+              </div>
+              
+              {/* Text Selection Highlight Color - Moved from Customize tab */}
               <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Text Selection</h4>
                 
@@ -489,7 +474,25 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                   </div>
                 </div>
               </div>
-              
+            </div>
+          </motion.div>
+        )}
+        
+        {/* Behavior Settings Content (Placeholder) */} 
+        {activeSetting === 'behavior' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Behavior</h3>
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <p className="text-gray-600 dark:text-gray-400">Application behavior settings (e.g., notifications, startup) would go here.</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Customize Settings Content (Placeholder) */} 
+        {activeSetting === 'customize' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Customize</h3>
+            <div className="space-y-4">
               {/* LLM Provider Settings */}
               <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Language Model Settings</h4>

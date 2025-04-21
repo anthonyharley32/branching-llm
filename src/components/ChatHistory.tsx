@@ -589,17 +589,17 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                     disabled={loadingConversation === item.id}
                     className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out ${ 
                       item.id === activeConversationId 
-                        ? 'bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-800' 
+                        ? 'bg-gray-900 text-white dark:bg-gray-900 hover:bg-gray-800 dark:hover:bg-gray-800' 
                         : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                     } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
                   >
-                    <div className="font-medium text-gray-900 dark:text-gray-200 flex items-center">
+                    <div className={`font-medium ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'} flex items-center`}>
                       {item.title}
                       {loadingConversation === item.id && (
                         <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
+                    <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
                   </button>
                 </motion.li>
               )}

@@ -7,7 +7,6 @@ import { Message } from '../../types/chat';
 import { config, LLMProvider } from './config';
 
 // Import providers
-import * as OpenAIProvider from './openai';
 import * as OpenRouterProvider from './openrouter';
 
 // Common error type definition
@@ -39,9 +38,6 @@ export function initializeClient(): void {
   const provider = config.activeProvider;
   
   switch (provider) {
-    case LLMProvider.OPENAI:
-      OpenAIProvider.initializeClient();
-      break;
     case LLMProvider.OPENROUTER:
       OpenRouterProvider.initializeClient();
       break;
@@ -55,8 +51,6 @@ export async function generateCompletion(messages: Message[]): Promise<string> {
   const provider = config.activeProvider;
   
   switch (provider) {
-    case LLMProvider.OPENAI:
-      return await OpenAIProvider.generateCompletion(messages);
     case LLMProvider.OPENROUTER:
       return await OpenRouterProvider.generateCompletion(messages);
     default:
@@ -72,8 +66,6 @@ export async function generateCompletionStream(
   const provider = config.activeProvider;
   
   switch (provider) {
-    case LLMProvider.OPENAI:
-      return await OpenAIProvider.generateCompletionStream(messages, callbacks);
     case LLMProvider.OPENROUTER:
       return await OpenRouterProvider.generateCompletionStream(messages, callbacks);
     default:
@@ -90,8 +82,6 @@ export async function generateTitle(
   const provider = config.activeProvider;
   
   switch (provider) {
-    case LLMProvider.OPENAI:
-      return await OpenAIProvider.generateTitle(userMessage, maxRetries, defaultTitle);
     case LLMProvider.OPENROUTER:
       return await OpenRouterProvider.generateTitle(userMessage, maxRetries, defaultTitle);
     default:
@@ -124,22 +114,16 @@ export function getAvailableModels(): string[] {
   const provider = config.activeProvider;
   
   switch (provider) {
-    case LLMProvider.OPENAI:
-      return [
-        'gpt-3.5-turbo',
-        'gpt-4',
-        'gpt-4-turbo',
-        'gpt-4.1'
-      ];
     case LLMProvider.OPENROUTER:
       return [
-        'openai/gpt-3.5-turbo',
-        'openai/gpt-4',
-        'openai/gpt-4o',
-        'anthropic/claude-3-opus-20240229',
-        'anthropic/claude-3-sonnet-20240229',
-        'meta-llama/llama-3-70b-chat',
-        'mistral/mistral-large-latest'
+        'openai/gpt-4.1',
+        'openai/o4-mini-high',
+        'google/gemini-2.5-flash-preview',
+        'google/gemini-2.5-pro-preview-03-25',
+        'anthropic/claude-3.7-sonnet',
+        'anthropic/claude-3.7-sonnet:thinking',
+        'x-ai/grok-3-mini-beta',
+        'x-ai/grok-3-beta'
       ];
     default:
       return [];
@@ -159,48 +143,23 @@ export interface ModelInfo {
 export function getAllModels(): ModelInfo[] {
   const models: ModelInfo[] = [];
   
-  // Add OpenAI models
-  const openaiModels = [
-    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
-    { id: 'gpt-4', name: 'GPT-4' },
-    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
-    { id: 'gpt-4.1', name: 'GPT-4.1' }
-  ];
-  
-  openaiModels.forEach(model => {
-    models.push({
-      id: model.id,
-      name: model.name,
-      provider: LLMProvider.OPENAI,
-      providerName: 'OpenAI',
-      fullId: model.id
-    });
-  });
-  
   // Add OpenRouter models
   const openRouterModels = [
     // OpenAI models through OpenRouter
-    { id: 'openai/gpt-3.5-turbo', name: 'GPT-3.5 Turbo', providerName: 'OpenAI' },
-    { id: 'openai/gpt-4', name: 'GPT-4', providerName: 'OpenAI' },
-    { id: 'openai/gpt-4o', name: 'GPT-4o', providerName: 'OpenAI' },
-    
-    // Anthropic models
-    { id: 'anthropic/claude-3-opus-20240229', name: 'Claude 3 Opus', providerName: 'Anthropic' },
-    { id: 'anthropic/claude-3-sonnet-20240229', name: 'Claude 3 Sonnet', providerName: 'Anthropic' },
-    { id: 'anthropic/claude-3-haiku-20240307', name: 'Claude 3 Haiku', providerName: 'Anthropic' },
-    
-    // Meta models
-    { id: 'meta-llama/llama-3-70b-chat', name: 'Llama 3 70B', providerName: 'Meta' },
-    { id: 'meta-llama/llama-3-8b-chat', name: 'Llama 3 8B', providerName: 'Meta' },
-    
-    // Mistral models
-    { id: 'mistral/mistral-large-latest', name: 'Mistral Large', providerName: 'Mistral' },
-    { id: 'mistral/mistral-medium-latest', name: 'Mistral Medium', providerName: 'Mistral' },
-    { id: 'mistral/mistral-small-latest', name: 'Mistral Small', providerName: 'Mistral' },
+    { id: 'openai/gpt-4.1', name: 'GPT-4.1', providerName: 'OpenAI' },
+    { id: 'openai/o4-mini-high', name: 'o4 Mini High', providerName: 'OpenAI' },
     
     // Google models
-    { id: 'google/gemini-pro', name: 'Gemini Pro', providerName: 'Google' },
-    { id: 'google/gemini-1.5-pro-latest', name: 'Gemini 1.5 Pro', providerName: 'Google' }
+    { id: 'google/gemini-2.5-flash-preview', name: 'Gemini 2.5 Flash Preview', providerName: 'Google' },
+    { id: 'google/gemini-2.5-pro-preview-03-25', name: 'Gemini 2.5 Pro Preview', providerName: 'Google' },
+    
+    // Anthropic models
+    { id: 'anthropic/claude-3.7-sonnet', name: 'Claude 3.7 Sonnet', providerName: 'Anthropic' },
+    { id: 'anthropic/claude-3.7-sonnet:thinking', name: 'Claude 3.7 Sonnet (Thinking)', providerName: 'Anthropic' },
+    
+    // xAI models
+    { id: 'x-ai/grok-3-mini-beta', name: 'Grok 3 Mini Beta', providerName: 'xAI' },
+    { id: 'x-ai/grok-3-beta', name: 'Grok 3 Beta', providerName: 'xAI' }
   ];
   
   openRouterModels.forEach(model => {
@@ -221,9 +180,6 @@ export function setModel(model: string): void {
   const provider = config.activeProvider;
   
   switch (provider) {
-    case LLMProvider.OPENAI:
-      config.model = model;
-      break;
     case LLMProvider.OPENROUTER:
       config.openRouterModel = model;
       break;
@@ -239,8 +195,6 @@ export function getCurrentModel(): string {
   const provider = config.activeProvider;
   
   switch (provider) {
-    case LLMProvider.OPENAI:
-      return config.model;
     case LLMProvider.OPENROUTER:
       return config.openRouterModel;
     default:

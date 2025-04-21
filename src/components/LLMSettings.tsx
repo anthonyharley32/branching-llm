@@ -13,6 +13,18 @@ interface LLMSettingsProps {
   onClose?: () => void;
 }
 
+// Model description mapping
+const MODEL_DESCRIPTIONS: Record<string, string> = {
+  'x-ai/grok-3-mini-beta': 'A lightweight, thinking model ideal for reasoning-heavy tasks that need less domain knowledge. Excels at math and solving puzzles.',
+  'x-ai/grok-3-beta': 'Full-sized thinking model with strong reasoning capabilities and wide knowledge. Shows its thinking process in responses.',
+  'anthropic/claude-3.7-sonnet:thinking': 'Claude 3.7 Sonnet with step-by-step reasoning visible in the response.',
+  'anthropic/claude-3.7-sonnet': 'Anthropic\'s balanced model with strong reasoning and instruction following capabilities.',
+  'openai/gpt-4.1': 'OpenAI\'s most capable model for complex tasks requiring deep understanding.',
+  'openai/o4-mini-high': 'Smaller, faster version of GPT-4.1 optimized for responsive interactions.',
+  'google/gemini-2.5-flash-preview': 'Google\'s fastest Gemini model for responsive applications.',
+  'google/gemini-2.5-pro-preview-03-25': 'Google\'s most capable Gemini model for complex reasoning tasks.'
+};
+
 const LLMSettings: React.FC<LLMSettingsProps> = ({ onClose }) => {
   const [allModels, setAllModels] = useState<ModelInfo[]>([]);
   const [filteredModels, setFilteredModels] = useState<ModelInfo[]>([]);
@@ -20,6 +32,7 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedModelDesc, setSelectedModelDesc] = useState<string | null>(null);
 
   // Load all models and set current model on initial load
   useEffect(() => {
@@ -39,6 +52,7 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ onClose }) => {
     
     if (currentModel) {
       setCurrentModelId(currentModel.fullId);
+      setSelectedModelDesc(MODEL_DESCRIPTIONS[currentModel.fullId] || null);
     }
   }, []);
 
@@ -79,6 +93,7 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ onClose }) => {
         // Set the model
         setModel(selectedModel.fullId);
         setIsUpdating(false);
+        setSelectedModelDesc(MODEL_DESCRIPTIONS[modelId] || null);
       } else {
         throw new Error('Selected model not found');
       }
@@ -97,9 +112,7 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ onClose }) => {
       case 'anthropic':
         return '/llmLogos/claude.jpg';
       case 'meta':
-        return '/llmLogos/meta.webp';
-      case 'mistral':
-        return '/llmLogos/mistral.jpg'; // Fallback to default if mistral logo isn't available
+        return '/llmLogos/meta.webp'; 
       case 'google':
         return '/llmLogos/gemini.webp';
       case 'xai':
@@ -145,32 +158,45 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ onClose }) => {
       </div>
       
       <div className="mb-4">
-        {/* Currently selected model indicator */}
+        {/* Currently selected model indicator with inline description */}
         {currentModelId && (
-          <div className="flex items-center gap-2 mb-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-            <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Current Model:</div>
-            <div className="flex items-center gap-1.5 flex-grow">
-              {(() => {
-                const selectedModel = allModels.find(m => m.fullId === currentModelId);
-                if (selectedModel) {
-                  return (
-                    <>
-                      <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                        {getProviderLogo(selectedModel.providerName) && (
-                          <img 
-                            src={getProviderLogo(selectedModel.providerName)} 
-                            alt={`${selectedModel.providerName} logo`} 
-                            className="max-w-full max-h-full"
-                          />
-                        )}
-                      </div>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">{selectedModel.name}</span>
-                    </>
-                  );
-                }
-                return null;
-              })()}
+          <div className="mb-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Current Model:</div>
+              <div className="flex items-center gap-1.5 flex-grow">
+                {(() => {
+                  const selectedModel = allModels.find(m => m.fullId === currentModelId);
+                  if (selectedModel) {
+                    return (
+                      <>
+                        <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+                          {getProviderLogo(selectedModel.providerName) && (
+                            <img 
+                              src={getProviderLogo(selectedModel.providerName)} 
+                              alt={`${selectedModel.providerName} logo`} 
+                              className="max-w-full max-h-full"
+                            />
+                          )}
+                        </div>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{selectedModel.name}</span>
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
             </div>
+            {/* Show description inline */}
+            {selectedModelDesc && (
+              <div className="text-xs text-gray-600 dark:text-gray-400 pl-1 pt-1">
+                {selectedModelDesc}
+                {currentModelId.startsWith('x-ai/grok-') && (
+                  <span className="block mt-1 text-blue-600 dark:text-blue-400">
+                    <strong>Note:</strong> Shows thinking process and requires special handling (configured automatically).
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
         
@@ -211,6 +237,7 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ onClose }) => {
                 className={`flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer ${
                   currentModelId === model.fullId ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-700'
                 }`}
+                title={MODEL_DESCRIPTIONS[model.fullId] || ""}
               >
                 <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
                   {getProviderLogo(model.providerName) && (

@@ -1,39 +1,37 @@
 /**
- * LLM Service Configuration
- * Simple configuration for OpenAI and OpenRouter
+ * LLM Configuration Module
+ * Manages configuration for LLM providers
  */
 
-// Define LLM provider enum
+// Enum for supported LLM providers
 export enum LLMProvider {
-  OPENAI = 'openai',
-  OPENROUTER = 'openrouter',
-  // Add other providers as needed
+  OPENROUTER = 'openrouter'
 }
 
-// Default configuration settings
-export const config = {
-  // OpenAI Configuration
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
-  model: 'gpt-4.1',
+// Configuration interface
+interface LLMConfig {
+  // Global settings
+  activeProvider: LLMProvider;
+  systemPrompt: string;  
+  temperature: number;
+  maxTokens: number;
+  isStreaming: boolean;
   
-  // OpenRouter Configuration
-  openRouterApiKey: import.meta.env.VITE_OPENROUTER_API_KEY || '',
-  openRouterModel: 'openai/gpt-4o', // Default model
-  
-  // Shared configuration
-  temperature: 0.7,
-  maxTokens: 2048,
-  systemPrompt: "You are Navi, an AI assistant focused on clarity and conciseness. Provide answers directly using Markdown for formatting (like lists, code blocks, headings). \
-For mathematical expressions, STRICTLY follow these rules: \
-1. ONLY use valid LaTeX syntax. Ensure the LaTeX code is renderable by standard tools like KaTeX. \
-2. Wrap inline math ONLY with single dollar signs ($...$). Example: $E=mc^2$. Do NOT output a new line after or beforethe single dollar signs. \
-3. Wrap display (block) math ONLY with double dollar signs ($$...$$). Ensure the double dollar signs are on their OWN lines, with the LaTeX content between them. Example: \
-$$ \
- \int_a^b f(x) dx \
- $$ \
-4. NEVER output raw, undelimited math expressions or use HTML <math> tags. \
-Avoid conversational filler.",
+  // OpenRouter specific settings
+  openRouterApiKey: string | null;
+  openRouterModel: string;
+}
 
-  // Current active provider
-  activeProvider: LLMProvider.OPENAI,
+// Default configuration
+export const config: LLMConfig = {
+  // Global settings
+  activeProvider: LLMProvider.OPENROUTER,
+  systemPrompt: "You are a helpful AI assistant. Answer the user's questions accurately and concisely.",
+  temperature: 0.7,
+  maxTokens: 1024,
+  isStreaming: true,
+  
+  // OpenRouter specific config
+  openRouterApiKey: import.meta.env.VITE_OPENROUTER_API_KEY || null,
+  openRouterModel: 'openai/gpt-4.1', // Default to Claude
 }; 
