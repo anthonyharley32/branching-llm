@@ -10,6 +10,9 @@
   /* color: rgba(255, 255, 255, 0.87); */
   /* background-color: #242424; */
 
+  /* Custom app variables */
+  --branch-highlight-color: #f5f0a8;
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -264,7 +267,7 @@ span.katex + hr {
 
 /* Style for branch source highlight on hover */
 .branch-source-highlight {
-  background-color: #f5f0a8;
+  background-color: var(--branch-highlight-color);
   transition: background-color 0.2s ease;
 }
 

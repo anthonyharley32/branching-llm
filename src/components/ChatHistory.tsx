@@ -443,6 +443,36 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
     }
   }, [activeConversationId]);
 
+  // Add an immediate sync on mount to prevent animation glitches when opening sidebar
+  useEffect(() => {
+    // Run this effect only once on mount if we have a valid conversation
+    if (conversation?.id && conversation.rootMessageId) {
+      // Check if this conversation already exists in our history
+      const existsInHistory = history.some(item => item.id === conversation.id);
+      
+      // If it doesn't exist, add it immediately without animation
+      if (!existsInHistory) {
+        const newHistoryItem: HistoryItem = {
+          id: conversation.id,
+          title: conversation.title || 'New Chat',
+          updatedAt: new Date(conversation.updatedAt || Date.now()).toISOString()
+        };
+        
+        // Add to history immediately
+        setHistory(prevHistory => {
+          // Add the new item only if it doesn't already exist (double-check)
+          if (!prevHistory.some(item => item.id === conversation.id)) {
+            return [newHistoryItem, ...prevHistory]
+              .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+          }
+          return prevHistory;
+        });
+      }
+    }
+  // Include conversation and history as dependencies, but with eslint-disable to prevent continuous re-runs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation?.id, conversation?.rootMessageId, conversation?.title, conversation?.updatedAt, history.length]);
+
   // Custom double chevron component
   const DoubleChevronLeft = () => (
     <div className="flex items-center">
@@ -684,7 +714,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
             // Filter out duplicate IDs - keep only the first occurrence
             index === self.findIndex(t => t.id === item.id)
           ).map(item => (
-            <AnimatePresence mode="popLayout" key={item.id}>
+            <AnimatePresence mode="popLayout" key={item.id} initial={false}>
               {removingId !== item.id && (
                 <motion.li 
                   key={item.id}

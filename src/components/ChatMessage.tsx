@@ -299,7 +299,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
               // Create a highlight span
               const highlightSpan = document.createElement('span');
               highlightSpan.className = 'branch-source-highlight';
-              highlightSpan.style.backgroundColor = '#f5f0a8'; // Brighter version is now base
+              highlightSpan.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim() || '#f5f0a8'; // Use CSS variable
               highlightSpan.dataset.branchIndex = index.toString(); // Store index for later hover effects
               
               // Surround the text with the highlight span
@@ -574,20 +574,24 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
                  onBranchCreated(result, source.text, false);
                }}
                onMouseEnter={() => {
-                 // Apply less bright color on hover
+                 // Apply darker color on hover
                  if (messageContentRef.current) {
                    const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
                    if (highlight) {
-                     (highlight as HTMLElement).style.backgroundColor = '#f2eb88'; // Less bright version for hover
+                     const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim() || '#f5f0a8';
+                     (highlight as HTMLElement).style.backgroundColor = highlightColor;
+                     (highlight as HTMLElement).style.filter = 'brightness(0.8)'; // Make significantly darker on hover
                    }
                  }
                }}
                onMouseLeave={() => {
-                 // Restore original (brighter) yellow color when not hovering
+                 // Restore original color when not hovering
                  if (messageContentRef.current) {
                    const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
                    if (highlight) {
-                     (highlight as HTMLElement).style.backgroundColor = '#f5f0a8'; // Original brighter version
+                     const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim() || '#f5f0a8';
+                     (highlight as HTMLElement).style.backgroundColor = highlightColor;
+                     (highlight as HTMLElement).style.filter = 'none'; // Remove brightness filter
                    }
                  }
                }}
