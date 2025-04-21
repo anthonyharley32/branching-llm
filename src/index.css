@@ -274,11 +274,95 @@ span.katex + hr {
   /* Create a static sine-wave shaped background using SVG data URL */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 20' preserveAspectRatio='none'%3E%3Cpath d='M0 10 Q 10 0, 20 10 T 40 10 T 60 10 T 80 10 T 100 10 T 120 10' fill='none' stroke='%239CA3AF' stroke-width='2'/%3E%3C/svg%3E");
   background-repeat: repeat-x;
-  background-size: 120px 20px;
+  background-size: 60px 20px; /* Halved horizontal size to double frequency */
   height: 1rem; /* 16px */
   /* Animate the width from 0 to full as placeholder grows */
   width: 0;
+  margin-bottom: 0.5rem;
+}
+
+/* Container for all scribble lines */
+.scribble-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* First wave shows immediately */
+.streaming-wave-1 {
   animation: wave-grow 1.2s linear forwards;
+}
+
+/* Second wave starts after the first completes */
+.streaming-wave-2 {
+  opacity: 0;
+  animation: wave-appear 0.3s linear 1.2s forwards, 
+             wave-grow 1.2s linear 1.2s forwards;
+}
+
+/* Third wave starts after the second completes */
+.streaming-wave-3 {
+  opacity: 0;
+  animation: wave-appear 0.3s linear 2.4s forwards,
+             wave-grow 1.2s linear 2.4s forwards;
+}
+
+/* Fourth wave starts after the third completes */
+.streaming-wave-4 {
+  opacity: 0;
+  animation: wave-appear 0.3s linear 3.6s forwards,
+             wave-grow 1.2s linear 3.6s forwards;
+}
+
+/* Fifth wave starts after the fourth completes */
+.streaming-wave-5 {
+  opacity: 0;
+  animation: wave-appear 0.3s linear 4.8s forwards,
+             wave-grow 1.2s linear 4.8s forwards;
+}
+
+/* Sixth wave starts after the fifth completes */
+.streaming-wave-6 {
+  opacity: 0;
+  animation: wave-appear 0.3s linear 6.0s forwards,
+             wave-grow 1.2s linear 6.0s forwards;
+}
+
+/* Seventh wave starts after the sixth completes */
+.streaming-wave-7 {
+  opacity: 0;
+  animation: wave-appear 0.3s linear 7.2s forwards,
+             wave-grow 1.2s linear 7.2s forwards;
+}
+
+/* Eighth wave starts after the seventh completes */
+.streaming-wave-8 {
+  opacity: 0;
+  animation: wave-appear 0.3s linear 8.4s forwards,
+             wave-grow 1.2s linear 8.4s forwards;
+}
+
+/* Ninth wave starts after the eighth completes */
+.streaming-wave-9 {
+  opacity: 0;
+  animation: wave-appear 0.3s linear 9.6s forwards,
+             wave-grow 1.2s linear 9.6s forwards;
+}
+
+/* Tenth wave starts after the ninth completes */
+.streaming-wave-10 {
+  opacity: 0;
+  animation: wave-appear 0.3s linear 10.8s forwards,
+             wave-grow 1.2s linear 10.8s forwards;
+}
+
+@keyframes wave-appear {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 @keyframes wave-grow {

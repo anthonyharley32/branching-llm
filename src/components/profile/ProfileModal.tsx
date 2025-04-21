@@ -33,7 +33,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-500/10 backdrop-blur-lg"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-500/10 dark:bg-black/30 backdrop-blur-lg"
           variants={backdropVariants}
           initial="hidden"
           animate="visible"

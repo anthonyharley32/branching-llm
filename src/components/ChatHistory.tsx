@@ -703,31 +703,71 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                   data-item-id={item.id}
                 >
                   {isRenaming === item.id ? (
-                    <div className="w-full flex items-center h-12">
-                      <input
-                        ref={renameInputRef}
-                        type="text"
-                        value={newTitle}
-                        onChange={(e) => setNewTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleRename(item.id);
-                          if (e.key === 'Escape') {
-                            setIsRenaming(null);
-                            setNewTitle('');
-                          }
-                        }}
-                        className="flex-1 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded mr-1 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white h-full box-border"
-                        placeholder="Enter new title"
-                      />
+                    <motion.div 
+                      className="relative h-12 flex flex-col justify-center"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
                       <button
-                        onClick={() => handleRename(item.id)}
-                        className="px-3 py-2 bg-gray-900 text-white rounded hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 h-full"
+                        disabled={loadingConversation === item.id}
+                        className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
+                          item.id === activeConversationId 
+                            ? 'bg-gray-900 text-white dark:bg-gray-900 hover:bg-gray-800 dark:hover:bg-gray-800' 
+                            : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                        } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
                       >
-                        Save
+                        <div className={`font-medium ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'} flex items-center`}>
+                          <input
+                            ref={renameInputRef}
+                            type="text"
+                            value={newTitle}
+                            onChange={(e) => setNewTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleRename(item.id);
+                              if (e.key === 'Escape') {
+                                setIsRenaming(null);
+                                setNewTitle('');
+                              }
+                              // Prevent event propagation to avoid triggering button click
+                              e.stopPropagation();
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''} bg-transparent focus:outline-none rounded px-1 -ml-1 ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'}`}
+                            placeholder="Enter new title"
+                            autoFocus
+                          />
+                          {loadingConversation === item.id && (
+                            <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
+                          )}
+                        </div>
+                        <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
+                        
+                        {/* Edit confirm button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRename(item.id);
+                          }}
+                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full ${
+                            item.id === activeConversationId 
+                              ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                              : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200 dark:hover:text-gray-200 dark:hover:bg-gray-600'
+                          } opacity-100`}
+                        >
+                          <FiEdit2 className="h-4 w-4" />
+                        </button>
                       </button>
-                    </div>
+                    </motion.div>
                   ) : (
-                    <div className="relative h-12 flex flex-col justify-center transition-all duration-200">
+                    <motion.div 
+                      className="relative h-12 flex flex-col justify-center"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
                       <button
                         onClick={() => handleConversationClick(item)}
                         disabled={loadingConversation === item.id}
@@ -808,7 +848,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                           </div>
                         </div>
                       )}
-                    </div>
+                    </motion.div>
                   )}
                 </motion.li>
               )}

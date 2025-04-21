@@ -258,9 +258,20 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
         />
       ))}
       {showInitialLoading && (
-        <div className="flex items-start p-4 text-gray-800 px-4 max-w-prose self-start">
-          {/* Squiggly wave placeholder */}
-          <div className="relative w-40 h-4 streaming-wave" />
+        <div className="flex flex-col items-start p-4 text-gray-800 px-4 max-w-prose self-start">
+          {/* Squiggly wave placeholder - now a container for multiple lines */}
+          <div className="scribble-container">
+            <div className="relative w-40 h-4 streaming-wave streaming-wave-1" />
+            <div className="relative w-40 h-4 streaming-wave streaming-wave-2" />
+            <div className="relative w-40 h-4 streaming-wave streaming-wave-3" />
+            <div className="relative w-40 h-4 streaming-wave streaming-wave-4" />
+            <div className="relative w-40 h-4 streaming-wave streaming-wave-5" />
+            <div className="relative w-40 h-4 streaming-wave streaming-wave-6" />
+            <div className="relative w-40 h-4 streaming-wave streaming-wave-7" />
+            <div className="relative w-40 h-4 streaming-wave streaming-wave-8" />
+            <div className="relative w-40 h-4 streaming-wave streaming-wave-9" />
+            <div className="relative w-40 h-4 streaming-wave streaming-wave-10" />
+          </div>
         </div>
       )}
       {displayMessages.length === 0 && !isLoading && (
