@@ -45,6 +45,8 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
   const [newTitle, setNewTitle] = useState<string>('');
   const renameInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  // Reference to the chat history container for calculating positions
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Extract fetchHistory to be reusable and memoize it with useCallback
   const fetchHistory = useCallback(async () => {
@@ -627,8 +629,27 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
     }
   };
 
+  // Check if an item is near the bottom of the container
+  const isNearBottom = (itemId: string): boolean => {
+    if (!containerRef.current) return false;
+    
+    const container = containerRef.current;
+    const item = container.querySelector(`[data-item-id="${itemId}"]`);
+    
+    if (!item) return false;
+    
+    const containerRect = container.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    
+    // If the item is in the bottom third of the container
+    return itemRect.bottom > (containerRect.top + (containerRect.height * 0.66));
+  };
+
   return (
-    <div className="h-full w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto p-4 flex flex-col">
+    <div 
+      ref={containerRef}
+      className="h-full w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto p-4 flex flex-col"
+    >
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center justify-between w-full">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Chat History</h2>
@@ -679,9 +700,10 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                     }
                   }}
                   layout
+                  data-item-id={item.id}
                 >
                   {isRenaming === item.id ? (
-                    <div className="w-full flex items-center">
+                    <div className="w-full flex items-center h-12">
                       <input
                         ref={renameInputRef}
                         type="text"
@@ -694,18 +716,18 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                             setNewTitle('');
                           }
                         }}
-                        className="flex-1 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded mr-1 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        className="flex-1 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded mr-1 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white h-full box-border"
                         placeholder="Enter new title"
                       />
                       <button
                         onClick={() => handleRename(item.id)}
-                        className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        className="px-3 py-2 bg-gray-900 text-white rounded hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 h-full"
                       >
                         Save
                       </button>
                     </div>
                   ) : (
-                    <div className="relative">
+                    <div className="relative h-12 flex flex-col justify-center transition-all duration-200">
                       <button
                         onClick={() => handleConversationClick(item)}
                         disabled={loadingConversation === item.id}
@@ -716,7 +738,9 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                         } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
                       >
                         <div className={`font-medium ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'} flex items-center`}>
-                          {item.title}
+                          <span className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''}`}>
+                            {item.title}
+                          </span>
                           {loadingConversation === item.id && (
                             <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
                           )}
@@ -743,7 +767,18 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                       {activeMenu === item.id && (
                         <div 
                           ref={menuRef}
-                          className="absolute right-0 z-10 mt-1 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+                          className="fixed left-[310px] top-auto z-50 w-48 origin-top-left rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 focus:outline-none overflow-hidden"
+                          style={{
+                            top: (() => {
+                              // Get the button's position to align the menu with it
+                              const buttonElement = document.querySelector(`[data-item-id="${item.id}"] button`);
+                              if (buttonElement) {
+                                const rect = buttonElement.getBoundingClientRect();
+                                return `${rect.top}px`;
+                              }
+                              return 'auto';
+                            })()
+                          }}
                         >
                           <div className="py-1">
                             <button
@@ -753,9 +788,9 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                 setNewTitle(item.title);
                                 setActiveMenu(null);
                               }}
-                              className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                              className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                             >
-                              <FiEdit2 className="mr-2 h-4 w-4" />
+                              <FiEdit2 className="mr-3 h-4 w-4" />
                               Rename
                             </button>
                             <button
@@ -765,9 +800,9 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                   handleDelete(item.id);
                                 }
                               }}
-                              className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                              className="flex items-center w-full px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                             >
-                              <FiTrash2 className="mr-2 h-4 w-4" />
+                              <FiTrash2 className="mr-3 h-4 w-4" />
                               Delete
                             </button>
                           </div>
