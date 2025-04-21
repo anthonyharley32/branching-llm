@@ -1,18 +1,26 @@
 /**
  * LLM Service Configuration
- * Simple configuration for OpenAI
+ * Simple configuration for OpenAI and OpenRouter
  */
 
 // Define LLM provider enum
 export enum LLMProvider {
   OPENAI = 'openai',
+  OPENROUTER = 'openrouter',
   // Add other providers as needed
 }
 
-// Default configuration settings for OpenAI
+// Default configuration settings
 export const config = {
+  // OpenAI Configuration
   apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
   model: 'gpt-4.1',
+  
+  // OpenRouter Configuration
+  openRouterApiKey: import.meta.env.VITE_OPENROUTER_API_KEY || '',
+  openRouterModel: 'openai/gpt-4o', // Default model
+  
+  // Shared configuration
   temperature: 0.7,
   maxTokens: 2048,
   systemPrompt: "You are Navi, an AI assistant focused on clarity and conciseness. Provide answers directly using Markdown for formatting (like lists, code blocks, headings). \
@@ -25,4 +33,7 @@ $$ \
  $$ \
 4. NEVER output raw, undelimited math expressions or use HTML <math> tags. \
 Avoid conversational filler.",
+
+  // Current active provider
+  activeProvider: LLMProvider.OPENAI,
 }; 

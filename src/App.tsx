@@ -1,6 +1,4 @@
 import React, { useEffect, useState, useRef } from 'react'
-// import reactLogo from './assets/react.svg' // Removed unused import
-// import viteLogo from '/vite.svg' // Removed unused import
 import './App.css'
 // import ChatMessage from './components/ChatMessage' // Removed unused import
 import ChatInput from './components/ChatInput'
@@ -14,7 +12,7 @@ import {
   LLMError, 
   ErrorType, 
   StreamCallbacks
-} from './services/llm/openai'
+} from './services/llm'
 import { MessageNode } from './types/conversation'
 import { FiLogOut, FiArrowLeft, FiUser, FiMenu, FiPlusSquare, FiEdit } from 'react-icons/fi' // Added FiEdit
 // import { supabase } from './lib/supabase' // Already removed
@@ -619,7 +617,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
           {/* Left Side: Show logo title */}
           {branchStack.length === 0 && (
             <div className="flex items-center gap-2">
-              <img src="/PNG_Navi-removebg-preview.png" alt="Navi" className="h-10 w-auto" />
+              <img src="/Navi Logos/PNG_Navi-removebg-preview.png" alt="Navi" className="h-10 w-auto" />
             </div>
           )}
 

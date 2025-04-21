@@ -7,7 +7,9 @@ import {
   FiSliders, FiDatabase, FiBox, FiSun, FiMoon, FiSmile, 
   FiMousePointer, FiDollarSign, FiEdit3 // Added specific icons
 } from 'react-icons/fi';
+import { HiOutlineSparkles } from 'react-icons/hi'; // Import sparkles icon for AI stars logo
 import { motion } from 'framer-motion';
+import LLMSettings from '../LLMSettings'; // Import LLMSettings component
 
 interface UserProfileProps {
   onClose?: () => void;
@@ -278,7 +280,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
           <SidebarItem setting="behavior" icon={FiMousePointer} label="Behavior" /> {/* Updated Icon */} 
           <SidebarItem setting="customize" icon={FiSliders} label="Customize" />
           <SidebarItem setting="dataControls" icon={FiDatabase} label="Data Controls" />
-          <SidebarItem setting="billing" icon={FiDollarSign} label="Billing" /> {/* Updated Icon */} 
+          {/* Conditionally render the billing tab based on subscription tier */}
+          <SidebarItem 
+            setting="billing" 
+            icon={subscriptionTier === 'free' ? HiOutlineSparkles : FiDollarSign} 
+            label={subscriptionTier === 'free' ? "Upgrade" : "Billing"} 
+          />
         </nav>
       </div>
 
@@ -483,6 +490,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                 </div>
               </div>
               
+              {/* LLM Provider Settings */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Language Model Settings</h4>
+                <LLMSettings />
+              </div>
+              
               <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <p className="text-gray-600 dark:text-gray-400">More UI customization options will be added here.</p>
               </div>
@@ -503,10 +516,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
         {/* Billing Settings Content */} 
         {activeSetting === 'billing' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Billing</h3>
+             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+               {subscriptionTier === 'free' ? 'Upgrade Your Account' : 'Billing'}
+             </h3>
             {subscriptionTier === 'free' ? (
               // Free Tier View
               <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 rounded-lg text-center shadow-sm border border-gray-200 dark:border-gray-700 max-w-md mx-auto"> {/* Constrain width */} 
+                <div className="flex justify-center mb-4">
+                  <HiOutlineSparkles className="h-10 w-10 text-blue-500 dark:text-blue-400" />
+                </div>
                 <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">You are on the Free Plan</h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
                   Upgrade to unlock premium features and support the development of LearningLLM.

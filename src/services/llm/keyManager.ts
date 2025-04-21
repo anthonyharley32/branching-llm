@@ -34,6 +34,11 @@ export function getApiKey(provider: LLMProvider): string | null {
       return import.meta.env.VITE_OPENAI_API_KEY;
     }
     
+    // Check for OpenRouter key
+    if (provider === LLMProvider.OPENROUTER && import.meta.env.VITE_OPENROUTER_API_KEY) {
+      return import.meta.env.VITE_OPENROUTER_API_KEY;
+    }
+    
     // Fall back to localStorage if not in environment
     return localStorage.getItem(`${KEY_STORAGE_PREFIX}${provider}`);
   } catch (error: unknown) {
@@ -46,6 +51,11 @@ export function getApiKey(provider: LLMProvider): string | null {
 export function hasApiKey(provider: LLMProvider): boolean {
   // First check environment variables
   if (provider === LLMProvider.OPENAI && import.meta.env.VITE_OPENAI_API_KEY) {
+    return true;
+  }
+  
+  // Check for OpenRouter key
+  if (provider === LLMProvider.OPENROUTER && import.meta.env.VITE_OPENROUTER_API_KEY) {
     return true;
   }
   
@@ -80,6 +90,9 @@ export function validateApiKeyFormat(provider: LLMProvider, apiKey: string): boo
     case LLMProvider.OPENAI:
       // OpenAI keys typically start with "sk-" and are 51 characters long
       return /^sk-[a-zA-Z0-9]{48}$/.test(apiKey);
+    case LLMProvider.OPENROUTER:
+      // OpenRouter keys start with "sk-or-v1-" and are 64 characters long
+      return /^sk-or-v1-[a-zA-Z0-9]{40,}$/.test(apiKey);
     default:
       // For unknown providers, just check it's not empty
       return apiKey.trim().length > 0;

@@ -56,6 +56,36 @@ function convertToOpenAIMessages(messages: Message[]): any[] {
   }));
 }
 
+// Generate a non-streaming completion from OpenAI
+export async function generateCompletion(messages: Message[]): Promise<string> {
+  try {
+    if (!config.apiKey) {
+      throw new Error('OpenAI API key is not configured');
+    }
+    
+    const client = getClient();
+    
+    const systemMessage = { role: 'system' as const, content: config.systemPrompt };
+    const openaiMessages = [systemMessage, ...convertToOpenAIMessages(messages)];
+    
+    // Make the API call without streaming
+    const completion = await client.chat.completions.create({
+      model: config.model,
+      messages: openaiMessages,
+      temperature: config.temperature,
+      max_tokens: config.maxTokens,
+      stream: false,
+    });
+    
+    return completion.choices[0].message.content || '';
+    
+  } catch (error: unknown) {
+    console.error('Error generating completion from OpenAI:', error);
+    const llmError = parseError(error);
+    throw llmError;
+  }
+}
+
 // Interface for streaming callbacks
 export interface StreamCallbacks {
   onChunk: (chunk: string) => void;
