@@ -6,9 +6,10 @@ import { FiX } from 'react-icons/fi';
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onProfileUpdate: (newPrompt: string | null) => void;
 }
 
-const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
+const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, onProfileUpdate }) => {
   const backdropVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1 },
@@ -48,7 +49,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             exit="exit"
             onClick={(e) => e.stopPropagation()}
           >
-            <UserProfile onClose={onClose} />
+            <UserProfile onClose={onClose} onProfileUpdate={onProfileUpdate} />
           </motion.div>
         </motion.div>
       )}

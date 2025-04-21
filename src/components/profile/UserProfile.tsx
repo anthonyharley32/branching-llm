@@ -13,12 +13,13 @@ import LLMSettings from '../LLMSettings'; // Import LLMSettings component
 
 interface UserProfileProps {
   onClose?: () => void;
+  onProfileUpdate: (newPrompt: string | null) => void;
 }
 
 // Update Tab type for sidebar navigation
 type ActiveSetting = 'account' | 'appearance' | 'behavior' | 'customize' | 'dataControls' | 'billing';
 
-const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
+const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) => {
   const { user, session } = useAuth();
   
   const [profile, setProfile] = useState<UserProfileType | null>(null);
@@ -39,6 +40,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
   const [highlightColor, setHighlightColor] = useState(() => 
     localStorage.getItem('branchHighlightColor') || '#f5f0a8'
   );
+  // State for additional system prompt
+  const [additionalSystemPrompt, setAdditionalSystemPrompt] = useState<string>('');
+  // State to track the initial value for comparison
+  const [initialAdditionalSystemPrompt, setInitialAdditionalSystemPrompt] = useState<string>('');
 
   useEffect(() => {
     if (user) {
@@ -63,8 +68,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
       }
       
       if (data && data.length > 0) {
-        setProfile(data[0] as UserProfileType);
-        setAvatarUrl(data[0].avatar_url || null);
+        const userProfile = data[0] as UserProfileType;
+        setProfile(userProfile);
+        setAvatarUrl(userProfile.avatar_url || null);
+        // Load additional system prompt from profile
+        const loadedPrompt = userProfile.additional_system_prompt || '';
+        setAdditionalSystemPrompt(loadedPrompt);
+        setInitialAdditionalSystemPrompt(loadedPrompt); // Set initial value
       } else {
         // Create a new profile if one doesn't exist
         if (!isRetry) { // Prevent infinite loops
@@ -111,7 +121,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
       const newProfile = {
         user_id: user?.id,
         avatar_url: avatarFromProvider || null,
-        preferences: {}
+        preferences: {},
+        additional_system_prompt: additionalSystemPrompt,
       };
       
       // Try to upsert the profile - inserts if new, does nothing if user_id conflicts
@@ -129,8 +140,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
       
       // If data is returned (either from insert or existing row), update state
       if (data) {
-        setProfile(data as UserProfileType);
-        setAvatarUrl(data.avatar_url || null);
+        const userProfile = data as UserProfileType;
+        setProfile(userProfile);
+        setAvatarUrl(userProfile.avatar_url || null);
+        // Ensure additional prompt state is initialized even for new profiles
+        const loadedPrompt = userProfile.additional_system_prompt || '';
+        setAdditionalSystemPrompt(loadedPrompt);
+        setInitialAdditionalSystemPrompt(loadedPrompt); // Set initial value
       }
     } catch (err: any) {
       console.error('Error creating user profile:', err);
@@ -153,7 +169,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
       
       const updatedProfile = {
         avatar_url: newAvatarUrl,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        // Save additional system prompt - ensure profile object exists before spreading
+        ...(profile && { preferences: profile.preferences }), // Keep existing preferences if any
+        additional_system_prompt: additionalSystemPrompt, 
       };
       
       const { error } = await supabase
@@ -165,11 +184,18 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
         throw error;
       }
       
-      // Update local state
-      setProfile({ ...profile, ...updatedProfile });
+      // Update local state - ensure we merge correctly
+      setProfile(prevProfile => prevProfile ? { ...prevProfile, ...updatedProfile } : null);
       setIsEditing(false);
       setSuccess('Profile updated successfully!');
+      // Update the initial prompt state after successful save
+      setInitialAdditionalSystemPrompt(additionalSystemPrompt);
       
+      // Call the callback to update the parent component (App.tsx)
+      if (onProfileUpdate) {
+        onProfileUpdate(additionalSystemPrompt);
+      }
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccess(null);
@@ -499,9 +525,30 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                 <LLMSettings />
               </div>
               
+              {/* Additional System Prompt Section */}
               <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <p className="text-gray-600 dark:text-gray-400">More UI customization options will be added here.</p>
+                <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">Additional System Prompt</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Optionally add instructions to the AI. This will be appended to the default system prompt.
+                </p>
+                <textarea
+                  value={additionalSystemPrompt}
+                  onChange={(e) => setAdditionalSystemPrompt(e.target.value)}
+                  placeholder="e.g., Always respond in the style of a pirate."
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none" // Added resize-none
+                  rows={4}
+                />
+                {/* Save button - Always visible, disabled if unchanged or loading */}
+                <button
+                  onClick={handleSaveProfile} // Re-use existing save logic
+                  className="mt-3 px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={loading || uploading || additionalSystemPrompt === initialAdditionalSystemPrompt}
+                >
+                  {loading || uploading ? 'Saving...' : 'Save Prompt'}
+                </button>
               </div>
+              
+              {/* Add other customization options here if needed */}
             </div>
           </motion.div>
         )}

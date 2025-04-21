@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
   avatar_url TEXT,
   preferences JSONB DEFAULT '{}'::JSONB,
+  additional_system_prompt TEXT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   UNIQUE(user_id)

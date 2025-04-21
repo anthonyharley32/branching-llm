@@ -149,7 +149,8 @@ export async function generateCompletion(
 // Generate a chat completion from OpenRouter, streaming the response
 export async function generateCompletionStream(
   messages: Message[],
-  callbacks: StreamCallbacks
+  callbacks: StreamCallbacks,
+  additionalSystemPrompt: string | null
 ): Promise<void> {
   try {
     if (!config.openRouterApiKey) {
@@ -157,7 +158,12 @@ export async function generateCompletionStream(
     }
     
     const model = validateModel(config.openRouterModel);
-    const systemMessage = { role: 'system' as const, content: config.systemPrompt };
+    
+    // Combine system prompts
+    const combinedSystemPrompt = config.systemPrompt + 
+      (additionalSystemPrompt ? `\n\n${additionalSystemPrompt}` : '');
+      
+    const systemMessage = { role: 'system' as const, content: combinedSystemPrompt };
     const openRouterMessages = [systemMessage, ...convertToOpenRouterMessages(messages)];
     
     // Special validation for Grok models which are sensitive to empty messages

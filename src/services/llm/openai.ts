@@ -28,12 +28,12 @@ let openaiClient: OpenAI | null = null;
 
 // Initialize OpenAI client
 export function initializeClient(): OpenAI {
-  if (!config.apiKey) {
+  if (!config.openaiApiKey) {
     throw new Error('OpenAI API key is required but not provided');
   }
   
   openaiClient = new OpenAI({
-    apiKey: config.apiKey,
+    apiKey: config.openaiApiKey,
     dangerouslyAllowBrowser: true, // For client-side usage only
   });
   
@@ -59,7 +59,7 @@ function convertToOpenAIMessages(messages: Message[]): any[] {
 // Generate a non-streaming completion from OpenAI
 export async function generateCompletion(messages: Message[]): Promise<string> {
   try {
-    if (!config.apiKey) {
+    if (!config.openaiApiKey) {
       throw new Error('OpenAI API key is not configured');
     }
     
@@ -70,7 +70,7 @@ export async function generateCompletion(messages: Message[]): Promise<string> {
     
     // Make the API call without streaming
     const completion = await client.chat.completions.create({
-      model: config.model,
+      model: config.openaiModel,
       messages: openaiMessages,
       temperature: config.temperature,
       max_tokens: config.maxTokens,
@@ -96,21 +96,26 @@ export interface StreamCallbacks {
 // Generate a chat completion from OpenAI, streaming the response
 export async function generateCompletionStream(
   messages: Message[],
-  callbacks: StreamCallbacks
+  callbacks: StreamCallbacks,
+  additionalSystemPrompt: string | null // Added optional parameter
 ): Promise<void> { // Returns void as results are handled via callbacks
   try {
-    if (!config.apiKey) {
+    if (!config.openaiApiKey) {
       throw new Error('OpenAI API key is not configured');
     }
     
     const client = getClient();
     
-    const systemMessage = { role: 'system' as const, content: config.systemPrompt };
+    // Combine system prompts
+    const combinedSystemPrompt = config.systemPrompt + 
+      (additionalSystemPrompt ? `\n\n${additionalSystemPrompt}` : '');
+      
+    const systemMessage = { role: 'system' as const, content: combinedSystemPrompt };
     const openaiMessages = [systemMessage, ...convertToOpenAIMessages(messages)];
     
     // Make the API call with stream enabled
     const stream = await client.chat.completions.create({
-      model: config.model,
+      model: config.openaiModel,
       messages: openaiMessages,
       temperature: config.temperature,
       max_tokens: config.maxTokens,

@@ -61,15 +61,17 @@ export async function generateCompletion(messages: Message[]): Promise<string> {
 // Generate streaming completion with the currently active provider
 export async function generateCompletionStream(
   messages: Message[],
-  callbacks: StreamCallbacks
+  callbacks: StreamCallbacks,
+  additionalSystemPrompt: string | null
 ): Promise<void> {
   const provider = config.activeProvider;
   
   switch (provider) {
     case LLMProvider.OPENROUTER:
-      return await OpenRouterProvider.generateCompletionStream(messages, callbacks);
+      await OpenRouterProvider.generateCompletionStream(messages, callbacks, additionalSystemPrompt);
+      break;
     default:
-      throw new Error(`Unsupported LLM provider: ${provider}`);
+      throw new Error(`Unsupported LLM provider for streaming: ${provider}`);
   }
 }
 

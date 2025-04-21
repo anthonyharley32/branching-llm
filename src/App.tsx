@@ -22,6 +22,8 @@ import { BugReportButton } from './components/BugReporting'
 import AuthModal from './components/auth/AuthModal'
 import ProfileModal from './components/profile/ProfileModal'
 import ChatHistory from './components/ChatHistory'
+import { supabase } from './lib/supabase' // Added supabase import
+import { UserProfile } from './types/database' // Added UserProfile type import
 
 // --- Constants ---
 const GUEST_MESSAGE_LIMIT = 1000;
@@ -50,14 +52,14 @@ function getMainThreadPath(conversation: Conversation | null): MessageNode[] {
 function AppContent() {
   const { user, isLoading: isAuthLoading, session, signOut } = useAuth();
   const { 
-    currentMessages, 
-    addMessage, 
+    conversation,
+    startNewConversation, 
+    addMessage,
+    updateMessageContent,
+    updateConversationTitle,
+    currentMessages,
     activeMessageId,
     setActiveMessageId,
-    updateMessageContent,
-    conversation,
-    startNewConversation,
-    updateConversationTitle
   } = useConversation();
 
   const [isSending, setIsSending] = useState(false);
@@ -102,7 +104,8 @@ function AppContent() {
   const dropdownRef = useRef<HTMLDivElement>(null); // Ref for the dropdown
   // Chat history sidebar state
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
-  // ---------------------------
+  // State for user's additional system prompt
+  const [additionalSystemPrompt, setAdditionalSystemPrompt] = useState<string | null>(null);
 
   // --- Click outside handler for profile dropdown ---
   useEffect(() => {
@@ -153,6 +156,35 @@ function AppContent() {
       }
     }
   }, [isAuthLoading, session]); // Run when auth state is determined
+
+  // Callback function to update the prompt state in AppContent
+  const handleProfileUpdate = (newPrompt: string | null) => {
+    setAdditionalSystemPrompt(newPrompt);
+  };
+
+  // Effect to fetch user profile and additional system prompt
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('user_profiles')
+            .select('additional_system_prompt')
+            .eq('user_id', user.id)
+            .single();
+            
+          if (error && error.code !== 'PGRST116') { // Ignore 'No rows found' error
+            console.error('Error fetching user profile prompt:', error);
+          } else if (data) {
+            setAdditionalSystemPrompt(data.additional_system_prompt || null);
+          }
+        } catch (err) {
+          console.error('Exception fetching user profile prompt:', err);
+        }
+      }
+    };
+    fetchProfile();
+  }, [user]); // Re-run when user changes
 
   // --- Effect to initiate LLM stream after user message state is updated ---
   useEffect(() => {
@@ -211,7 +243,7 @@ function AppContent() {
         };
 
         // Pass the full messagePath which includes id and createdAt
-        await generateCompletionStream(messagePath, callbacks);
+        await generateCompletionStream(messagePath, callbacks, additionalSystemPrompt);
 
       } catch (err) { // Catch errors during stream *setup*
         const setupError: LLMError = {
@@ -228,7 +260,7 @@ function AppContent() {
 
     executeStream();
 
-  }, [pendingLlmCall, guestMessageCount, session]); // Removed addMessage/updateMessageContent
+  }, [pendingLlmCall, guestMessageCount, session, additionalSystemPrompt]); // Added additionalSystemPrompt to dependency array
 
   const handleSendMessage = async (text: string) => {
     setIsSending(true);
@@ -851,7 +883,11 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
         <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
         
         {/* --- Render Profile Modal --- */}
-        <ProfileModal isOpen={isProfileModalOpen} onClose={closeProfileModal} />
+        <ProfileModal 
+          isOpen={isProfileModalOpen} 
+          onClose={closeProfileModal} 
+          onProfileUpdate={handleProfileUpdate}
+        />
         {/* ------------------------- */}
         
       </div>
