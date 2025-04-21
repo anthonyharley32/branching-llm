@@ -30,6 +30,22 @@ export interface StreamCallbacks {
   onError?: (error: LLMError) => void;
 }
 
+// OpenRouter multimodal content types
+interface TextContent {
+  type: 'text';
+  text: string;
+}
+
+interface ImageContent {
+  type: 'image_url';
+  image_url: {
+    url: string;
+    detail?: string;
+  };
+}
+
+type ContentPart = TextContent | ImageContent;
+
 // Supported OpenRouter models
 export const SUPPORTED_MODELS = {
   // OpenAI models
@@ -54,13 +70,51 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1';
 
 // Convert our message format to OpenRouter format
 function convertToOpenRouterMessages(messages: Message[]): any[] {
-  // Filter out any empty messages
+  // Filter out any empty messages, safely handling content which might be a string or an array (for multimodal)
   return messages
-    .filter(msg => msg.content && msg.content.trim() !== '')
-    .map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }));
+    .filter(msg => {
+      // If content is a string, check if it's non-empty after trimming
+      if (typeof msg.content === 'string') {
+        return msg.content && msg.content.trim() !== '';
+      } 
+      // If we have images in metadata, consider it non-empty even with empty text
+      else if (msg.metadata?.images && Array.isArray(msg.metadata.images) && msg.metadata.images.length > 0) {
+        return true;
+      }
+      // Otherwise check if we have any content (this should never happen in our app flow)
+      return !!msg.content;
+    })
+    .map(msg => {
+      // Check if this message has images in its metadata
+      if (msg.metadata?.images && Array.isArray(msg.metadata.images) && msg.metadata.images.length > 0) {
+        // This is a multimodal message - create content parts array
+        const contentParts: ContentPart[] = [
+          { type: "text", text: msg.content as string }
+        ];
+        
+        // Add image parts
+        msg.metadata.images.forEach((imageUrl: string) => {
+          contentParts.push({
+            type: "image_url",
+            image_url: {
+              url: imageUrl,
+              detail: "auto"
+            }
+          });
+        });
+        
+        return {
+          role: msg.role,
+          content: contentParts
+        };
+      }
+      
+      // Regular text-only message
+      return {
+        role: msg.role,
+        content: msg.content
+      };
+    });
 }
 
 // Validate that the configured model is supported
@@ -170,14 +224,21 @@ export async function generateCompletionStream(
     if (model.startsWith('x-ai/grok-')) {
       // Check if we have at least one non-system message
       const hasNonSystemMessage = openRouterMessages.some(msg => 
-        msg.role !== 'system' && msg.content && msg.content.trim() !== '');
+        msg.role !== 'system' && 
+        // Handle both string content and array content (multimodal)
+        ((typeof msg.content === 'string' && msg.content.trim() !== '') || 
+         (Array.isArray(msg.content) && msg.content.length > 0))
+      );
       
       if (!hasNonSystemMessage) {
         throw new Error('Grok models require at least one non-empty user message');
       }
       
       // Check for any empty messages (shouldn't happen due to our filter, but just in case)
-      const emptyMessages = openRouterMessages.filter(msg => !msg.content || msg.content.trim() === '');
+      const emptyMessages = openRouterMessages.filter(msg => 
+        (typeof msg.content === 'string' && (!msg.content || msg.content.trim() === '')) ||
+        (Array.isArray(msg.content) && msg.content.length === 0)
+      );
       if (emptyMessages.length > 0) {
         throw new Error('Grok models do not support empty messages');
       }

@@ -262,7 +262,7 @@ function AppContent() {
 
   }, [pendingLlmCall, guestMessageCount, session, additionalSystemPrompt]); // Added additionalSystemPrompt to dependency array
 
-  const handleSendMessage = async (text: string) => {
+  const handleSendMessage = async (text: string, images?: string[]) => {
     setIsSending(true);
     setError(null);
     setStreamingAiNodeId(null); // Reset streaming ID on new message
@@ -305,6 +305,14 @@ function AppContent() {
           metadata = { branchId: currentBranchId };
         }
       }
+    }
+
+    // If images are provided, add them to metadata
+    if (images && images.length > 0) {
+      metadata = {
+        ...metadata,
+        images: images
+      };
     }
 
     const userMessageData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'> = {

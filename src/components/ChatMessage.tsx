@@ -74,6 +74,10 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
   } | null>(null);
   const { createBranch, hasChildren, conversation } = useConversation();
 
+  // Check if message has images in metadata
+  const hasImages = message.metadata?.images && Array.isArray(message.metadata.images) && message.metadata.images.length > 0;
+  const messageImages = hasImages ? message.metadata?.images as string[] : [];
+
   // Helper function to get all text nodes inside an element
   const getAllTextNodes = (element: Node): Text[] => {
     const textNodes: Text[] = [];
@@ -525,6 +529,21 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
              >
                {preprocessMarkdown(message.content)}
              </ReactMarkdown>
+
+           {/* Display images if present in metadata */}
+           {hasImages && messageImages.length > 0 && (
+             <div className="mt-2 flex flex-wrap gap-2">
+               {messageImages.map((imageUrl, idx) => (
+                 <div key={`img-${idx}`} className="relative">
+                   <img 
+                     src={imageUrl} 
+                     alt={`Image ${idx+1}`} 
+                     className="max-w-xs max-h-60 rounded-lg object-cover" 
+                   />
+                 </div>
+               ))}
+             </div>
+           )}
            
            {/* Branch indicators for text that has been branched from */}
            {branchSources.length > 0 && branchSources.map((source, index) => (

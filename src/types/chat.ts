@@ -7,7 +7,7 @@ export type MessageRole = 'user' | 'assistant' | 'system';
 export interface Message {
   id: string;
   role: MessageRole;
-  content: string;
+  content: string | any;
   createdAt: Date;
   metadata?: Record<string, any>;
 }
