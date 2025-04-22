@@ -71,31 +71,6 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
     fetchHistory();
   }, [session, fetchHistory]);
 
-  // Add another useEffect to refresh history when conversation ID changes (new conversation created)
-  // AND optimistically add the new conversation if it's not already present
-  useEffect(() => {
-    if (conversation?.id && conversation.rootMessageId) { // Check for ID and rootMessageId
-      // Check if this conversation ID is already in our history list
-      const existsInHistory = history.some(item => item.id === conversation.id);
-      
-      // If it's a *new* conversation (not in the list yet)
-      if (!existsInHistory) {
-          // Optimistically add the new conversation to the top of the list
-          const newHistoryItem: HistoryItem = {
-              id: conversation.id,
-              title: conversation.title || 'New Chat', // Use current title or default
-              // Ensure updatedAt exists and is valid, otherwise use current time
-              updatedAt: new Date(conversation.updatedAt || Date.now()).toISOString() 
-          };
-          // Prepend the new item and re-sort immediately
-          setHistory(prevHistory => 
-             [newHistoryItem, ...prevHistory]
-             .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()) 
-          );
-      }
-    }
-  }, [conversation?.id, conversation?.rootMessageId, conversation?.title, conversation?.updatedAt, fetchHistory, history]); 
-
   // Detect if current conversation is an unused new chat and track previous conversation
   useEffect(() => {
     if (conversation) {
@@ -179,6 +154,9 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
 
   // --- Effect to update the current conversation's title/timestamp in the history list LIVE ---
   useEffect(() => {
+    // Wait until initial loading is finished before syncing the current conversation
+    if (loading) return; 
+
     // Only run if we have a valid conversation object loaded
     if (!conversation) return; // Exit early if no conversation
 
@@ -231,8 +209,17 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
 
       // If the currently active conversation wasn't found in the history list yet,
       // don't modify the list here. Another effect handles adding new items.
-      if (!itemFound) {
-        return prevHistory;
+      if (!itemFound && conversation && conversation.id && conversation.rootMessageId) {
+        // If the current conversation wasn't found, create and add it
+        const newHistoryItem: HistoryItem = {
+          id: conversation.id,
+          title: conversation.title || 'New Chat',
+          updatedAt: new Date(conversation.updatedAt || Date.now()).toISOString(),
+        };
+        // Add the new item and re-sort
+        console.log("Adding new conversation item to history:", newHistoryItem.id);
+        return [newHistoryItem, ...updatedHistory] // Use updatedHistory in case other items were modified
+          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
       }
 
       // Only trigger a state update if an actual change occurred
@@ -253,7 +240,58 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
         return prevHistory;
       }
     });
-  }, [conversation?.id, conversation?.title, conversation?.updatedAt]); // Keep dependencies as they are
+  }, [conversation?.id, conversation?.title, conversation?.updatedAt, history.length, loading]);
+
+  // USEMEMO TO COMPUTE DISPLAYED HISTORY
+  const displayedHistory = React.useMemo(() => {
+    // Don't compute until initial load is done and we have a conversation context
+    if (loading || !conversation) {
+      // Return raw history during loading or if context is missing initially
+      return history.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    }
+
+    let updated = false;
+    let itemExists = false;
+    const baseHistory = [...history]; // Create a mutable copy
+
+    // Check if the current conversation exists and update/add it
+    const currentConvIndex = baseHistory.findIndex(item => item.id === conversation.id);
+    const currentConvTitle = conversation.title || 'New Chat';
+    const currentConvTimestamp = new Date(conversation.updatedAt || Date.now()).toISOString();
+
+    if (currentConvIndex > -1) {
+      // Item exists, check if it needs updating
+      itemExists = true;
+      const existingItem = baseHistory[currentConvIndex];
+      if (existingItem.title !== currentConvTitle || existingItem.updatedAt !== currentConvTimestamp) {
+        baseHistory[currentConvIndex] = { 
+          ...existingItem, 
+          title: currentConvTitle, 
+          updatedAt: currentConvTimestamp 
+        };
+        updated = true;
+      }
+    } else if (conversation.id && conversation.rootMessageId) {
+      // Item doesn't exist, and it's a valid conversation, add it
+      const newHistoryItem: HistoryItem = {
+        id: conversation.id,
+        title: currentConvTitle,
+        updatedAt: currentConvTimestamp,
+      };
+      baseHistory.push(newHistoryItem);
+      updated = true;
+    }
+
+    // If we added or updated an item, or if the raw history changed, re-sort
+    // Always sort if baseHistory has items to ensure correct initial order
+    if (updated || baseHistory.length > 0) {
+      return baseHistory.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    } 
+    
+    // If no changes and list wasn't empty, return the original (but sorted)
+    return history.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+  }, [history, conversation, loading]); // Dependencies: raw history, conversation context, loading state
 
   // Add a helper function to find the latest message ID in the main thread
   const findLatestMessageId = (messages: Record<string, MessageNode>, rootId: string | null): string | null => {
@@ -442,36 +480,6 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
       setError(null);
     }
   }, [activeConversationId]);
-
-  // Add an immediate sync on mount to prevent animation glitches when opening sidebar
-  useEffect(() => {
-    // Run this effect only once on mount if we have a valid conversation
-    if (conversation?.id && conversation.rootMessageId) {
-      // Check if this conversation already exists in our history
-      const existsInHistory = history.some(item => item.id === conversation.id);
-      
-      // If it doesn't exist, add it immediately without animation
-      if (!existsInHistory) {
-        const newHistoryItem: HistoryItem = {
-          id: conversation.id,
-          title: conversation.title || 'New Chat',
-          updatedAt: new Date(conversation.updatedAt || Date.now()).toISOString()
-        };
-        
-        // Add to history immediately
-        setHistory(prevHistory => {
-          // Add the new item only if it doesn't already exist (double-check)
-          if (!prevHistory.some(item => item.id === conversation.id)) {
-            return [newHistoryItem, ...prevHistory]
-              .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-          }
-          return prevHistory;
-        });
-      }
-    }
-  // Include conversation and history as dependencies, but with eslint-disable to prevent continuous re-runs
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversation?.id, conversation?.rootMessageId, conversation?.title, conversation?.updatedAt, history.length]);
 
   // Custom double chevron component
   const DoubleChevronLeft = () => (
@@ -708,9 +716,9 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
       }
       
       {/* Always show history list if it exists, even during subsequent loads */}
-      {history.length > 0 ? (
+      {displayedHistory.length > 0 ? (
         <ul className="list-none p-0 m-0">
-          {history.filter((item, index, self) => 
+          {displayedHistory.filter((item, index, self) => 
             // Filter out duplicate IDs - keep only the first occurrence
             index === self.findIndex(t => t.id === item.id)
           ).map(item => (
