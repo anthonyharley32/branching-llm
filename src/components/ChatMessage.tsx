@@ -1,13 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math'; // Import remark-math
 import rehypeRaw from 'rehype-raw'; // Import rehype-raw
-// import { FiGitBranch } from 'react-icons/fi'; // Removed unused import
+import { FiEdit, FiCopy } from 'react-icons/fi'; // Import pencil and copy icons
 import { MessageNode } from '../types/conversation';
 import { useConversation, AddMessageResult } from '../context/ConversationContext';
-import { IoMdCheckmark, IoMdClose, IoMdCreate } from 'react-icons/io';
 // TODO: Import store hook when needed for branch creation
 // import { useChatStore } from '../store/useChatStore';
 
@@ -16,6 +15,7 @@ interface ChatMessageProps {
   /** ID of assistant message currently streaming (to highlight/animate). */
   streamingNodeId?: string | null;
   onBranchCreated: (result: AddMessageResult, sourceText: string, isNewBranch: boolean) => void;
+  onMessageEdited?: (messageId: string) => void;
 }
 
 // Custom function to pre-process KaTeX format to ensure proper rendering
@@ -53,7 +53,7 @@ const shadeColor = (color: string, percent: number) => {
 };
 
 // The main component function
-const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNodeId, onBranchCreated }) => {
+const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNodeId, onBranchCreated, onMessageEdited }) => {
   // Determine if this is a user message
   const isUser = message.role === 'user';
   
@@ -65,38 +65,21 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
   }, [isUser, message.content, message.id]); // Log only when content/id/role changes
   // --- END DEBUGGING ---
 
+  // Add editing state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(message.content);
+  const [isHovering, setIsHovering] = useState(false);
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
+
   const [selectedText, setSelectedText] = useState<string>('');
-  const [showEditControls, setShowEditControls] = useState<boolean>(false);
-  const [editedContent, setEditedContent] = useState<string>('');
   const messageContentRef = useRef<HTMLDivElement>(null);
-  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [selectionPosition, setSelectionPosition] = useState<{ 
     top: number; 
     right: number;
     selectionStart?: number;
     selectionEnd?: number;
   } | null>(null);
-  const { createBranch, hasChildren, conversation, startEditingMessage, saveEditedMessage, cancelEditingMessage, selectBranch } = useConversation();
-
-  // Check if this message is being edited
-  const isEditing = conversation?.editingMessageId === message.id;
-
-  // Set up editing state when entering edit mode
-  useEffect(() => {
-    if (isEditing) {
-      setEditedContent(message.content);
-      // Focus the textarea after a short delay to allow it to render
-      setTimeout(() => {
-        if (editTextareaRef.current) {
-          editTextareaRef.current.focus();
-          editTextareaRef.current.setSelectionRange(
-            editTextareaRef.current.value.length,
-            editTextareaRef.current.value.length
-          );
-        }
-      }, 50);
-    }
-  }, [isEditing, message.content]);
+  const { createBranch, hasChildren, conversation, editMessage } = useConversation();
 
   // Check if message has images in metadata
   const hasImages = message.metadata?.images && Array.isArray(message.metadata.images) && message.metadata.images.length > 0;
@@ -345,252 +328,458 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
     }
   }, [isBranchPoint, branchSources, message.content, message.id]);
 
-  // Handle edit keyboard shortcuts
-  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      // Ctrl/Cmd + Enter to save
+  // Handle text selection within this specific message
+  const handleSelection = () => {
+    if (isUser || !messageContentRef.current) {
+      // If selection change happened but it's not relevant, ensure state is clear
+      // Check existing state to avoid unnecessary re-renders
+      if (selectedText) setSelectedText('');
+      if (selectionPosition) setSelectionPosition(null);
+      return;
+    }
+
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      // Ensure the selection is actually within the bounds of our message content div
+      if (messageContentRef.current.contains(range.commonAncestorContainer)) {
+        const text = selection.toString().trim();
+        // Update state only if the selected text actually changed
+        if (text && text !== selectedText) {
+          setSelectedText(text);
+          
+          // Calculate position for the button
+          const rect = range.getBoundingClientRect();
+          const messageRect = messageContentRef.current.getBoundingClientRect();
+          
+          // Calculate position relative to the message container
+          // Use the actual right edge of the text selection
+          const rightPositionRelative = rect.right - messageRect.left;
+          
+          // Add a small offset for spacing between text and button
+          const buttonOffset = 8; // pixels
+          
+          setSelectionPosition({
+            top: rect.top + (rect.height / 2) - messageRect.top + window.scrollY, // Center for all selections
+            right: rightPositionRelative + buttonOffset, // Position just after the selected text
+          });
+          return; // Found valid selection, exit
+        } else if (!text && selectedText) {
+          // Selection cleared or now empty within this component
+          setSelectedText('');
+          setSelectionPosition(null);
+          return;
+        }
+      }
+    }
+
+    // If the selection check falls through (e.g., selection outside this div), clear state if needed
+    if (selectedText) {
+       // This case handles clicking outside or selecting elsewhere after selecting here
+       // Check if the current selection is *still* within this component before clearing
+       const currentSelection = window.getSelection();
+       let selectionStillInComponent = false;
+       if (currentSelection && currentSelection.rangeCount > 0) {
+         const currentRange = currentSelection.getRangeAt(0);
+         if (messageContentRef.current.contains(currentRange.commonAncestorContainer) && currentSelection.toString().trim()) {
+           selectionStillInComponent = true;
+         }
+       }
+       if (!selectionStillInComponent) {
+         setSelectedText('');
+         setSelectionPosition(null);
+       }
+    }
+  };
+
+  // Use mouseup on the document to capture selection end events
+  useEffect(() => {
+    // Only add listener logic for AI messages
+    if (isUser) {
+        // Clear selection if user message becomes active or component re-renders as user
+        if (selectedText) setSelectedText('');
+        if (selectionPosition) setSelectionPosition(null);
+        return; // Don't attach listener for user messages
+    }
+
+    // Define the listener function
+    const checkSelection = () => {
+        // Use requestAnimationFrame to ensure selection is finalized after mouseup
+        requestAnimationFrame(() => {
+             handleSelection();
+        });
+    };
+
+    document.addEventListener('mouseup', checkSelection);
+
+    // Cleanup function to remove the listener
+    return () => {
+      document.removeEventListener('mouseup', checkSelection);
+    };
+    // Depend on isUser and selectedText to potentially re-attach/cleanup or use inside handler
+  }, [isUser, selectedText]); // Re-evaluate if component type changes or selectedText state changes
+
+  // Debug KaTeX HTML structure after render
+  useEffect(() => {
+    if (!isUser && messageContentRef.current) {
+      setTimeout(() => {
+        const katexElements = messageContentRef.current?.querySelectorAll('.katex');
+        if (katexElements?.length) {
+          // console.log(`Found ${katexElements.length} KaTeX elements`);
+          
+          // Log structure of first katex element to see what's happening
+          const firstKatex = katexElements[0];
+          const htmlEl = firstKatex.querySelector('.katex-html');
+          const mathmlEl = firstKatex.querySelector('.katex-mathml');
+          
+          // console.log('KaTeX structure:', {
+          //   htmlHidden: htmlEl?.hasAttribute('aria-hidden') || false,
+          //   mathmlVisible: mathmlEl !== null,
+          //   html: htmlEl?.innerHTML || 'not found',
+          //   mathml: mathmlEl?.innerHTML || 'not found'
+          // });
+          
+          // Check if we still have duplicated content
+          const duplicateCheck: string[] = [];
+          katexElements.forEach((el, i) => {
+            const textContent = el.textContent?.trim() || '';
+            if (textContent && duplicateCheck.includes(textContent)) {
+              // console.log(`Potential duplicate KaTeX content found at element ${i}:`, textContent);
+            } else if (textContent) {
+              duplicateCheck.push(textContent);
+            }
+          });
+        }
+      }, 500); // Small delay to ensure render is complete
+    }
+  }, [isUser, message.content, message.id]);
+
+  // Branch creation handler
+  const handleBranchClick = () => {
+    if (!selectedText || isUser || !message.id) return;
+    const currentSelectedText = selectedText;
+    
+    // Create branch with metadata including selection offsets
+    const branchResult = createBranch(message.id, currentSelectedText, selectionPosition?.selectionStart, selectionPosition?.selectionEnd);
+    
+    if (branchResult) {
+      // Call the callback prop with the result and the source text
+      onBranchCreated(branchResult, currentSelectedText, false); // false means don't auto-explain
+    }
+    
+    // Clear selection
+    setSelectedText('');
+    setSelectionPosition(null);
+  };
+  
+  // Explain button handler
+  const handleExplainClick = () => {
+    if (!selectedText || isUser || !message.id) return;
+    const currentSelectedText = selectedText;
+    
+    // Create branch with metadata including selection offsets
+    const branchResult = createBranch(message.id, currentSelectedText, selectionPosition?.selectionStart, selectionPosition?.selectionEnd);
+    
+    if (branchResult) {
+      // Call the callback prop with the result and the source text
+      onBranchCreated(branchResult, currentSelectedText, true); // true means auto-explain
+    }
+    
+    // Clear selection
+    setSelectedText('');
+    setSelectionPosition(null);
+  };
+
+  // Handle entering edit mode
+  const handleEditClick = () => {
+    setIsEditing(true);
+    setEditedContent(message.content);
+    // Focus the textarea after it renders
+    setTimeout(() => {
+      if (editInputRef.current) {
+        editInputRef.current.focus();
+      }
+    }, 0);
+  };
+
+  // Handle saving edited message
+  const handleSaveEdit = () => {
+    if (editMessage) {
+      editMessage(message.id, editedContent, (editedId) => {
+        // Call the onMessageEdited prop if provided
+        if (onMessageEdited) {
+          onMessageEdited(editedId);
+        }
+      });
+    }
+    setIsEditing(false);
+  };
+
+  // Handle canceling edit
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedContent(message.content);
+  };
+
+  // Handle keyboard shortcuts in the textarea
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Submit on Enter (without shift)
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSaveEdit();
-    } else if (e.key === 'Escape') {
-      // Escape to cancel
+    }
+    // Cancel on Escape
+    else if (e.key === 'Escape') {
       e.preventDefault();
       handleCancelEdit();
     }
   };
 
-  // Check for user selection to enable branch/explain functionality
-  const checkSelection = () => {
-    if (isUser) return; // Don't run for user messages
-    
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || !messageContentRef.current) {
-      // Clear selection UI if there's no valid selection
-      setSelectedText('');
-      setSelectionPosition(null);
-      return;
-    }
-    
-    // Get selected text
-    const text = selection.toString().trim();
-    
-    // Only proceed if we have valid selected text
-    if (text) {
-      const range = selection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      const containerRect = messageContentRef.current.getBoundingClientRect();
-      
-      // Calculate relative position to message container
-      setSelectionPosition({
-        top: rect.top - containerRect.top + rect.height / 2,
-        right: containerRect.right - rect.right + 10,
-        selectionStart: range.startOffset,
-        selectionEnd: range.endOffset
+  // Function to copy message content to clipboard
+  const handleCopyClick = () => {
+    navigator.clipboard.writeText(message.content)
+      .then(() => {
+        // Optional: show a brief success notification
+      })
+      .catch((err) => {
+        console.error('Failed to copy message: ', err);
       });
-      setSelectedText(text);
-    } else {
-      setSelectedText('');
-      setSelectionPosition(null);
-    }
-  };
-
-  // Handle branch button click
-  const handleBranchClick = (childId?: string) => {
-    if (childId) {
-      // Navigate to existing branch
-      const branchMessageId = childId;
-      
-      if (conversation?.messages && branchMessageId) {
-        // Select the branch with the given messageId
-        selectBranch(branchMessageId);
-      }
-    } else {
-      // Create new branch from selection
-      if (!selectedText) return;
-      
-      const result = createBranch(
-        message.id, 
-        selectedText,
-        selectionPosition?.selectionStart,
-        selectionPosition?.selectionEnd
-      );
-      
-      if (result) {
-        onBranchCreated(result, selectedText, true);
-      }
-      
-      // Clear selection state after branching
-      setSelectedText('');
-      setSelectionPosition(null);
-    }
-  };
-
-  // Handle explain click
-  const handleExplainClick = () => {
-    // Clear selection UI
-    setSelectedText('');
-    setSelectionPosition(null);
-  };
-
-  // Handle edit button click
-  const handleEditClick = () => {
-    startEditingMessage(message.id);
-  };
-
-  // Handle save edit button click
-  const handleSaveEdit = async () => {
-    await saveEditedMessage(message.id, editedContent);
-  };
-
-  // Handle cancel edit button click
-  const handleCancelEdit = () => {
-    cancelEditingMessage();
-  };
-
-  // Handle textarea input change
-  const handleEditInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setEditedContent(e.target.value);
   };
 
   const isStreaming = !isUser && streamingNodeId === message.id;
 
   return (
-    <div 
-      className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} relative group`}
-      onMouseEnter={() => isUser && setShowEditControls(true)}
-      onMouseLeave={() => isUser && setShowEditControls(false)}
-    >
-      {/* User-specific UI */}
-      {isUser && (
-        <>
-          {/* Edit button that appears on hover */}
-          {!isEditing && showEditControls && (
-            <button 
-              onClick={handleEditClick}
-              className="absolute -top-3 -right-3 bg-white p-1 rounded-full text-gray-600 hover:text-gray-900 shadow-sm z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <IoMdCreate size={16} />
-            </button>
-          )}
+    <div className={`flex w-full mb-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
+      {/* Wrap message content and button in a div for better structure if needed, especially for positioning */}
+      <div 
+        className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
+        onMouseEnter={() => isUser && setIsHovering(true)}
+        onMouseLeave={() => isUser && setIsHovering(false)}
+      >
+        <div
+          ref={messageContentRef}
+          className={`${isUser ? userBubbleClasses : aiTextClasses} ${isBranchPoint ? 'relative pr-6' : ''} ${isUser ? 'relative' : ''}`}
+        >
+           {/* Background wave for currently streaming assistant message */}
+           {isStreaming && (
+             <div
+               className="streaming-wave absolute left-0 pointer-events-none select-none"
+               style={{ top: '0.6rem', zIndex: -1 }}
+             />
+           )}
 
-          {/* User message content */}
-          <div className={`${userBubbleClasses} relative ${isEditing ? 'hidden' : ''}`}>
-            {messageImages.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {messageImages.map((img, idx) => (
-                  <img 
-                    key={idx} 
-                    src={img} 
-                    alt={`User uploaded ${idx}`} 
-                    className="max-h-60 max-w-full rounded-md"
-                  />
-                ))}
-              </div>
-            )}
-            <ReactMarkdown
-              children={message.content}
-              components={{
-                code: ({ node, ...props }) => <code className="bg-gray-50 px-1 py-0.5 rounded text-red-500 font-mono text-sm" {...props} />
-              }}
-            />
-          </div>
-          
-          {/* Edit mode UI */}
-          {isEditing && (
-            <div className="flex flex-col w-full max-w-xs md:max-w-md lg:max-w-lg">
-              <textarea
-                ref={editTextareaRef}
-                value={editedContent}
-                onChange={handleEditInputChange}
-                onKeyDown={handleEditKeyDown}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[100px] text-sm"
-              />
-              <div className="flex justify-end space-x-2 mt-2">
-                <button
-                  onClick={handleCancelEdit}
-                  className="p-2 bg-gray-100 rounded-md text-gray-700 hover:bg-gray-200"
-                >
-                  <IoMdClose size={18} />
-                </button>
-                <button
-                  onClick={handleSaveEdit}
-                  className="p-2 bg-blue-100 rounded-md text-blue-700 hover:bg-blue-200"
-                >
-                  <IoMdCheckmark size={18} />
-                </button>
-              </div>
-              <div className="text-xs text-gray-500 mt-1 flex justify-end">
-                Press Esc to cancel, ⌘+Enter to save
-              </div>
+           {/* Edit mode for user messages */}
+           {isUser && isEditing ? (
+             <div className="relative">
+               <textarea
+                 ref={editInputRef}
+                 value={editedContent}
+                 onChange={(e) => setEditedContent(e.target.value)}
+                 onKeyDown={handleKeyDown}
+                 className="w-full min-h-[100px] p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="Edit your message..."
+               />
+               <div className="flex justify-end mt-2 space-x-2">
+                 <button 
+                   onClick={handleCancelEdit}
+                   className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                 >
+                   Cancel
+                 </button>
+                 <button 
+                   onClick={handleSaveEdit}
+                   className="px-3 py-1 text-sm bg-black text-white rounded hover:bg-gray-800"
+                 >
+                   Save
+                 </button>
+               </div>
+             </div>
+           ) : (
+             <>
+               {/* Render message content using react-markdown */}
+               <ReactMarkdown
+                 remarkPlugins={[remarkMath, remarkGfm]}
+                 rehypePlugins={[
+                   rehypeRaw, 
+                   [rehypeKatex, { 
+                     throwOnError: false,
+                     output: 'mathml',
+                     trust: true,  
+                     strict: false,
+                     displayMode: false,
+                     maxSize: 100,
+                     maxExpand: 1000
+                   }]
+                 ]}
+                 components={{
+                   // Custom heading renderers with more specific styling
+                   h1: ({children}) => <h1 className="text-4xl font-bold my-6 border-b border-gray-300 pb-2">{children}</h1>,
+                   h2: ({children}) => <h2 className="text-2xl font-bold my-4">{children}</h2>,
+                   h3: ({children}) => <h3 className="text-xl font-bold my-3">{children}</h3>,
+                   // Style horizontal rules to be gray
+                   hr: () => <hr className="border-gray-300 my-4" />,
+                   // Style line breaks to be visible as gray lines
+                   br: () => <span className="inline-block w-full h-px bg-gray-200 my-1"></span>
+                 }}
+               >
+                 {preprocessMarkdown(message.content)}
+               </ReactMarkdown>
+             </>
+           )}
+
+           {/* Display images if present in metadata */}
+           {hasImages && messageImages.length > 0 && (
+             <div className="mt-2 flex flex-wrap gap-2">
+               {messageImages.map((imageUrl, idx) => (
+                 <div key={`img-${idx}`} className="relative">
+                   <img 
+                     src={imageUrl} 
+                     alt={`Image ${idx+1}`} 
+                     className="max-w-xs max-h-60 rounded-lg object-cover" 
+                   />
+                 </div>
+               ))}
+             </div>
+           )}
+           
+           {/* Branch indicators for text that has been branched from */}
+           {branchSources.length > 0 && branchSources.map((source, index) => (
+             <div 
+               key={`branch-${index}`}
+               id={`branch-indicator-${message.id}-${source.childId}`}
+               style={{
+                 position: 'absolute',
+                 right: '0px',
+                 top: '0px', // Initial position, will be updated by useEffect
+                 cursor: 'pointer'
+               }}
+               onClick={() => {
+                 // In-line simplified path finding to avoid external dependency
+                 let messagePath: MessageNode[] = [];
+                 let branchNode: MessageNode | null = null;
+                 
+                 if (conversation?.messages && source.childId) {
+                   // Get the actual branch node with its content
+                   branchNode = conversation.messages[source.childId];
+                   
+                   // Walk up parent links to build path
+                   let currentId: string | null = source.childId;
+                   const tempPath: MessageNode[] = [];
+                   
+                   while (currentId && conversation.messages[currentId]) {
+                     tempPath.push(conversation.messages[currentId]);
+                     currentId = conversation.messages[currentId].parentId;
+                   }
+                   
+                   // Reverse to get root-to-target order
+                   messagePath = tempPath.reverse();
+                 }
+                 
+                 if (!branchNode) {
+                   // console.error("Failed to find branch node", source.childId);
+                   return;
+                 }
+                 
+                 // Make sure we pass the complete branch node with its content
+                 const result = {
+                   newNode: branchNode,
+                   messagePath
+                 } as AddMessageResult;
+                 
+                 // console.log(`Entering existing branch with content: "${branchNode.content.substring(0, 30)}..."`);
+                 onBranchCreated(result, source.text, false);
+               }}
+               onMouseEnter={() => {
+                 // Apply darker color on hover
+                 if (messageContentRef.current) {
+                   const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
+                   if (highlight) {
+                     const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim() || '#f5f0a8';
+                     (highlight as HTMLElement).style.backgroundColor = highlightColor;
+                     (highlight as HTMLElement).style.filter = 'brightness(0.8)'; // Make significantly darker on hover
+                   }
+                 }
+               }}
+               onMouseLeave={() => {
+                 // Restore original color when not hovering
+                 if (messageContentRef.current) {
+                   const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
+                   if (highlight) {
+                     const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim() || '#f5f0a8';
+                     (highlight as HTMLElement).style.backgroundColor = highlightColor;
+                     (highlight as HTMLElement).style.filter = 'none'; // Remove brightness filter
+                   }
+                 }
+               }}
+               className="group flex items-center justify-center p-1 transition-transform duration-150 ease-in-out hover:scale-130"
+               title="View branch created from this text"
+             >
+               <div 
+                 className="w-3.5 h-3.5 border border-gray-400 dark:border-gray-500 rounded-full 
+                            transition-colors duration-150 ease-in-out 
+                            group-hover:bg-gray-500 group-hover:border-gray-500"
+               >
+                 {/* Empty div serves as the circle */}
+               </div>
+             </div>
+           ))}
+           
+           {/* Floating branch button that appears next to selection */}
+           {!isUser && selectedText && selectionPosition && (
+             <div 
+               style={{
+                 position: 'absolute',
+                 top: `${selectionPosition.top}px`,
+                 left: `${selectionPosition.right ?? 0}px`,
+                 transform: 'translateY(-50%)',
+                 zIndex: 50,
+                 opacity: 1,
+                 animation: 'fadeIn 0.2s'
+               }}
+               className="branch-button-container"
+             >
+               <div className="flex shadow rounded-xl overflow-hidden">
+                 <button
+                   onClick={handleBranchClick}
+                   className="px-3 py-2 text-base font-semibold bg-black text-white rounded-l-xl hover:bg-gray-900 focus:outline-none transition-colors whitespace-nowrap cursor-pointer border-r border-gray-700"
+                   title="Branch from selection"
+                 >
+                   Branch
+                 </button>
+                 <button
+                   onClick={handleExplainClick}
+                   className="px-3 py-2 text-base font-semibold bg-black text-white rounded-r-xl hover:bg-gray-900 focus:outline-none transition-colors whitespace-nowrap cursor-pointer"
+                   title="Get explanation of selection"
+                 >
+                   Explain
+                 </button>
+               </div>
+             </div>
+           )}
+        </div>
+        
+        {/* Message action buttons - as a normal element with fixed height */}
+        <div className="h-8 flex items-center justify-center">
+          {isUser && !isEditing && isHovering && (
+            <div className="flex space-x-3">
+              <button
+                onClick={handleCopyClick}
+                className="p-1.5 text-gray-500 hover:text-gray-800 rounded transition-colors"
+                title="Copy message"
+              >
+                <FiCopy className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleEditClick} 
+                className="p-1.5 text-gray-500 hover:text-gray-800 rounded transition-colors"
+                title="Edit message"
+              >
+                <FiEdit className="h-4 w-4" />
+              </button>
             </div>
           )}
-        </>
-      )}
-
-      {/* AI-specific UI (unchanged) */}
-      {!isUser && (
-        <div className="relative w-full">
-          <div 
-            ref={messageContentRef}
-            className={aiTextClasses}
-            onMouseUp={checkSelection}
-          >
-            {/* Branch indicators */}
-            {isBranchPoint && branchSources.map((source, index) => (
-              <div
-                key={`${message.id}-${source.childId}`} 
-                id={`branch-indicator-${message.id}-${source.childId}`}
-                className="absolute right-0 w-3 h-3 bg-blue-500 rounded-full opacity-70 hover:opacity-100 cursor-pointer text-center text-white text-[8px] leading-3"
-                style={{ top: '0px', transform: 'translateX(50%)' }}
-                title="View branched response"
-                onClick={() => handleBranchClick(source.childId)}
-              ></div>
-            ))}
-            
-            {/* AI message content */}
-            <ReactMarkdown
-              children={preprocessMarkdown(message.content)}
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeRaw, rehypeKatex]}
-              components={{
-                code: ({ node, inline, className, children, ...props }: any) => {
-                  return inline ? (
-                    <code className="bg-gray-50 px-1 py-0.5 rounded text-red-500 font-mono text-sm" {...props}>
-                      {children}
-                    </code>
-                  ) : (
-                    <div className="bg-gray-50 rounded-md my-2 overflow-hidden">
-                      <div className="bg-gray-100 py-1 px-4 border-b border-gray-200 text-xs font-mono text-gray-500">
-                        {className ? className.replace(/language-/, '') : 'code'}
-                      </div>
-                      <pre className="p-4 overflow-x-auto">
-                        <code className="font-mono text-sm">{children}</code>
-                      </pre>
-                    </div>
-                  );
-                }
-              }}
-            />
-            
-            {/* Selection controls */}
-            {selectionPosition && selectedText && (
-              <div 
-                className="absolute bg-white shadow-md rounded p-2 flex items-center space-x-2 z-10"
-                style={{
-                  top: `${selectionPosition.top - 40}px`,
-                  right: `${-10}px`,
-                }}
-              >
-                <button
-                  onClick={handleExplainClick}
-                  className="px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                >
-                  Explain
-                </button>
-              </div>
-            )}
-          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

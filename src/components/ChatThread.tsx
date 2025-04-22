@@ -9,9 +9,10 @@ interface ChatThreadProps {
   /** If provided, the ID of the assistant message currently streaming. */
   streamingNodeId?: string | null;
   onBranchCreated: (result: AddMessageResult, sourceText: string, isNewBranch: boolean) => void;
+  onMessageEdited?: (messageId: string) => void;
 }
 
-const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, streamingNodeId = null, onBranchCreated }) => {
+const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, streamingNodeId = null, onBranchCreated, onMessageEdited }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [userHasScrolled, setUserHasScrolled] = useState(false);
@@ -255,6 +256,7 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
           message={msg}
           streamingNodeId={streamingNodeId}
           onBranchCreated={onBranchCreated}
+          onMessageEdited={onMessageEdited}
         />
       ))}
       {showInitialLoading && (

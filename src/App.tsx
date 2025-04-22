@@ -60,7 +60,6 @@ function AppContent() {
     currentMessages,
     activeMessageId,
     setActiveMessageId,
-    setConversation
   } = useConversation();
 
   const [isSending, setIsSending] = useState(false);
@@ -87,6 +86,9 @@ function AppContent() {
     path: MessageNode[];
     metadata?: Record<string, any>;
   } | null>(null);
+
+  // State to track edited message for AI regeneration
+  const [editedMessageId, setEditedMessageId] = useState<string | null>(null);
 
   const [showingMainThread, setShowingMainThread] = useState(false);
 
@@ -262,6 +264,45 @@ function AppContent() {
     executeStream();
 
   }, [pendingLlmCall, guestMessageCount, session, additionalSystemPrompt]); // Added additionalSystemPrompt to dependency array
+
+  // --- Effect to listen for message edits and trigger regeneration ---
+  useEffect(() => {
+    if (!editedMessageId || !conversation?.messages) return;
+    
+    const editedMessage = conversation.messages[editedMessageId];
+    if (!editedMessage || editedMessage.role !== 'user') {
+      setEditedMessageId(null);
+      return;
+    }
+    
+    // Set up for message generation from edited message
+    setIsSending(true);
+    setError(null);
+    setStreamingAiNodeId(null);
+    
+    // Build message path from root to edited message
+    const messagePath: MessageNode[] = [];
+    let currentId: string | null = editedMessageId;
+    
+    while (currentId) {
+      const msg: MessageNode = conversation.messages[currentId];
+      if (msg) {
+        messagePath.unshift(msg); // Add to front to maintain order
+        currentId = msg.parentId;
+      } else {
+        break;
+      }
+    }
+    
+    // Trigger LLM call
+    setPendingLlmCall({
+      parentId: editedMessageId,
+      path: messagePath
+    });
+    
+    // Clear the edited message ID
+    setEditedMessageId(null);
+  }, [editedMessageId, conversation, setIsSending, setError, setStreamingAiNodeId]);
 
   const handleSendMessage = async (text: string, images?: string[]) => {
     setIsSending(true);
@@ -629,60 +670,6 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
     },
   };
 
-  // Add this effect to watch for edited messages
-  // This will be added somewhere in the AppContent function
-  useEffect(() => {
-    // If there's no conversation, no point in checking
-    if (!conversation) return;
-    
-    // If we're already sending a message, don't interrupt
-    if (isSending) return;
-    
-    // Look for the active message ID - this will be the edited message after saving
-    if (activeMessageId && conversation.messages[activeMessageId]) {
-      const activeMessage = conversation.messages[activeMessageId];
-      
-      // Only continue if this is a user message
-      if (activeMessage.role !== 'user') return;
-      
-      // Check if this message has just been edited
-      if (conversation._justEdited) {
-        // Reset the flag
-        setConversation(prev => prev ? { ...prev, _justEdited: false } : prev);
-        
-        // Now treat this like a new message and generate the AI response
-        const text = activeMessage.content;
-        setIsSending(true);
-        setError(null);
-        setStreamingAiNodeId(null);
-        setShowingMainThread(false);
-        
-        // Prepare the metadata, similar to handleSendMessage
-        let metadata = undefined;
-        if (activeMessage.metadata) {
-          metadata = { ...activeMessage.metadata };
-        }
-        
-        // Build the message path from root to this message
-        const messagePath: MessageNode[] = [];
-        let currentId: string | null = activeMessageId;
-        while (currentId && conversation.messages[currentId]) {
-          messagePath.unshift(conversation.messages[currentId]);
-          currentId = conversation.messages[currentId].parentId;
-        }
-        
-        // Trigger the LLM call
-        if (activeMessageId) {
-          setPendingLlmCall({
-            parentId: activeMessageId,
-            path: messagePath,
-            metadata
-          });
-        }
-      }
-    }
-  }, [conversation, activeMessageId, isSending, setConversation, setError, setIsSending, setStreamingAiNodeId, setShowingMainThread, setPendingLlmCall]);
-
   return (
     // Layout: side panel (ChatHistory) and main content
     <div className="flex h-screen w-full bg-gray-50 text-gray-900 overflow-hidden">
@@ -926,6 +913,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
               isLoading={isSending}
               streamingNodeId={streamingAiNodeId}
               onBranchCreated={handleBranchCreated}
+              onMessageEdited={setEditedMessageId}
             />
           </motion.main>
         </AnimatePresence>
