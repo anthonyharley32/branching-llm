@@ -445,6 +445,12 @@ function AppContent() {
         const parentContent = parentMessage ? parentMessage.content : '';
         const parentRole = parentMessage ? parentMessage.role : 'user';
         
+        // *** Add state updates here for loading indicator ***
+        setIsSending(true);
+        setError(null);
+        setStreamingAiNodeId(null); // Reset any previous streaming ID
+        // ****************************************************
+        
         // Create a more focused message path for the LLM to respond specifically to the selected text
         // Include system messages, parent message for context, and a synthetic user message with the selected text
         const focusedPath = currentMessages
