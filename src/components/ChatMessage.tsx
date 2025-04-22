@@ -494,12 +494,18 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
   const handleEditClick = () => {
     setIsEditing(true);
     setEditedContent(message.content);
-    // Focus the textarea after it renders
-    setTimeout(() => {
-      if (editInputRef.current) {
-        editInputRef.current.focus();
-      }
-    }, 0);
+    // Store current message width
+    if (messageContentRef.current) {
+      const width = messageContentRef.current.offsetWidth;
+      // Set a small timeout to allow the textarea to render before resizing
+      setTimeout(() => {
+        if (editInputRef.current) {
+          editInputRef.current.style.width = `${width}px`;
+          editInputRef.current.style.height = 'auto';
+          editInputRef.current.style.height = `${editInputRef.current.scrollHeight}px`;
+        }
+      }, 0);
+    }
   };
 
   // Handle saving edited message
@@ -552,211 +558,226 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
     <div className={`flex w-full mb-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
       {/* Wrap message content and button in a div for better structure if needed, especially for positioning */}
       <div 
-        className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
+        className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} ${isUser && isEditing ? 'w-full max-w-3xl' : ''}`}
         onMouseEnter={() => isUser && setIsHovering(true)}
         onMouseLeave={() => isUser && setIsHovering(false)}
       >
-        <div
-          ref={messageContentRef}
-          className={`${isUser ? userBubbleClasses : aiTextClasses} ${isBranchPoint ? 'relative pr-6' : ''} ${isUser ? 'relative' : ''}`}
-        >
-           {/* Background wave for currently streaming assistant message */}
-           {isStreaming && (
-             <div
-               className="streaming-wave absolute left-0 pointer-events-none select-none"
-               style={{ top: '0.6rem', zIndex: -1 }}
-             />
-           )}
+        {isUser && isEditing ? (
+          // Edit mode as a standalone UI rather than inside the bubble
+          <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <textarea
+              ref={editInputRef}
+              value={editedContent}
+              onChange={(e) => setEditedContent(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="px-4 py-3 w-full border-none outline-none resize-none text-gray-900 text-[15px]"
+              style={{ 
+                minHeight: '60px',
+                overflow: 'hidden',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}
+              autoFocus
+              onFocus={(e) => {
+                // Set cursor at end of text
+                e.target.selectionStart = e.target.value.length;
+              }}
+              onInput={(e) => {
+                // Automatically adjust height
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = `${target.scrollHeight}px`;
+              }}
+            />
+            <div className="flex justify-end space-x-2 px-4 py-2 bg-white">
+              <button
+                onClick={handleCancelEdit}
+                className="px-4 py-2 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800 transition-colors"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        ) : (
+          // Regular message display
+          <div
+            ref={messageContentRef}
+            className={`${isUser ? userBubbleClasses : aiTextClasses} ${isBranchPoint ? 'relative pr-6' : ''} ${isUser ? 'relative' : ''}`}
+          >
+            {/* Background wave for currently streaming assistant message */}
+            {isStreaming && (
+              <div
+                className="streaming-wave absolute left-0 pointer-events-none select-none"
+                style={{ top: '0.6rem', zIndex: -1 }}
+              />
+            )}
 
-           {/* Edit mode for user messages */}
-           {isUser && isEditing ? (
-             <div className="relative">
-               <textarea
-                 ref={editInputRef}
-                 value={editedContent}
-                 onChange={(e) => setEditedContent(e.target.value)}
-                 onKeyDown={handleKeyDown}
-                 className="w-full min-h-[100px] p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                 placeholder="Edit your message..."
-               />
-               <div className="flex justify-end mt-2 space-x-2">
-                 <button 
-                   onClick={handleCancelEdit}
-                   className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                 >
-                   Cancel
-                 </button>
-                 <button 
-                   onClick={handleSaveEdit}
-                   className="px-3 py-1 text-sm bg-black text-white rounded hover:bg-gray-800"
-                 >
-                   Save
-                 </button>
-               </div>
-             </div>
-           ) : (
-             <>
-               {/* Render message content using react-markdown */}
-               <ReactMarkdown
-                 remarkPlugins={[remarkMath, remarkGfm]}
-                 rehypePlugins={[
-                   rehypeRaw, 
-                   [rehypeKatex, { 
-                     throwOnError: false,
-                     output: 'mathml',
-                     trust: true,  
-                     strict: false,
-                     displayMode: false,
-                     maxSize: 100,
-                     maxExpand: 1000
-                   }]
-                 ]}
-                 components={{
-                   // Custom heading renderers with more specific styling
-                   h1: ({children}) => <h1 className="text-4xl font-bold my-6 border-b border-gray-300 pb-2">{children}</h1>,
-                   h2: ({children}) => <h2 className="text-2xl font-bold my-4">{children}</h2>,
-                   h3: ({children}) => <h3 className="text-xl font-bold my-3">{children}</h3>,
-                   // Style horizontal rules to be gray
-                   hr: () => <hr className="border-gray-300 my-4" />,
-                   // Style line breaks to be visible as gray lines
-                   br: () => <span className="inline-block w-full h-px bg-gray-200 my-1"></span>
-                 }}
-               >
-                 {preprocessMarkdown(message.content)}
-               </ReactMarkdown>
-             </>
-           )}
+            {/* Render message content using react-markdown */}
+            <ReactMarkdown
+              remarkPlugins={[remarkMath, remarkGfm]}
+              rehypePlugins={[
+                rehypeRaw, 
+                [rehypeKatex, { 
+                  throwOnError: false,
+                  output: 'mathml',
+                  trust: true,  
+                  strict: false,
+                  displayMode: false,
+                  maxSize: 100,
+                  maxExpand: 1000
+                }]
+              ]}
+              components={{
+                // Custom heading renderers with more specific styling
+                h1: ({children}) => <h1 className="text-4xl font-bold my-6 border-b border-gray-300 pb-2">{children}</h1>,
+                h2: ({children}) => <h2 className="text-2xl font-bold my-4">{children}</h2>,
+                h3: ({children}) => <h3 className="text-xl font-bold my-3">{children}</h3>,
+                // Style horizontal rules to be gray
+                hr: () => <hr className="border-gray-300 my-4" />,
+                // Style line breaks to be visible as gray lines
+                br: () => <span className="inline-block w-full h-px bg-gray-200 my-1"></span>
+              }}
+            >
+              {preprocessMarkdown(message.content)}
+            </ReactMarkdown>
 
-           {/* Display images if present in metadata */}
-           {hasImages && messageImages.length > 0 && (
-             <div className="mt-2 flex flex-wrap gap-2">
-               {messageImages.map((imageUrl, idx) => (
-                 <div key={`img-${idx}`} className="relative">
-                   <img 
-                     src={imageUrl} 
-                     alt={`Image ${idx+1}`} 
-                     className="max-w-xs max-h-60 rounded-lg object-cover" 
-                   />
-                 </div>
-               ))}
-             </div>
-           )}
-           
-           {/* Branch indicators for text that has been branched from */}
-           {branchSources.length > 0 && branchSources.map((source, index) => (
-             <div 
-               key={`branch-${index}`}
-               id={`branch-indicator-${message.id}-${source.childId}`}
-               style={{
-                 position: 'absolute',
-                 right: '0px',
-                 top: '0px', // Initial position, will be updated by useEffect
-                 cursor: 'pointer'
-               }}
-               onClick={() => {
-                 // In-line simplified path finding to avoid external dependency
-                 let messagePath: MessageNode[] = [];
-                 let branchNode: MessageNode | null = null;
-                 
-                 if (conversation?.messages && source.childId) {
-                   // Get the actual branch node with its content
-                   branchNode = conversation.messages[source.childId];
-                   
-                   // Walk up parent links to build path
-                   let currentId: string | null = source.childId;
-                   const tempPath: MessageNode[] = [];
-                   
-                   while (currentId && conversation.messages[currentId]) {
-                     tempPath.push(conversation.messages[currentId]);
-                     currentId = conversation.messages[currentId].parentId;
-                   }
-                   
-                   // Reverse to get root-to-target order
-                   messagePath = tempPath.reverse();
-                 }
-                 
-                 if (!branchNode) {
-                   // console.error("Failed to find branch node", source.childId);
-                   return;
-                 }
-                 
-                 // Make sure we pass the complete branch node with its content
-                 const result = {
-                   newNode: branchNode,
-                   messagePath
-                 } as AddMessageResult;
-                 
-                 // console.log(`Entering existing branch with content: "${branchNode.content.substring(0, 30)}..."`);
-                 onBranchCreated(result, source.text, false);
-               }}
-               onMouseEnter={() => {
-                 // Apply darker color on hover
-                 if (messageContentRef.current) {
-                   const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
-                   if (highlight) {
-                     const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim() || '#f5f0a8';
-                     (highlight as HTMLElement).style.backgroundColor = highlightColor;
-                     (highlight as HTMLElement).style.filter = 'brightness(0.8)'; // Make significantly darker on hover
-                   }
-                 }
-               }}
-               onMouseLeave={() => {
-                 // Restore original color when not hovering
-                 if (messageContentRef.current) {
-                   const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
-                   if (highlight) {
-                     const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim() || '#f5f0a8';
-                     (highlight as HTMLElement).style.backgroundColor = highlightColor;
-                     (highlight as HTMLElement).style.filter = 'none'; // Remove brightness filter
-                   }
-                 }
-               }}
-               className="group flex items-center justify-center p-1 transition-transform duration-150 ease-in-out hover:scale-130"
-               title="View branch created from this text"
-             >
-               <div 
-                 className="w-3.5 h-3.5 border border-gray-400 dark:border-gray-500 rounded-full 
-                            transition-colors duration-150 ease-in-out 
-                            group-hover:bg-gray-500 group-hover:border-gray-500"
-               >
-                 {/* Empty div serves as the circle */}
-               </div>
-             </div>
-           ))}
-           
-           {/* Floating branch button that appears next to selection */}
-           {!isUser && selectedText && selectionPosition && (
-             <div 
-               style={{
-                 position: 'absolute',
-                 top: `${selectionPosition.top}px`,
-                 left: `${selectionPosition.right ?? 0}px`,
-                 transform: 'translateY(-50%)',
-                 zIndex: 50,
-                 opacity: 1,
-                 animation: 'fadeIn 0.2s'
-               }}
-               className="branch-button-container"
-             >
-               <div className="flex shadow rounded-xl overflow-hidden">
-                 <button
-                   onClick={handleBranchClick}
-                   className="px-3 py-2 text-base font-semibold bg-black text-white rounded-l-xl hover:bg-gray-900 focus:outline-none transition-colors whitespace-nowrap cursor-pointer border-r border-gray-700"
-                   title="Branch from selection"
-                 >
-                   Branch
-                 </button>
-                 <button
-                   onClick={handleExplainClick}
-                   className="px-3 py-2 text-base font-semibold bg-black text-white rounded-r-xl hover:bg-gray-900 focus:outline-none transition-colors whitespace-nowrap cursor-pointer"
-                   title="Get explanation of selection"
-                 >
-                   Explain
-                 </button>
-               </div>
-             </div>
-           )}
-        </div>
+            {/* Display images if present in metadata */}
+            {hasImages && messageImages.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {messageImages.map((imageUrl, idx) => (
+                  <div key={`img-${idx}`} className="relative">
+                    <img 
+                      src={imageUrl} 
+                      alt={`Image ${idx+1}`} 
+                      className="max-w-xs max-h-60 rounded-lg object-cover" 
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Branch indicators for text that has been branched from */}
+            {branchSources.length > 0 && branchSources.map((source, index) => (
+              <div 
+                key={`branch-${index}`}
+                id={`branch-indicator-${message.id}-${source.childId}`}
+                style={{
+                  position: 'absolute',
+                  right: '0px',
+                  top: '0px', // Initial position, will be updated by useEffect
+                  cursor: 'pointer'
+                }}
+                onClick={() => {
+                  // In-line simplified path finding to avoid external dependency
+                  let messagePath: MessageNode[] = [];
+                  let branchNode: MessageNode | null = null;
+                  
+                  if (conversation?.messages && source.childId) {
+                    // Get the actual branch node with its content
+                    branchNode = conversation.messages[source.childId];
+                    
+                    // Walk up parent links to build path
+                    let currentId: string | null = source.childId;
+                    const tempPath: MessageNode[] = [];
+                    
+                    while (currentId && conversation.messages[currentId]) {
+                      tempPath.push(conversation.messages[currentId]);
+                      currentId = conversation.messages[currentId].parentId;
+                    }
+                    
+                    // Reverse to get root-to-target order
+                    messagePath = tempPath.reverse();
+                  }
+                  
+                  if (!branchNode) {
+                    // console.error("Failed to find branch node", source.childId);
+                    return;
+                  }
+                  
+                  // Make sure we pass the complete branch node with its content
+                  const result = {
+                    newNode: branchNode,
+                    messagePath
+                  } as AddMessageResult;
+                  
+                  // console.log(`Entering existing branch with content: "${branchNode.content.substring(0, 30)}..."`);
+                  onBranchCreated(result, source.text, false);
+                }}
+                onMouseEnter={() => {
+                  // Apply darker color on hover
+                  if (messageContentRef.current) {
+                    const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
+                    if (highlight) {
+                      const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim() || '#f5f0a8';
+                      (highlight as HTMLElement).style.backgroundColor = highlightColor;
+                      (highlight as HTMLElement).style.filter = 'brightness(0.8)'; // Make significantly darker on hover
+                    }
+                  }
+                }}
+                onMouseLeave={() => {
+                  // Restore original color when not hovering
+                  if (messageContentRef.current) {
+                    const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
+                    if (highlight) {
+                      const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim() || '#f5f0a8';
+                      (highlight as HTMLElement).style.backgroundColor = highlightColor;
+                      (highlight as HTMLElement).style.filter = 'none'; // Remove brightness filter
+                    }
+                  }
+                }}
+                className="group flex items-center justify-center p-1 transition-transform duration-150 ease-in-out hover:scale-130"
+                title="View branch created from this text"
+              >
+                <div 
+                  className="w-3.5 h-3.5 border border-gray-400 dark:border-gray-500 rounded-full 
+                             transition-colors duration-150 ease-in-out 
+                             group-hover:bg-gray-500 group-hover:border-gray-500"
+                >
+                  {/* Empty div serves as the circle */}
+                </div>
+              </div>
+            ))}
+            
+            {/* Floating branch button that appears next to selection */}
+            {!isUser && selectedText && selectionPosition && (
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: `${selectionPosition.top}px`,
+                  left: `${selectionPosition.right ?? 0}px`,
+                  transform: 'translateY(-50%)',
+                  zIndex: 50,
+                  opacity: 1,
+                  animation: 'fadeIn 0.2s'
+                }}
+                className="branch-button-container"
+              >
+                <div className="flex shadow rounded-xl overflow-hidden">
+                  <button
+                    onClick={handleBranchClick}
+                    className="px-3 py-2 text-base font-semibold bg-black text-white rounded-l-xl hover:bg-gray-900 focus:outline-none transition-colors whitespace-nowrap cursor-pointer border-r border-gray-700"
+                    title="Branch from selection"
+                  >
+                    Branch
+                  </button>
+                  <button
+                    onClick={handleExplainClick}
+                    className="px-3 py-2 text-base font-semibold bg-black text-white rounded-r-xl hover:bg-gray-900 focus:outline-none transition-colors whitespace-nowrap cursor-pointer"
+                    title="Get explanation of selection"
+                  >
+                    Explain
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         
         {/* Message action buttons - as a normal element with fixed height */}
         <div className="h-8 flex items-center justify-center">
