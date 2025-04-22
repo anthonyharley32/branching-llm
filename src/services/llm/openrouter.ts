@@ -5,6 +5,12 @@
 
 import { config } from './config';
 import { Message } from '../../types/chat';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Error types (reused from openai.ts)
 export enum ErrorType {
@@ -64,9 +70,6 @@ export const SUPPORTED_MODELS = {
   'x-ai/grok-3-mini-beta': 'Grok 3 Mini Beta',
   'x-ai/grok-3-beta': 'Grok 3 Beta'
 };
-
-// OpenRouter API base URL
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1';
 
 // Convert our message format to OpenRouter format
 function convertToOpenRouterMessages(messages: Message[]): any[] {
@@ -128,9 +131,7 @@ function validateModel(model: string): string {
 
 // Initialize OpenRouter
 export function initializeClient(): void {
-  if (!config.openRouterApiKey) {
-    throw new Error('OpenRouter API key is required but not provided');
-  }
+  // No need to check for API key here as it's now handled server-side
   
   // Validate the configured model
   const validModel = validateModel(config.openRouterModel);
@@ -147,15 +148,11 @@ export function getAvailableModels(): { id: string, name: string }[] {
   return Object.entries(SUPPORTED_MODELS).map(([id, name]) => ({ id, name }));
 }
 
-// Generate completion using OpenRouter API
+// Generate completion using OpenRouter API via Supabase Edge Function
 export async function generateCompletion(
   messages: Message[]
 ): Promise<string> {
   try {
-    if (!config.openRouterApiKey) {
-      throw new Error('OpenRouter API key is not configured');
-    }
-    
     const model = validateModel(config.openRouterModel);
     const systemMessage = { role: 'system' as const, content: config.systemPrompt };
     const openRouterMessages = [systemMessage, ...convertToOpenRouterMessages(messages)];
@@ -173,24 +170,19 @@ export async function generateCompletion(
     if (model.startsWith('x-ai/grok-')) {
       requestBody.reasoning = { effort: "high" };
     }
-    
-    const response = await fetch(`${OPENROUTER_API_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.openRouterApiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin, // for OpenRouter analytics
-        'X-Title': 'Learning LLM App' // for OpenRouter analytics
-      },
-      body: JSON.stringify(requestBody),
+
+    // Call our Supabase Edge Function instead of OpenRouter directly
+    const { data, error } = await supabase.functions.invoke('llm-api', {
+      body: {
+        endpoint: 'chat/completions',
+        payload: requestBody
+      }
     });
     
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw handleApiError(response.status, errorData);
+    if (error) {
+      throw handleApiError(500, { error: error.message });
     }
     
-    const data = await response.json();
     return data.choices[0].message.content;
     
   } catch (error: unknown) {
@@ -207,10 +199,6 @@ export async function generateCompletionStream(
   additionalSystemPrompt: string | null
 ): Promise<void> {
   try {
-    if (!config.openRouterApiKey) {
-      throw new Error('OpenRouter API key is not configured');
-    }
-    
     const model = validateModel(config.openRouterModel);
     
     // Combine system prompts
@@ -257,16 +245,19 @@ export async function generateCompletionStream(
     if (model.startsWith('x-ai/grok-')) {
       requestBody.reasoning = { effort: "high" };
     }
-    
-    const response = await fetch(`${OPENROUTER_API_URL}/chat/completions`, {
+
+    // For streaming, we'll use the fetch API directly to our Supabase function
+    // This works around current limitations in Supabase JS client for streaming responses
+    const response = await fetch(`${supabaseUrl}/functions/v1/llm-api`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${config.openRouterApiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin, // for OpenRouter analytics
-        'X-Title': 'Learning LLM App' // for OpenRouter analytics
+        'Authorization': `Bearer ${supabaseAnonKey}`,
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        endpoint: 'chat/completions',
+        payload: requestBody
+      }),
     });
     
     if (!response.ok) {
@@ -365,18 +356,9 @@ export async function generateCompletionStream(
             
             if (content) {
               callbacks.onChunk(content);
-            } else {
-              // Suppress debug logs for known non-content messages from Grok models
-              // Check if this is a Grok model
-              if (model.startsWith('x-ai/grok-')) {
-                // Only log if it's not a typical metadata message
-                if (!data.id && !data.object) {
-                  console.debug('Unhandled SSE format:', data);
-                }
-              } else {
-                console.debug('Unhandled SSE format:', data);
-              }
-            }
+            } 
+            // No need to log here if no content is found, 
+            // as some SSE chunks are expected to be metadata only.
           } catch (e) {
             console.warn('Error parsing SSE chunk:', e);
             // If the chunk contains error data, handle it properly
@@ -525,31 +507,26 @@ export async function generateTitle(
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(`${OPENROUTER_API_URL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.openRouterApiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'Learning LLM App'
-        },
-        body: JSON.stringify({
-          model: titleModel,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage }
-          ],
-          temperature: 0.5,
-          max_tokens: 15,
-        }),
+      // Call our Supabase Edge Function instead of OpenRouter directly
+      const { data, error } = await supabase.functions.invoke('llm-api', {
+        body: {
+          endpoint: 'chat/completions',
+          payload: {
+            model: titleModel,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userMessage }
+            ],
+            temperature: 0.5,
+            max_tokens: 15,
+          }
+        }
       });
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw handleApiError(response.status, errorData);
+      if (error) {
+        throw handleApiError(500, { error: error.message });
       }
       
-      const data = await response.json();
       const generatedTitle = data.choices[0]?.message?.content?.trim();
       
       if (generatedTitle && generatedTitle.length > 0 && generatedTitle.length <= maxTitleLength) {
