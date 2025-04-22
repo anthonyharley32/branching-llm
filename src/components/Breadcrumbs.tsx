@@ -20,7 +20,7 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ path, onNavigate }) => {
   };
 
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-400 overflow-x-auto whitespace-nowrap py-1">
+    <nav aria-label="Breadcrumb" className="flex items-center space-x-1 text-xs text-gray-500 overflow-x-auto whitespace-nowrap py-1">
       {path.map((node, index) => (
         <React.Fragment key={node.id}>
           {index > 0 && <FiChevronRight className="h-3 w-3 flex-shrink-0" />}
@@ -34,7 +34,7 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ path, onNavigate }) => {
             </button>
           ) : (
             // Last crumb (current) is not clickable
-            <span className="font-medium text-gray-700 dark:text-gray-300">
+            <span className="font-medium text-gray-700">
               {getCrumbLabel(node)}
             </span>
           )}

@@ -277,7 +277,7 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
         </div>
       )}
       {displayMessages.length === 0 && !isLoading && (
-        <div className="text-center text-gray-500 dark:text-gray-400 pt-10">
+        <div className="text-center text-gray-500 pt-10">
           Start the conversation!
         </div>
       )}

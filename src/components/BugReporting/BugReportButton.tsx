@@ -45,10 +45,10 @@ const BugReportButton: React.FC<BugReportButtonProps> = ({
     <>
       <button
         onClick={openModal}
-        className={`flex items-center gap-1 py-2 px-3 bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 rounded-md transition-colors ${className}`}
+        className={`flex items-center gap-1 py-2 px-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors ${className}`}
         aria-label="Report a bug"
       >
-        {showIcon && <FiAlertTriangle className="inline-block text-gray-500 dark:text-gray-400" />}
+        {showIcon && <FiAlertTriangle className="inline-block text-gray-500" />}
         {buttonText}
       </button>
 
@@ -63,16 +63,16 @@ const BugReportButton: React.FC<BugReportButtonProps> = ({
             onClick={closeModal}
           >
             <motion.div
-              className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] border border-gray-100 dark:border-gray-700 relative"
+              className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.2)] border border-gray-100 relative"
               variants={modalVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
               <button
                 onClick={closeModal}
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 z-10 cursor-pointer"
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 z-10 cursor-pointer"
                 aria-label="Close"
               >
                 <FiX size={24} />

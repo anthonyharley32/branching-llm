@@ -5,11 +5,6 @@
   line-height: 1.5;
   font-weight: 400;
 
-  /* Let Tailwind handle color and background. Remove color-scheme and background-color for Tailwind control. */
-  /* color-scheme: light dark; */
-  /* color: rgba(255, 255, 255, 0.87); */
-  /* background-color: #242424; */
-
   /* Custom app variables */
   --branch-highlight-color: #f5f0a8;
 

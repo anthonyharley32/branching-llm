@@ -189,13 +189,13 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
+    <div className="bg-white shadow-md rounded-lg p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Bug Management</h2>
+        <h2 className="text-2xl font-bold text-gray-800">Bug Management</h2>
         {onClose && (
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="text-gray-500 hover:text-gray-700"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -212,16 +212,16 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
       )}
 
       {/* Filter and Search Controls */}
-      <div className="mb-6 grid sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      <div className="flex flex-wrap gap-4 mb-6">
+        <div className="w-full md:w-auto">
+          <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 mb-1">
             Status
           </label>
           <select
             id="statusFilter"
             value={filter.status}
-            onChange={(e) => setFilter({...filter, status: e.target.value})}
-            className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+            className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           >
             <option value="">All Statuses</option>
             <option value="new">New</option>
@@ -231,50 +231,50 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
           </select>
         </div>
 
-        <div>
-          <label htmlFor="severityFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <div className="w-full md:w-auto">
+          <label htmlFor="severityFilter" className="block text-sm font-medium text-gray-700 mb-1">
             Severity
           </label>
           <select
             id="severityFilter"
             value={filter.severity}
-            onChange={(e) => setFilter({...filter, severity: e.target.value})}
-            className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            onChange={(e) => setFilter({ ...filter, severity: e.target.value })}
+            className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           >
             <option value="">All Severities</option>
-            <option value="critical">Critical</option>
-            <option value="major">Major</option>
             <option value="minor">Minor</option>
+            <option value="major">Major</option>
+            <option value="critical">Critical</option>
           </select>
         </div>
 
-        <div>
-          <label htmlFor="assigneeFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <div className="w-full md:w-auto">
+          <label htmlFor="assigneeFilter" className="block text-sm font-medium text-gray-700 mb-1">
             Assignee
           </label>
           <select
             id="assigneeFilter"
             value={filter.assignee}
-            onChange={(e) => setFilter({...filter, assignee: e.target.value})}
-            className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            onChange={(e) => setFilter({ ...filter, assignee: e.target.value })}
+            className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           >
-            <option value="">All Assignees</option>
+            <option value="">All</option>
             <option value="me">Assigned to Me</option>
             <option value="unassigned">Unassigned</option>
           </select>
         </div>
 
-        <div>
-          <label htmlFor="searchTerm" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <div className="w-full md:w-auto flex-grow">
+          <label htmlFor="searchTerm" className="block text-sm font-medium text-gray-700 mb-1">
             Search
           </label>
           <input
-            id="searchTerm"
             type="text"
+            id="searchTerm"
+            placeholder="Search by title, description, or component"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by title, description..."
-            className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           />
         </div>
       </div>
@@ -282,32 +282,32 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
       {/* Bug List */}
       {isLoading ? (
         <div className="text-center py-10">
-          <p className="text-gray-500 dark:text-gray-400">Loading bugs...</p>
+          <p className="text-gray-500">Loading bugs...</p>
         </div>
       ) : filteredBugs.length === 0 ? (
-        <div className="text-center py-10 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
-          <p className="text-gray-500 dark:text-gray-400">No bugs found matching your criteria</p>
+        <div className="text-center py-10 border border-dashed border-gray-300 rounded-lg">
+          <p className="text-gray-500">No bugs found matching your criteria</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bug</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Severity</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Component</th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bug</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Severity</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Component</th>
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-white divide-y divide-gray-200">
               {filteredBugs.map((bug) => (
-                <tr key={bug.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                <tr key={bug.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
                     <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{bug.title}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
-                        {bug.description.substring(0, 50)}{bug.description.length > 50 ? "..." : ""}
+                      <div className="text-sm font-medium text-gray-900">{bug.title}</div>
+                      <div className="text-sm text-gray-500 truncate max-w-xs">
+                        {bug.description.substring(0, 80)}{bug.description.length > 80 ? '...' : ''}
                       </div>
                     </div>
                   </td>
@@ -321,7 +321,7 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
                       {bug.severity}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {bug.related_component || "—"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -329,7 +329,7 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
                       {/* View Details Button */}
                       <button
                         onClick={() => setEditingBug(bug)}
-                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                        className="text-blue-600 hover:text-blue-900"
                       >
                         Details
                       </button>
@@ -338,7 +338,7 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
                       {bug.status === 'new' && (
                         <button
                           onClick={() => handleStatusChange(bug.id, 'in-progress')}
-                          className="text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300"
+                          className="text-yellow-600 hover:text-yellow-900"
                         >
                           Start
                         </button>
@@ -347,7 +347,7 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
                       {bug.status === 'in-progress' && (
                         <button
                           onClick={() => handleStatusChange(bug.id, 'fixed')}
-                          className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
+                          className="text-green-600 hover:text-green-900"
                         >
                           Resolve
                         </button>
@@ -356,7 +356,7 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
                       {bug.status === 'fixed' && (
                         <button
                           onClick={() => handleStatusChange(bug.id, 'verified')}
-                          className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300"
+                          className="text-purple-600 hover:text-purple-900"
                         >
                           Verify
                         </button>
@@ -366,14 +366,14 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
                       {bug.assignee_id === user?.id ? (
                         <button
                           onClick={() => handleUnassign(bug.id)}
-                          className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300"
+                          className="text-gray-600 hover:text-gray-900"
                         >
                           Unassign
                         </button>
                       ) : !bug.assignee_id && (
                         <button
                           onClick={() => handleAssign(bug.id)}
-                          className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300"
+                          className="text-gray-600 hover:text-gray-900"
                         >
                           Assign to me
                         </button>
@@ -390,13 +390,13 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
       {/* Bug Details Modal */}
       {editingBug && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Bug Details</h3>
+                <h3 className="text-xl font-bold text-gray-900">Bug Details</h3>
                 <button
                   onClick={() => setEditingBug(null)}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  className="text-gray-500 hover:text-gray-700"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -407,31 +407,31 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Title
                   </label>
                   <input
                     type="text"
                     value={editingBug.title}
                     onChange={(e) => setEditingBug({...editingBug, title: e.target.value})}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Related Component
                   </label>
                   <input
                     type="text"
                     value={editingBug.related_component || ''}
                     onChange={(e) => setEditingBug({...editingBug, related_component: e.target.value})}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Status
                   </label>
                   <select
@@ -443,7 +443,7 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
                         ? editingBug.resolved_at || new Date().toISOString() 
                         : null
                     })}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   >
                     <option value="new">New</option>
                     <option value="in-progress">In Progress</option>
@@ -453,13 +453,13 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Severity
                   </label>
                   <select
                     value={editingBug.severity}
                     onChange={(e) => setEditingBug({...editingBug, severity: e.target.value as 'critical' | 'major' | 'minor'})}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   >
                     <option value="critical">Critical</option>
                     <option value="major">Major</option>
@@ -469,61 +469,61 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description
                 </label>
                 <textarea
                   value={editingBug.description}
                   onChange={(e) => setEditingBug({...editingBug, description: e.target.value})}
                   rows={4}
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Steps to Reproduce
                   </label>
                   <textarea
                     value={editingBug.steps_to_reproduce || ''}
                     onChange={(e) => setEditingBug({...editingBug, steps_to_reproduce: e.target.value})}
                     rows={3}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Expected Behavior
                   </label>
                   <textarea
                     value={editingBug.expected_behavior || ''}
                     onChange={(e) => setEditingBug({...editingBug, expected_behavior: e.target.value})}
                     rows={3}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
                 </div>
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Actual Behavior
                 </label>
                 <textarea
                   value={editingBug.actual_behavior || ''}
                   onChange={(e) => setEditingBug({...editingBug, actual_behavior: e.target.value})}
                   rows={3}
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
               </div>
 
               {/* Environment Info */}
               {editingBug.environment && Object.keys(editingBug.environment).length > 0 && (
                 <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Environment Information</h4>
-                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded text-xs">
-                    <pre className="whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Environment Information</h4>
+                  <div className="bg-gray-50 p-3 rounded text-xs">
+                    <pre className="whitespace-pre-wrap text-gray-700">
                       {JSON.stringify(editingBug.environment, null, 2)}
                     </pre>
                   </div>
@@ -533,7 +533,7 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
               {/* Screenshots */}
               {editingBug.screenshots && editingBug.screenshots.length > 0 && (
                 <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Screenshots</h4>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Screenshots</h4>
                   <div className="flex flex-wrap gap-2">
                     {editingBug.screenshots.map((url, index) => (
                       <div key={index} className="relative">
@@ -550,7 +550,7 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
               )}
 
               {/* Metadata */}
-              <div className="grid grid-cols-2 gap-4 mb-6 text-xs text-gray-500 dark:text-gray-400">
+              <div className="grid grid-cols-2 gap-4 mb-6 text-xs text-gray-500">
                 <div>
                   <p><strong>Reported:</strong> {new Date(editingBug.created_at).toLocaleString()}</p>
                   {editingBug.resolved_at && (
@@ -566,7 +566,7 @@ const BugManagement: React.FC<BugManagementProps> = ({ onClose }) => {
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => setEditingBug(null)}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
                   Cancel
                 </button>

@@ -730,7 +730,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                           <button
                               ref={profileButtonRef} // Attach ref
                               onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} // Toggle dropdown
-                              className="flex items-center justify-center h-8 w-8 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-blue-500 cursor-pointer overflow-hidden" // Adjusted focus rings
+                              className="flex items-center justify-center h-8 w-8 rounded-full text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-blue-500 cursor-pointer overflow-hidden" // Adjusted focus rings
                               aria-label="Profile menu"
                               title="Profile menu"
                               aria-haspopup="true"
@@ -756,7 +756,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                                       animate={{ opacity: 1, scale: 1, y: 0 }}
                                       exit={{ opacity: 0, scale: 0.95, y: -10 }}
                                       transition={{ duration: 0.15, ease: "easeOut" }}
-                                      className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none z-50"
+                                      className="absolute right-0 mt-2 w-48 origin-top-right bg-white rounded-md shadow-lg border border-gray-200 focus:outline-none z-50"
                                       role="menu"
                                       aria-orientation="vertical"
                                       aria-labelledby="profile-menu-button"
@@ -767,7 +767,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                                                   openProfileModal();
                                                   setIsProfileDropdownOpen(false); // Close dropdown after click
                                               }}
-                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
                                               role="menuitem"
                                           >
                                               Settings
@@ -777,7 +777,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                                                   signOut();
                                                   setIsProfileDropdownOpen(false); // Close dropdown after click
                                               }}
-                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
                                               role="menuitem"
                                           >
                                               Sign Out
@@ -804,7 +804,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
           <div className="absolute top-16 left-0 p-4 z-10 flex gap-2">
             <button
               onClick={() => setIsHistoryOpen(true)}
-              className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              className="p-2 rounded-md text-gray-600 hover:bg-gray-200 transition-colors"
               title="Open History"
             >
               <FiMenu className="h-5 w-5" />
@@ -818,7 +818,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                 // Clear any error messages that might be showing
                 setError(null);
               }}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-offset-gray-850 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors"
               title="Start a new conversation thread"
             >
               <FiEdit className="h-4 w-4" />
@@ -841,7 +841,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
             {branchStack.length > 0 && (
               <button
                 onClick={handleGoBack}
-                className="absolute top-4 left-4 z-10 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 focus:outline-none rounded-full p-1 transition-colors bg-transparent hover:bg-gray-200 dark:hover:bg-gray-300"
+                className="absolute top-4 left-4 z-10 text-gray-600 hover:text-gray-800 focus:outline-none rounded-full p-1 transition-colors bg-transparent hover:bg-gray-200"
                 aria-label="Go back"
                 title="Go back"
               >
@@ -851,7 +851,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
 
             {/* Show breadcrumb-style navigation for nested branches */}
             {branchStack.length > 0 && (
-              <div className="text-sm italic text-gray-500 dark:text-gray-400 text-center mb-4 pt-10 flex-shrink-0">
+              <div className="text-sm italic text-gray-500 text-center mb-4 pt-10 flex-shrink-0">
                 {branchStack.length > 1 ? (
                   <div className="flex flex-wrap justify-center items-center gap-1">
                     <span>Branches:</span>
@@ -861,7 +861,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                         setActiveMessageId(conversation?.rootMessageId || null);
                         setShowingMainThread(true);
                       }}
-                      className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 relative group"
+                      className="bg-gray-100 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 relative group"
                       title="Return to main conversation"
                     >
                       Main
@@ -893,7 +893,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                               setActiveMessageId(branchStack[0].parentId);
                             }
                           }}
-                          className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
+                          className="bg-gray-100 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200"
                           title={`Navigate to ${branch.sourceText || `Branch ${index + 1}`}`}
                         >
                           {branch.sourceText || `Branch ${index + 1}`}
@@ -927,7 +927,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
 
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pb-2">
           {!session && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-1">
+              <p className="text-xs text-gray-500 text-center mb-1">
                   Chat history isn't saved for guest users. 
                   <span onClick={openAuthModal} className="text-blue-500 hover:underline cursor-pointer ml-1">Login/Register </span> 
                   to save your conversations.

@@ -735,7 +735,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
                 title="View branch created from this text"
               >
                 <div 
-                  className="w-3.5 h-3.5 border border-gray-400 dark:border-gray-500 rounded-full 
+                  className="w-3.5 h-3.5 border border-gray-400 rounded-full 
                              transition-colors duration-150 ease-in-out 
                              group-hover:bg-gray-500 group-hover:border-gray-500"
                 >

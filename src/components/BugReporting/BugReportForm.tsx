@@ -140,8 +140,8 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Report a Bug</h2>
+    <div className="bg-white shadow-md rounded-lg p-6">
+      <h2 className="text-2xl font-bold mb-4 text-gray-800">Report a Bug</h2>
       
       {success ? (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
@@ -161,8 +161,8 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
             </div>
           )}
           
-          <div className="mb-6 p-3 bg-blue-50 dark:bg-blue-900 rounded border border-blue-200 dark:border-blue-800">
-            <p className="text-sm text-blue-700 dark:text-blue-300">
+          <div className="mb-6 p-3 bg-blue-50 rounded border border-blue-200">
+            <p className="text-sm text-blue-700">
               Help us improve by reporting issues you encounter. We'll automatically collect technical information.
             </p>
           </div>
@@ -171,13 +171,13 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
           <div className="space-y-4 mb-6">
             {/* Title */}
             <div>
-              <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" htmlFor="title">
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="title">
                 Issue Title <span className="text-red-500">*</span>
               </label>
               <input
                 id="title"
                 type="text"
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:border-gray-600"
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                 placeholder="Briefly describe the issue (e.g., 'App crashes when uploading images')"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -188,12 +188,12 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
             
             {/* Description */}
             <div>
-              <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" htmlFor="description">
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
                 Description <span className="text-red-500">*</span>
               </label>
               <textarea
                 id="description"
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:border-gray-600 min-h-[100px]"
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline min-h-[100px]"
                 placeholder="Please provide details about what happened..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -204,7 +204,7 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
             
             {/* Screenshot */}
             <div>
-              <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" htmlFor="screenshots">
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="screenshots">
                 Add a Screenshot
               </label>
               <input
@@ -212,7 +212,7 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
                 type="file"
                 accept="image/*"
                 onChange={handleScreenshotUpload}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:border-gray-600"
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                 disabled={isSubmitting}
               />
               {screenshots.length > 0 && (
@@ -244,7 +244,7 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center text-sm text-blue-600 dark:text-blue-400 hover:underline focus:outline-none"
+              className="flex items-center text-sm text-blue-600 hover:underline focus:outline-none"
             >
               <svg 
                 className={`w-4 h-4 mr-1 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} 
@@ -260,15 +260,15 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
           
           {/* Advanced Fields */}
           {showAdvanced && (
-            <div className="space-y-4 mb-6 p-3 bg-gray-50 dark:bg-gray-750 rounded border border-gray-200 dark:border-gray-700">
+            <div className="space-y-4 mb-6 p-3 bg-gray-50 rounded border border-gray-200">
               {/* Severity */}
               <div>
-                <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" htmlFor="severity">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="severity">
                   Severity
                 </label>
                 <select
                   id="severity"
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:border-gray-600"
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                   value={severity}
                   onChange={(e) => setSeverity(e.target.value as 'minor' | 'major' | 'critical')}
                   disabled={isSubmitting}
@@ -281,13 +281,13 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
               
               {/* Related Component */}
               <div>
-                <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" htmlFor="relatedComponent">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="relatedComponent">
                   Related Component
                 </label>
                 <input
                   id="relatedComponent"
                   type="text"
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:border-gray-600"
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                   placeholder="Which part of the application is affected? (e.g., Chat, Auth, UI)"
                   value={relatedComponent}
                   onChange={(e) => setRelatedComponent(e.target.value)}
@@ -297,12 +297,12 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
               
               {/* Steps to Reproduce */}
               <div>
-                <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" htmlFor="stepsToReproduce">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="stepsToReproduce">
                   Steps to Reproduce
                 </label>
                 <textarea
                   id="stepsToReproduce"
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:border-gray-600 min-h-[80px]"
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline min-h-[80px]"
                   placeholder="1. Go to... 2. Click on... 3. Observe..."
                   value={stepsToReproduce}
                   onChange={(e) => setStepsToReproduce(e.target.value)}
@@ -313,12 +313,12 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
               {/* Expected/Actual Behavior */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" htmlFor="expectedBehavior">
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="expectedBehavior">
                     Expected Behavior
                   </label>
                   <textarea
                     id="expectedBehavior"
-                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:border-gray-600 h-24"
+                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-24"
                     placeholder="What should have happened?"
                     value={expectedBehavior}
                     onChange={(e) => setExpectedBehavior(e.target.value)}
@@ -327,41 +327,32 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
                 </div>
                 
                 <div>
-                  <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" htmlFor="actualBehavior">
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="actualBehavior">
                     Actual Behavior
                   </label>
                   <textarea
                     id="actualBehavior"
-                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:border-gray-600 h-24"
-                    placeholder="What actually happened instead?"
+                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-24"
+                    placeholder="What actually happened?"
                     value={actualBehavior}
                     onChange={(e) => setActualBehavior(e.target.value)}
                     disabled={isSubmitting}
                   />
                 </div>
               </div>
-              
-              {/* Environment Info - Simplified */}
-              <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 p-2 rounded">
-                <details>
-                  <summary className="font-medium cursor-pointer">Technical Details (Automatically Collected)</summary>
-                  <div className="mt-2 ml-2">
-                    <p>Browser: {getBrowserName(environmentInfo.userAgent)}</p>
-                    <p>OS: {environmentInfo.platform}</p>
-                    <p>Display: {environmentInfo.physicalScreenWidth} × {environmentInfo.physicalScreenHeight} px</p>
-                  </div>
-                </details>
-              </div>
             </div>
           )}
           
-          {/* Submit Button */}
-          <div className="flex justify-between">
+          <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
+            Technical info will be collected: Browser ({getBrowserName()}), OS ({getOS()}), URL ({window.location.href}), App Version ({appVersion})
+          </div>
+          
+          <div className="flex justify-end gap-2 mt-6">
             {onCancel && (
               <button
                 type="button"
-                className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50"
                 onClick={onCancel}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 focus:outline-none"
                 disabled={isSubmitting}
               >
                 Cancel
@@ -369,10 +360,18 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
             )}
             <button
               type="submit"
-              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 ml-auto"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none disabled:opacity-50"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Submitting...' : 'Submit Bug Report'}
+              {isSubmitting ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Submitting...
+                </span>
+              ) : 'Submit Bug Report'}
             </button>
           </div>
         </form>
@@ -403,5 +402,21 @@ const getBrowserName = (userAgent?: string): string => {
   // If no match, return first part of user agent (fallback)
   return userAgent.split(' ')[0];
 };
+
+// Helper function to get OS information
+const getOS = (): string => {
+  const userAgent = navigator.userAgent;
+  
+  if (userAgent.indexOf('Win') !== -1) return 'Windows';
+  if (userAgent.indexOf('Mac') !== -1) return 'macOS';
+  if (userAgent.indexOf('Linux') !== -1) return 'Linux';
+  if (userAgent.indexOf('Android') !== -1) return 'Android';
+  if (userAgent.indexOf('iOS') !== -1 || userAgent.indexOf('iPhone') !== -1 || userAgent.indexOf('iPad') !== -1) return 'iOS';
+  
+  return 'Unknown';
+};
+
+// Application version
+const appVersion = '1.0.0'; // Replace with actual version when available
 
 export default BugReportForm; 

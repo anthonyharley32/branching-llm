@@ -116,7 +116,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           onClick={onClose} // Close when clicking backdrop
         >
           <motion.div
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] border border-gray-100 dark:border-gray-700 p-6 sm:p-8 w-full max-w-md relative text-gray-900 dark:text-gray-100"
+            className="bg-white rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.2)] border border-gray-100 p-6 sm:p-8 w-full max-w-md relative text-gray-900"
             variants={modalVariants}
             initial="hidden"
             animate="visible"
@@ -126,14 +126,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100 cursor-pointer"
               aria-label="Close modal"
             >
               <FiX size={20} />
             </button>
 
             <motion.h2 
-              className="text-2xl font-bold text-center mb-6 text-gray-800 dark:text-gray-100"
+              className="text-2xl font-bold text-center mb-6 text-gray-800"
               variants={childVariants}
             >
               {isLoginView ? 'Welcome Back!' : 'Create Account'}
@@ -142,10 +142,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             {/* Error Display */}
             {error && (
               <motion.div 
-                className="mb-4 p-3.5 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-200 flex items-center gap-2.5"
+                className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 flex items-center gap-2.5"
                 variants={childVariants}
               >
-                <FiAlertCircle className="flex-shrink-0 text-red-500 dark:text-red-400" size={18}/>
+                <FiAlertCircle className="flex-shrink-0 text-red-500" size={18}/>
                 <span className="text-sm font-medium">{error}</span>
               </motion.div>
             )}
@@ -158,7 +158,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <button
                 onClick={() => handleSocialLogin('google')}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-all shadow-sm hover:shadow-md"
+                className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm hover:shadow-md"
               >
                 <FcGoogle size={22} />
                 <span className="font-medium">{isLoginView ? 'Sign in with Google' : 'Sign up with Google'}</span>
@@ -180,9 +180,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               className="flex items-center my-6"
               variants={childVariants}
             >
-              <hr className="flex-grow border-t border-gray-200 dark:border-gray-700" />
-              <span className="mx-4 text-sm font-medium text-gray-500 dark:text-gray-400">OR</span>
-              <hr className="flex-grow border-t border-gray-200 dark:border-gray-700" />
+              <hr className="flex-grow border-t border-gray-200" />
+              <span className="mx-4 text-sm font-medium text-gray-500">OR</span>
+              <hr className="flex-grow border-t border-gray-200" />
             </motion.div>
 
             {/* Login/Register Form */}
@@ -192,7 +192,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               variants={childVariants}
             >
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Email address
                 </label>
                 <input
@@ -202,7 +202,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black bg-white text-gray-900 placeholder-gray-400"
                   placeholder="you@example.com"
                   disabled={loading}
                 />
@@ -211,7 +211,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <div>
                 <label
                   htmlFor="password"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
                 >
                   Password
                 </label>
@@ -223,7 +223,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6} // Supabase default minimum
-                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black bg-white text-gray-900 placeholder-gray-400"
                   placeholder="••••••••"
                   disabled={loading}
                 />
@@ -233,7 +233,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <div>
                   <label
                     htmlFor="confirmPassword"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+                    className="block text-sm font-medium text-gray-700 mb-1.5"
                   >
                     Confirm Password
                   </label>
@@ -245,7 +245,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     minLength={6}
-                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black bg-white text-gray-900 placeholder-gray-400"
                     placeholder="••••••••"
                     disabled={loading}
                   />
@@ -255,7 +255,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 px-4 bg-black hover:bg-gray-900 dark:bg-black dark:hover:bg-gray-900 text-white font-medium rounded-xl shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-50 transition-all"
+                className="w-full py-2.5 px-4 bg-black hover:bg-gray-900 text-white font-medium rounded-xl shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-50 transition-all"
               >
                 {loading ? 'Processing...' : (isLoginView ? 'Login' : 'Register')}
               </button>
@@ -268,7 +268,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             >
               <button
                 onClick={() => setIsLoginView(!isLoginView)}
-                className="text-sm font-medium text-black hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 hover:underline focus:outline-none transition-colors"
+                className="text-sm font-medium text-black hover:text-gray-800 hover:underline focus:outline-none transition-colors"
                 disabled={loading}
               >
                 {isLoginView ? 'Need an account? Register' : 'Already have an account? Login'}

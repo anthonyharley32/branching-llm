@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserProfile from './UserProfile';
-import { FiX } from 'react-icons/fi';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -34,7 +33,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, onProfileU
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-500/10 dark:bg-black/30 backdrop-blur-lg"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-500/10 backdrop-blur-lg"
           variants={backdropVariants}
           initial="hidden"
           animate="visible"
@@ -42,12 +41,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, onProfileU
           onClick={onClose}
         >
           <motion.div
-            className="w-full max-w-5xl h-[650px] bg-white dark:bg-gray-850 rounded-lg shadow-xl flex overflow-hidden"
+            className="w-full max-w-5xl h-[650px] bg-white rounded-lg shadow-xl flex overflow-hidden"
             variants={modalVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
           >
             <UserProfile onClose={onClose} onProfileUpdate={onProfileUpdate} />
           </motion.div>

@@ -686,12 +686,12 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
   return (
     <div 
       ref={containerRef}
-      className="h-full w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto p-4 flex flex-col"
+      className="h-full w-80 bg-white border-r border-gray-200 overflow-y-auto p-4 flex flex-col"
     >
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center justify-between w-full">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Chat History</h2>
-          <button onClick={onClose} className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer">
+          <h2 className="text-lg font-semibold text-gray-900">Chat History</h2>
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-800 cursor-pointer">
             <DoubleChevronLeft />
           </button>
         </div>
@@ -699,13 +699,13 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
       
       <button 
         onClick={handleNewChat}
-        className="flex items-center justify-center gap-2 w-full py-2 px-3 mb-6 text-sm font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        className="flex items-center justify-center gap-2 w-full py-2 px-3 mb-6 text-sm font-medium rounded-md border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 transition-colors"
       >
         <FiEdit className="h-4 w-4" />
         <span>New Conversation</span>
       </button>
       
-      <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Recent conversations</div>
+      <div className="text-sm font-medium text-gray-500 mb-2">Recent conversations</div>
       
       {/* Only show loading when there's no history content yet */}
       {/* {loading && history.length === 0 && <p className="text-gray-500">Loading...</p>} */}
@@ -752,15 +752,14 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                           exit={{ opacity: 0 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <button
-                            disabled={loadingConversation === item.id}
+                          <div
                             className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
                               item.id === activeConversationId 
-                                ? 'bg-gray-900 text-white dark:bg-gray-900 hover:bg-gray-800 dark:hover:bg-gray-800' 
-                                : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                                ? 'bg-gray-900 text-white hover:bg-gray-800' 
+                                : 'hover:bg-gray-100'
                             } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
                           >
-                            <div className={`font-medium ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'} flex items-center`}>
+                            <div className={`font-medium ${item.id === activeConversationId ? 'text-white' : 'text-gray-900'} flex items-center`}>
                               <input
                                 ref={renameInputRef}
                                 type="text"
@@ -776,7 +775,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                   e.stopPropagation();
                                 }}
                                 onClick={(e) => e.stopPropagation()}
-                                className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''} bg-transparent focus:outline-none rounded px-1 -ml-1 ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'}`}
+                                className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''} bg-transparent focus:outline-none rounded px-1 -ml-1 ${item.id === activeConversationId ? 'text-white' : 'text-gray-900'}`}
                                 placeholder="Enter new title"
                                 autoFocus
                               />
@@ -784,7 +783,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                 <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
                               )}
                             </div>
-                            <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
+                            <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300' : 'text-gray-500'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
                             
                             {/* Edit confirm button */}
                             <button
@@ -795,12 +794,12 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                               className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full ${
                                 item.id === activeConversationId 
                                   ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
-                                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200 dark:hover:text-gray-200 dark:hover:bg-gray-600'
+                                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'
                               } opacity-100`}
                             >
                               <FiEdit2 className="h-4 w-4" />
                             </button>
-                          </button>
+                          </div>
                         </motion.div>
                       ) : (
                         <motion.div 
@@ -815,11 +814,11 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                             disabled={loadingConversation === item.id}
                             className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
                               item.id === activeConversationId 
-                                ? 'bg-gray-900 text-white dark:bg-gray-900 hover:bg-gray-800 dark:hover:bg-gray-800' 
-                                : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                                ? 'bg-gray-900 text-white hover:bg-gray-800' 
+                                : 'hover:bg-gray-100'
                             } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
                           >
-                            <div className={`font-medium ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'} flex items-center`}>
+                            <div className={`font-medium ${item.id === activeConversationId ? 'text-white' : 'text-gray-900'} flex items-center`}>
                               <span className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''}`}>
                                 {item.title}
                               </span>
@@ -827,7 +826,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                 <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
                               )}
                             </div>
-                            <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
+                            <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300' : 'text-gray-500'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
                             
                             {/* 3-dot menu button */}
                             <button
@@ -838,7 +837,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                               className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full ${
                                 item.id === activeConversationId 
                                   ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
-                                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200 dark:hover:text-gray-200 dark:hover:bg-gray-600'
+                                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'
                               } ${(activeMenu === item.id || item.id === activeConversationId) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                             >
                               <FiMoreVertical className="h-4 w-4" />
@@ -849,7 +848,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                           {activeMenu === item.id && (
                             <div 
                               ref={menuRef}
-                              className="fixed left-[310px] top-auto z-50 w-48 origin-top-left rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 focus:outline-none overflow-hidden"
+                              className="fixed left-[310px] top-auto z-50 w-48 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-gray-200 focus:outline-none overflow-hidden"
                               style={{
                                 top: (() => {
                                   // Get the button's position to align the menu with it
@@ -870,7 +869,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                     setNewTitle(item.title);
                                     setActiveMenu(null);
                                   }}
-                                  className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                  className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
                                 >
                                   <FiEdit2 className="mr-3 h-4 w-4" />
                                   Rename
@@ -878,11 +877,10 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (window.confirm('Are you sure you want to delete this conversation?')) {
-                                      handleDelete(item.id);
-                                    }
+                                    handleDelete(item.id);
+                                    setActiveMenu(null);
                                   }}
-                                  className="flex items-center w-full px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                  className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-gray-50"
                                 >
                                   <FiTrash2 className="mr-3 h-4 w-4" />
                                   Delete
@@ -898,7 +896,10 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
               ))}
             </ul>
           ) : (
-            <p className="text-gray-500">No conversations found.</p>
+            <div className="text-center text-gray-500 pt-10">
+              <p>No conversation history yet.</p>
+              <p className="mt-2">Start a new chat to begin!</p>
+            </div>
           )}
         </>
       )}

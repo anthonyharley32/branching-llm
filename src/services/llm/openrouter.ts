@@ -5,12 +5,7 @@
 
 import { config } from './config';
 import { Message } from '../../types/chat';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../../lib/supabase';
 
 // Error types (reused from openai.ts)
 export enum ErrorType {
@@ -248,11 +243,11 @@ export async function generateCompletionStream(
 
     // For streaming, we'll use the fetch API directly to our Supabase function
     // This works around current limitations in Supabase JS client for streaming responses
-    const response = await fetch(`${supabaseUrl}/functions/v1/llm-api`, {
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/llm-api`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAnonKey}`,
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
       },
       body: JSON.stringify({
         endpoint: 'chat/completions',

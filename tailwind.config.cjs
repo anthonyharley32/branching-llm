@@ -4,7 +4,6 @@ module.exports = {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}", // Scan relevant files for Tailwind classes
   ],
-  darkMode: false, // Disable dark mode
   theme: {
     extend: {
       typography: ({ theme }) => ({
