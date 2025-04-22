@@ -60,6 +60,7 @@ function AppContent() {
     currentMessages,
     activeMessageId,
     setActiveMessageId,
+    setConversation
   } = useConversation();
 
   const [isSending, setIsSending] = useState(false);
@@ -628,9 +629,63 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
     },
   };
 
+  // Add this effect to watch for edited messages
+  // This will be added somewhere in the AppContent function
+  useEffect(() => {
+    // If there's no conversation, no point in checking
+    if (!conversation) return;
+    
+    // If we're already sending a message, don't interrupt
+    if (isSending) return;
+    
+    // Look for the active message ID - this will be the edited message after saving
+    if (activeMessageId && conversation.messages[activeMessageId]) {
+      const activeMessage = conversation.messages[activeMessageId];
+      
+      // Only continue if this is a user message
+      if (activeMessage.role !== 'user') return;
+      
+      // Check if this message has just been edited
+      if (conversation._justEdited) {
+        // Reset the flag
+        setConversation(prev => prev ? { ...prev, _justEdited: false } : prev);
+        
+        // Now treat this like a new message and generate the AI response
+        const text = activeMessage.content;
+        setIsSending(true);
+        setError(null);
+        setStreamingAiNodeId(null);
+        setShowingMainThread(false);
+        
+        // Prepare the metadata, similar to handleSendMessage
+        let metadata = undefined;
+        if (activeMessage.metadata) {
+          metadata = { ...activeMessage.metadata };
+        }
+        
+        // Build the message path from root to this message
+        const messagePath: MessageNode[] = [];
+        let currentId: string | null = activeMessageId;
+        while (currentId && conversation.messages[currentId]) {
+          messagePath.unshift(conversation.messages[currentId]);
+          currentId = conversation.messages[currentId].parentId;
+        }
+        
+        // Trigger the LLM call
+        if (activeMessageId) {
+          setPendingLlmCall({
+            parentId: activeMessageId,
+            path: messagePath,
+            metadata
+          });
+        }
+      }
+    }
+  }, [conversation, activeMessageId, isSending, setConversation, setError, setIsSending, setStreamingAiNodeId, setShowingMainThread, setPendingLlmCall]);
+
   return (
     // Layout: side panel (ChatHistory) and main content
-    <div className="flex h-screen w-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
+    <div className="flex h-screen w-full bg-gray-50 text-gray-900 overflow-hidden">
       {/* Animated Chat History panel */}
       <AnimatePresence>
         {isHistoryOpen && (
@@ -639,7 +694,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
             animate={{ width: '20rem', opacity: 1 }}
             exit={{ width: 0, opacity: 1 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="flex-shrink-0 h-full z-20 overflow-hidden bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
+            className="flex-shrink-0 h-full z-20 overflow-hidden bg-white border-r border-gray-200"
             style={{ boxShadow: isHistoryOpen ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none' }}
           >
             <ChatHistory 
@@ -659,7 +714,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
       </AnimatePresence>
       {/* Main content area */}
       <div className="flex flex-col flex-1 overflow-hidden">
-        <header className="h-16 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 shrink-0 relative">
+        <header className="h-16 border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 shrink-0 relative">
           {/* Left Side: Show logo title */}
           {branchStack.length === 0 && (
             <div className="flex items-center gap-2">

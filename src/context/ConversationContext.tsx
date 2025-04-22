@@ -63,6 +63,9 @@ interface ConversationContextType {
   updateMessageContent: (messageId: string, contentChunk: string) => void;
   startNewConversation: () => void;
   updateConversationTitle: (conversationId: string, title: string) => void;
+  startEditingMessage: (messageId: string) => void;
+  saveEditedMessage: (messageId: string, newContent: string) => Promise<boolean>;
+  cancelEditingMessage: () => void;
 }
 
 // Create the context with a default value
@@ -445,6 +448,98 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     }
   }, []); // No dependencies needed as it operates on passed IDs/values
 
+  // --- Function to start editing a message ---
+  const startEditingMessage = useCallback((messageId: string) => {
+    if (!conversation?.messages[messageId]) return;
+    
+    // Only user messages can be edited
+    if (conversation.messages[messageId].role !== 'user') return;
+    
+    setConversation(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        editingMessageId: messageId
+      };
+    });
+  }, [conversation]);
+
+  // --- Function to cancel editing a message ---
+  const cancelEditingMessage = useCallback(() => {
+    setConversation(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        editingMessageId: null
+      };
+    });
+  }, []);
+
+  // --- Function to save an edited message and regenerate AI responses ---
+  const saveEditedMessage = useCallback(async (messageId: string, newContent: string): Promise<boolean> => {
+    if (!conversation?.messages[messageId]) return false;
+    if (conversation.messages[messageId].role !== 'user') return false;
+    
+    // Get the message being edited
+    const editedMessage = conversation.messages[messageId];
+    
+    // Get all responses after this message that need to be deleted
+    const responsesToDelete = new Set<string>();
+    let currentId = messageId;
+    
+    // Find all assistant messages that directly follow this message
+    // (we'll need to regenerate these)
+    const collectResponsesToDelete = (id: string) => {
+      const children = getChildrenOfNode(conversation.messages, id);
+      
+      for (const child of children) {
+        // Skip branch starts (those with selectedText in metadata)
+        if (child.metadata?.selectedText) continue;
+        
+        responsesToDelete.add(child.id);
+        
+        // Recursively collect responses from this child
+        if (child.role === 'assistant') {
+          collectResponsesToDelete(child.id);
+        }
+      }
+    };
+    
+    collectResponsesToDelete(messageId);
+    
+    // Update the message content
+    setConversation(prev => {
+      if (!prev) return prev;
+      
+      // Create new messages object without the deleted responses
+      const updatedMessages = { ...prev.messages };
+      
+      // Update the edited message
+      updatedMessages[messageId] = {
+        ...updatedMessages[messageId],
+        content: newContent
+      };
+      
+      // Remove all the responses that need to be deleted
+      for (const id of responsesToDelete) {
+        delete updatedMessages[id];
+      }
+      
+      return {
+        ...prev,
+        messages: updatedMessages,
+        editingMessageId: null, // Exit editing mode
+        _hasContentChanges: true, // Mark that content has changed
+        _justEdited: true // Flag that message was just edited
+      };
+    });
+    
+    // Set the edited message as active 
+    setActiveMessageId(messageId);
+    
+    return true;
+  }, [conversation]);
+
   // Render children only after loading is complete
   if (isLoading || isAuthLoading) {
       // Return null or loading indicator while waiting for auth and initial conversation setup
@@ -466,6 +561,9 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     updateMessageContent,
     startNewConversation,
     updateConversationTitle,
+    startEditingMessage,
+    saveEditedMessage,
+    cancelEditingMessage,
   };
 
   return (

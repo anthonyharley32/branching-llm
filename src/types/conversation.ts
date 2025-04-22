@@ -34,6 +34,8 @@ export interface Conversation {
   updatedAt?: number; // Optional: Unix timestamp for the last update
   userId?: string; // Optional: Identifier for the user associated with the conversation
   _hasContentChanges?: boolean; // Internal flag to track when conversation content has changed
+  editingMessageId?: string | null; // ID of the message currently being edited
+  _justEdited?: boolean; // Flag to indicate a message was just edited and needs regeneration
   // Optional: Other conversation-level metadata
   // title?: string;
 } 
