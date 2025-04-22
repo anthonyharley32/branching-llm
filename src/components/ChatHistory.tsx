@@ -708,194 +708,200 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
       <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Recent conversations</div>
       
       {/* Only show loading when there's no history content yet */}
-      {loading && history.length === 0 && <p className="text-gray-500">Loading...</p>}
+      {/* {loading && history.length === 0 && <p className="text-gray-500">Loading...</p>} */}
       
       {/* Only show error messages for actual load failures, not when we have a valid conversation */}
       {error && !(conversation && Object.keys(conversation.messages).length > 0) && 
         <p className="text-red-600">{error}</p>
       }
       
-      {/* Always show history list if it exists, even during subsequent loads */}
-      {displayedHistory.length > 0 ? (
-        <ul className="list-none p-0 m-0">
-          {displayedHistory.filter((item, index, self) => 
-            // Filter out duplicate IDs - keep only the first occurrence
-            index === self.findIndex(t => t.id === item.id)
-          ).map(item => (
-            <AnimatePresence mode="popLayout" key={item.id} initial={false}>
-              {removingId !== item.id && (
-                <motion.li 
-                  key={item.id}
-                  className="mb-2 list-none relative"
-                  initial={{ opacity: 1, height: 'auto' }}
-                  exit={{ 
-                    opacity: 0,
-                    height: 0,
-                    marginBottom: 0,
-                    transition: { 
-                      opacity: { duration: 0.2 },
-                      height: { duration: 0.3, delay: 0.1 }
-                    }
-                  }}
-                  layout
-                  data-item-id={item.id}
-                >
-                  {isRenaming === item.id ? (
-                    <motion.div 
-                      className="relative h-12 flex flex-col justify-center"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
+      {/* Render list section only when loading is complete */} 
+      {!loading && (
+        <> { /* Fragment to group conditional elements */ }
+          {/* Always show history list if it exists, even during subsequent loads */}
+          {/* Use displayedHistory computed by useMemo */} 
+          {displayedHistory.length > 0 ? (
+            <ul className="list-none p-0 m-0">
+              {displayedHistory.filter((item, index, self) => 
+                // Filter out duplicate IDs - keep only the first occurrence
+                index === self.findIndex(t => t.id === item.id)
+              ).map(item => (
+                <AnimatePresence mode="popLayout" key={item.id} initial={false}>
+                  {removingId !== item.id && (
+                    <motion.li 
+                      key={item.id}
+                      className="mb-2 list-none relative"
+                      initial={{ opacity: 1, height: 'auto' }}
+                      exit={{ 
+                        opacity: 0,
+                        height: 0,
+                        marginBottom: 0,
+                        transition: { 
+                          opacity: { duration: 0.2 },
+                          height: { duration: 0.3, delay: 0.1 }
+                        }
+                      }}
+                      layout
+                      data-item-id={item.id}
                     >
-                      <button
-                        disabled={loadingConversation === item.id}
-                        className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
-                          item.id === activeConversationId 
-                            ? 'bg-gray-900 text-white dark:bg-gray-900 hover:bg-gray-800 dark:hover:bg-gray-800' 
-                            : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                        } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
-                      >
-                        <div className={`font-medium ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'} flex items-center`}>
-                          <input
-                            ref={renameInputRef}
-                            type="text"
-                            value={newTitle}
-                            onChange={(e) => setNewTitle(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleRename(item.id);
-                              if (e.key === 'Escape') {
-                                setIsRenaming(null);
-                                setNewTitle('');
-                              }
-                              // Prevent event propagation to avoid triggering button click
-                              e.stopPropagation();
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''} bg-transparent focus:outline-none rounded px-1 -ml-1 ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'}`}
-                            placeholder="Enter new title"
-                            autoFocus
-                          />
-                          {loadingConversation === item.id && (
-                            <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
-                          )}
-                        </div>
-                        <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
-                        
-                        {/* Edit confirm button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRename(item.id);
-                          }}
-                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full ${
-                            item.id === activeConversationId 
-                              ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
-                              : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200 dark:hover:text-gray-200 dark:hover:bg-gray-600'
-                          } opacity-100`}
+                      {isRenaming === item.id ? (
+                        <motion.div 
+                          className="relative h-12 flex flex-col justify-center"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
                         >
-                          <FiEdit2 className="h-4 w-4" />
-                        </button>
-                      </button>
-                    </motion.div>
-                  ) : (
-                    <motion.div 
-                      className="relative h-12 flex flex-col justify-center"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <button
-                        onClick={() => handleConversationClick(item)}
-                        disabled={loadingConversation === item.id}
-                        className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
-                          item.id === activeConversationId 
-                            ? 'bg-gray-900 text-white dark:bg-gray-900 hover:bg-gray-800 dark:hover:bg-gray-800' 
-                            : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                        } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
-                      >
-                        <div className={`font-medium ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'} flex items-center`}>
-                          <span className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''}`}>
-                            {item.title}
-                          </span>
-                          {loadingConversation === item.id && (
-                            <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
-                          )}
-                        </div>
-                        <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
-                        
-                        {/* 3-dot menu button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveMenu(activeMenu === item.id ? null : item.id);
-                          }}
-                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full ${
-                            item.id === activeConversationId 
-                              ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
-                              : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200 dark:hover:text-gray-200 dark:hover:bg-gray-600'
-                          } ${(activeMenu === item.id || item.id === activeConversationId) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                        >
-                          <FiMoreVertical className="h-4 w-4" />
-                        </button>
-                      </button>
-                      
-                      {/* Dropdown menu */}
-                      {activeMenu === item.id && (
-                        <div 
-                          ref={menuRef}
-                          className="fixed left-[310px] top-auto z-50 w-48 origin-top-left rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 focus:outline-none overflow-hidden"
-                          style={{
-                            top: (() => {
-                              // Get the button's position to align the menu with it
-                              const buttonElement = document.querySelector(`[data-item-id="${item.id}"] button`);
-                              if (buttonElement) {
-                                const rect = buttonElement.getBoundingClientRect();
-                                return `${rect.top}px`;
-                              }
-                              return 'auto';
-                            })()
-                          }}
-                        >
-                          <div className="py-1">
+                          <button
+                            disabled={loadingConversation === item.id}
+                            className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
+                              item.id === activeConversationId 
+                                ? 'bg-gray-900 text-white dark:bg-gray-900 hover:bg-gray-800 dark:hover:bg-gray-800' 
+                                : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                            } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
+                          >
+                            <div className={`font-medium ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'} flex items-center`}>
+                              <input
+                                ref={renameInputRef}
+                                type="text"
+                                value={newTitle}
+                                onChange={(e) => setNewTitle(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleRename(item.id);
+                                  if (e.key === 'Escape') {
+                                    setIsRenaming(null);
+                                    setNewTitle('');
+                                  }
+                                  // Prevent event propagation to avoid triggering button click
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''} bg-transparent focus:outline-none rounded px-1 -ml-1 ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'}`}
+                                placeholder="Enter new title"
+                                autoFocus
+                              />
+                              {loadingConversation === item.id && (
+                                <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
+                              )}
+                            </div>
+                            <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
+                            
+                            {/* Edit confirm button */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setIsRenaming(item.id);
-                                setNewTitle(item.title);
-                                setActiveMenu(null);
+                                handleRename(item.id);
                               }}
-                              className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full ${
+                                item.id === activeConversationId 
+                                  ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200 dark:hover:text-gray-200 dark:hover:bg-gray-600'
+                              } opacity-100`}
                             >
-                              <FiEdit2 className="mr-3 h-4 w-4" />
-                              Rename
+                              <FiEdit2 className="h-4 w-4" />
                             </button>
+                          </button>
+                        </motion.div>
+                      ) : (
+                        <motion.div 
+                          className="relative h-12 flex flex-col justify-center"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <button
+                            onClick={() => handleConversationClick(item)}
+                            disabled={loadingConversation === item.id}
+                            className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
+                              item.id === activeConversationId 
+                                ? 'bg-gray-900 text-white dark:bg-gray-900 hover:bg-gray-800 dark:hover:bg-gray-800' 
+                                : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                            } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
+                          >
+                            <div className={`font-medium ${item.id === activeConversationId ? 'text-white dark:text-white' : 'text-gray-900 dark:text-gray-200'} flex items-center`}>
+                              <span className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''}`}>
+                                {item.title}
+                              </span>
+                              {loadingConversation === item.id && (
+                                <span className="ml-2 inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
+                              )}
+                            </div>
+                            <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
+                            
+                            {/* 3-dot menu button */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (window.confirm('Are you sure you want to delete this conversation?')) {
-                                  handleDelete(item.id);
-                                }
+                                setActiveMenu(activeMenu === item.id ? null : item.id);
                               }}
-                              className="flex items-center w-full px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full ${
+                                item.id === activeConversationId 
+                                  ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200 dark:hover:text-gray-200 dark:hover:bg-gray-600'
+                              } ${(activeMenu === item.id || item.id === activeConversationId) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                             >
-                              <FiTrash2 className="mr-3 h-4 w-4" />
-                              Delete
+                              <FiMoreVertical className="h-4 w-4" />
                             </button>
-                          </div>
-                        </div>
+                          </button>
+                          
+                          {/* Dropdown menu */}
+                          {activeMenu === item.id && (
+                            <div 
+                              ref={menuRef}
+                              className="fixed left-[310px] top-auto z-50 w-48 origin-top-left rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 focus:outline-none overflow-hidden"
+                              style={{
+                                top: (() => {
+                                  // Get the button's position to align the menu with it
+                                  const buttonElement = document.querySelector(`[data-item-id="${item.id}"] button`);
+                                  if (buttonElement) {
+                                    const rect = buttonElement.getBoundingClientRect();
+                                    return `${rect.top}px`;
+                                  }
+                                  return 'auto';
+                                })()
+                              }}
+                            >
+                              <div className="py-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsRenaming(item.id);
+                                    setNewTitle(item.title);
+                                    setActiveMenu(null);
+                                  }}
+                                  className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                >
+                                  <FiEdit2 className="mr-3 h-4 w-4" />
+                                  Rename
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm('Are you sure you want to delete this conversation?')) {
+                                      handleDelete(item.id);
+                                    }
+                                  }}
+                                  className="flex items-center w-full px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                >
+                                  <FiTrash2 className="mr-3 h-4 w-4" />
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
                       )}
-                    </motion.div>
+                    </motion.li>
                   )}
-                </motion.li>
-              )}
-            </AnimatePresence>
-          ))}
-        </ul>
-      ) : !loading && !error ? (
-        <p className="text-gray-500">No conversations found.</p>
-      ) : null}
+                </AnimatePresence>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-500">No conversations found.</p>
+          )}
+        </>
+      )}
     </div>
   );
 };
