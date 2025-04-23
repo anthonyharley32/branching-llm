@@ -692,7 +692,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
       
       <button 
         onClick={handleNewChat}
-        className="flex items-center justify-center gap-2 w-full py-2 px-3 mb-6 text-sm font-medium rounded-md border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 transition-colors"
+        className="flex items-center justify-center gap-2 w-full py-2 px-3 mb-6 text-sm font-medium rounded-md border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 transition-colors cursor-pointer"
       >
         <FiEdit className="h-4 w-4" />
         <span>New Conversation</span>
@@ -784,7 +784,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                 e.stopPropagation();
                                 handleRename(item.id);
                               }}
-                              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full ${
+                              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full cursor-pointer ${
                                 item.id === activeConversationId 
                                   ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
                                   : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'
@@ -826,7 +826,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                 e.stopPropagation();
                                 setActiveMenu(activeMenu === item.id ? null : item.id);
                               }}
-                              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full ${
+                              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full cursor-pointer ${
                                 item.id === activeConversationId 
                                   ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
                                   : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'
@@ -861,7 +861,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                     setNewTitle(item.title);
                                     setActiveMenu(null);
                                   }}
-                                  className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                                  className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
                                 >
                                   <FiEdit2 className="mr-3 h-4 w-4" />
                                   Rename
@@ -872,7 +872,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                     handleDelete(item.id);
                                     setActiveMenu(null);
                                   }}
-                                  className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-gray-50"
+                                  className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-gray-50 cursor-pointer"
                                 >
                                   <FiTrash2 className="mr-3 h-4 w-4" />
                                   Delete

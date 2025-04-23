@@ -877,7 +877,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                                                   openProfileModal();
                                                   setIsProfileDropdownOpen(false); // Close dropdown after click
                                               }}
-                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
                                               role="menuitem"
                                           >
                                               Settings
@@ -887,7 +887,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                                                   signOut();
                                                   setIsProfileDropdownOpen(false); // Close dropdown after click
                                               }}
-                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
                                               role="menuitem"
                                           >
                                               Sign Out
@@ -914,7 +914,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
           <div className="absolute top-16 left-0 p-4 z-10 flex gap-2">
             <button
               onClick={() => setIsHistoryOpen(true)}
-              className="p-2 rounded-md text-gray-600 hover:bg-gray-200 transition-colors"
+              className="p-2 rounded-md text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer"
               title="Open History"
             >
               <FiMenu className="h-5 w-5" />
@@ -928,7 +928,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                 // Clear any error messages that might be showing
                 setError(null);
               }}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors cursor-pointer"
               title="Start a new conversation thread"
             >
               <FiEdit className="h-4 w-4" />

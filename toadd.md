@@ -1,8 +1,8 @@
+[X] Preffered Model persistence
 [-] conversation branches table?
 [-] 2 user tables?
 [-] Sidebar closes automatically on new chat/switch chat
 [ ] Thinking bug across chats persists
-[ ] Preffered Model persistence
 [ ] Put additional prompt as system prompt, not user prompt
 [ ] new chat small button opens sidebar.
 [ ] language

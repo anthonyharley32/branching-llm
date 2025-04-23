@@ -113,7 +113,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
               />
               <button
                 onClick={() => removeImage(index)}
-                className="absolute top-1 right-1 bg-gray-800 bg-opacity-70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-1 right-1 bg-gray-800 bg-opacity-70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
               >
                 <IoMdClose size={14} />
               </button>
@@ -128,7 +128,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
       >
         <button 
           type="button" 
-          className="p-2 text-gray-500 hover:text-gray-700 flex-shrink-0"
+          className="p-2 text-gray-500 hover:text-gray-700 flex-shrink-0 cursor-pointer"
         >
           <IoMdMic size={20} />
         </button>
@@ -136,7 +136,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
         <button 
           type="button" 
           onClick={handleAttachClick}
-          className="p-2 mr-2 text-gray-500 hover:text-gray-700 flex-shrink-0"
+          className="p-2 mr-2 text-gray-500 hover:text-gray-700 flex-shrink-0 cursor-pointer"
         >
           <IoMdAttach size={20} />
           <input
@@ -163,7 +163,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
         <button
           type="submit"
           disabled={isLoading || (!inputValue.trim() && selectedImages.length === 0)}
-          className="p-2 ml-2 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+          className="p-2 ml-2 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 cursor-pointer"
         >
           <IoMdArrowUp size={20} />
         </button>

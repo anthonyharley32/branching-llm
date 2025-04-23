@@ -372,7 +372,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                   <button 
                     onClick={() => setIsEditing(true)}
                     // Adjusted styles to match target screenshot
-                    className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+                    className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 cursor-pointer"
                   >
                     Manage
                   </button>
@@ -380,7 +380,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={handleSaveProfile}
-                      className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                      className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 cursor-pointer"
                       disabled={loading || uploading}
                     >
                       {loading || uploading ? 'Saving...' : 'Save'}
@@ -392,7 +392,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                         setAvatarFile(null);
                         setError(null);
                       }}
-                      className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+                      className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -425,7 +425,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                 <button 
                   onClick={() => console.log('Change Language')}
                   // Adjusted styles to match target screenshot
-                  className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+                  className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 cursor-pointer"
                 >
                   Change
                 </button>
@@ -506,7 +506,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
           </motion.div>
         )}
 
-        {/* Customize Settings Content (Placeholder) */} 
+        {/* Customize Settings Content */} 
         {activeSetting === 'customize' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
             <h3 className="text-xl font-semibold text-gray-900 mb-6">Customize</h3>
@@ -527,7 +527,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                 {/* Save button - Always visible, disabled if unchanged or loading */}
                 <button
                   onClick={handleSaveProfile} // Re-use existing save logic
-                  className="mt-3 px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="mt-3 px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   disabled={loading || uploading || additionalSystemPrompt === initialAdditionalSystemPrompt}
                 >
                   {loading || uploading ? 'Saving...' : 'Save Prompt'}
@@ -577,7 +577,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                 </p>
                 <button 
                   onClick={() => console.log('Navigate to upgrade/checkout page')} 
-                  className="px-5 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-full shadow-md hover:shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300 ease-in-out transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                  className="px-5 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-full shadow-md hover:shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300 ease-in-out transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 cursor-pointer"
                 >
                   Upgrade to Premium+
                 </button>
@@ -594,7 +594,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                   <button 
                     onClick={() => console.log('Navigate to billing management portal (e.g., Stripe)')} 
                     // Adjusted styles to match target screenshot
-                    className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+                    className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 cursor-pointer"
                   >
                     Manage Subscription
                   </button>
