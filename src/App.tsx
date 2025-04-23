@@ -12,7 +12,8 @@ import {
   isReasoningModel, // Import isReasoningModel
   LLMError, 
   ErrorType, 
-  StreamCallbacks
+  StreamCallbacks,
+  getCurrentModel
 } from './services/llm'
 import { MessageNode } from './types/conversation'
 import { FiLogOut, FiArrowLeft, FiUser, FiMenu, FiPlusSquare, FiEdit } from 'react-icons/fi' // Added FiEdit
@@ -86,6 +87,8 @@ function AppContent() {
     parentId: string; 
     path: MessageNode[];
     metadata?: Record<string, any>;
+    model?: string;
+    isReasoningModel?: boolean; // Add flag for reasoning models
   } | null>(null);
 
   // State to track edited message for AI regeneration
@@ -94,6 +97,10 @@ function AppContent() {
   // >>> New state for Thinking Box <<<
   const [thinkingContent, setThinkingContent] = useState<string>('');
   const [isThinkingComplete, setIsThinkingComplete] = useState<boolean>(true);
+  const thinkingStartTimeRef = useRef<number | null>(null); // Ref to store start time
+  const [thinkingDuration, setThinkingDuration] = useState<number | null>(null); // State for duration
+  const [isCurrentModelReasoning, setIsCurrentModelReasoning] = useState<boolean>(false); // Track if using reasoning model
+  const [hasInternalReasoning, setHasInternalReasoning] = useState<boolean>(false); // Track models with internal reasoning
   // >>> End New state <<<
 
   const [showingMainThread, setShowingMainThread] = useState(false);
@@ -206,10 +213,16 @@ function AppContent() {
     // Reset thinking state at the beginning of a new stream
     setThinkingContent('');
     setIsThinkingComplete(false);
+    thinkingStartTimeRef.current = null; // Reset start time
+    setThinkingDuration(null); // Reset duration
 
     const executeStream = async () => {
       try {
         const apiMessages = messagePath.map(node => ({ role: node.role, content: node.content }));
+
+        // Check if we're using a reasoning model - use the current model
+        const currentModel = pendingLlmCall.model || '';
+        const isReasoningEnabled = isReasoningModel(currentModel);
 
         const callbacks: StreamCallbacks = {
           onChunk: (chunk) => {
@@ -243,7 +256,35 @@ function AppContent() {
           },
           // >>> New callback handler <<<
           onThinkingChunk: (chunk) => {
+            // Only process thinking chunks for reasoning models
+            if (!isReasoningEnabled) {
+              console.log('Skipping thinking chunk - not a reasoning model:', currentModel);
+              return;
+            }
+            
+            console.log('DEBUG - Thinking chunk received:', {
+              chunkLength: chunk ? chunk.length : 0,
+              preview: chunk ? chunk.substring(0, 50) + '...' : 'empty',
+              currentAccumulatedLength: currentThinkingContent.length,
+              isFirstChunk: thinkingStartTimeRef.current === null
+            });
+            
+            // Record start time on the first thinking chunk
+            if (thinkingStartTimeRef.current === null) {
+              thinkingStartTimeRef.current = Date.now();
+              console.log('Started thinking timer');
+            }
+            
+            // Add received chunk to our accumulator
             currentThinkingContent += chunk;
+            
+            // Update the state with the complete thinking content so far
+            console.log('DEBUG - Setting thinking content state:', {
+              newLength: currentThinkingContent.length,
+              oldStateLength: thinkingContent.length,
+              isEmpty: !currentThinkingContent || currentThinkingContent.trim().length === 0
+            });
+            
             setThinkingContent(currentThinkingContent);
           },
           // >>> End New callback handler <<<
@@ -255,12 +296,24 @@ function AppContent() {
             setIsSending(false);
             setStreamingAiNodeId(null);
             setIsThinkingComplete(true); // Mark thinking as complete
+            
+            // Calculate and set duration if thinking started
+            if (isReasoningEnabled && thinkingStartTimeRef.current !== null) {
+              const durationMs = Date.now() - thinkingStartTimeRef.current;
+              setThinkingDuration(Math.round(durationMs / 1000)); // Store duration in seconds
+            }
           },
           onError: (llmError) => {
             setError(llmError);
             setIsSending(false);
             setStreamingAiNodeId(null);
             setIsThinkingComplete(true); // Mark thinking as complete on error too
+            
+            // Calculate and set duration if thinking started
+            if (isReasoningEnabled && thinkingStartTimeRef.current !== null) {
+              const durationMs = Date.now() - thinkingStartTimeRef.current;
+              setThinkingDuration(Math.round(durationMs / 1000)); // Store duration in seconds
+            }
           }
         };
 
@@ -288,7 +341,7 @@ function AppContent() {
   useEffect(() => {
     if (!editedMessageId || !conversation?.messages) return;
     
-    const editedMessage = conversation.messages[editedMessageId];
+    const editedMessage = conversation?.messages[editedMessageId];
     if (!editedMessage || editedMessage.role !== 'user') {
       setEditedMessageId(null);
       return;
@@ -329,9 +382,26 @@ function AppContent() {
     setStreamingAiNodeId(null); // Reset streaming ID on new message
     setShowingMainThread(false);
 
+    // Check if current model is a reasoning model and log it
+    const currentModel = getCurrentModel();
+    const modelIsReasoning = isReasoningModel(currentModel);
+    setIsCurrentModelReasoning(modelIsReasoning); // Update state
+    
+    // Check if model uses internal reasoning (no exposed thinking tokens)
+    const usesInternalReasoning = 
+      currentModel === 'google/gemini-2.5-pro-preview-03-25' || 
+      currentModel === 'openai/o4-mini-high';
+    setHasInternalReasoning(modelIsReasoning && usesInternalReasoning);
+    
+    console.log(`Using model: ${currentModel}`, 
+                `Is reasoning model: ${modelIsReasoning ? 'YES ✅' : 'NO ❌'}`,
+                `Has internal reasoning: ${usesInternalReasoning ? 'YES ✅' : 'NO ❌'}`);
+
     // >>> Reset thinking state when sending a new message <<<
     setThinkingContent('');
-    setIsThinkingComplete(true); // Assume not thinking initially
+    setIsThinkingComplete(!modelIsReasoning); // Only set to false for reasoning models 
+    thinkingStartTimeRef.current = null; // Reset start time
+    setThinkingDuration(null); // Reset duration
     // >>> End Reset <<<
 
     // --- Guest Rate Limit Check --- 
@@ -395,14 +465,8 @@ function AppContent() {
     }
 
     // --- Generate Title for New Conversations --- 
-    // Use the messagePath returned by addResult, as it includes the new message immediately
     const isFirstUserMessage = addResult.messagePath && 
       addResult.messagePath.filter(msg => msg.role === 'user').length === 1; 
-
-    // >>> Reset thinking state when sending a new message <<<
-    setThinkingContent('');
-    setIsThinkingComplete(true); // Assume not thinking initially
-    // >>> End Reset <<<
 
     // We also need the conversation ID, so check conversation exists too
     if (addResult && conversation && isFirstUserMessage) {
@@ -475,14 +539,18 @@ function AppContent() {
       setPendingLlmCall({ 
         parentId: addResult.newNode.id,
         path: orderedPath,
-        metadata
+        metadata,
+        model: getCurrentModel(),
+        isReasoningModel: modelIsReasoning
       });
     } else {
       // Not in a branch or no branch ID, use the full path
       setPendingLlmCall({ 
         parentId: addResult.newNode.id,
         path: addResult.messagePath,
-        metadata
+        metadata,
+        model: getCurrentModel(),
+        isReasoningModel: modelIsReasoning
       });
     }
   }
@@ -490,8 +558,20 @@ function AppContent() {
   // Handler for when a branch is successfully created in ChatMessage
   const handleBranchCreated = (branchResult: AddMessageResult, sourceText: string, isAutoExplain: boolean) => {
     if (branchResult.newNode.parentId) { 
+      const userNodeId = branchResult.newNode.id;
+      
       // Store the branch ID from the node metadata
       const currentBranchId = branchResult.newNode.metadata?.branchId || null;
+      
+      // Check current model for reasoning capabilities
+      const currentModel = getCurrentModel();
+      const modelUsesReasoning = isReasoningModel(currentModel);
+      
+      // Check if model uses internal reasoning (no exposed thinking tokens)
+      const usesInternalReasoning = 
+        currentModel === 'google/gemini-2.5-pro-preview-03-25' || 
+        currentModel === 'openai/o4-mini-high';
+      setHasInternalReasoning(modelUsesReasoning && usesInternalReasoning);
       
       // Get truncated text for display
       const truncatedText = sourceText.length > 60 ? sourceText.substring(0, 57) + '...' : sourceText;
@@ -520,10 +600,9 @@ function AppContent() {
         setIsSending(true);
         setError(null);
         setStreamingAiNodeId(null); // Reset any previous streaming ID
-        // ****************************************************
-        
+        setIsCurrentModelReasoning(modelUsesReasoning); // Update reasoning model state
+            
         // Create a more focused message path for the LLM to respond specifically to the selected text
-        // Include system messages, parent message for context, and a synthetic user message with the selected text
         const focusedPath = currentMessages
           .filter(msg => msg.role === 'system')
           .concat([
@@ -554,7 +633,9 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
         setPendingLlmCall({ 
           parentId: branchNodeId, 
           path: focusedPath,
-          metadata: branchResult.newNode.metadata // Use the same metadata from the branch node
+          metadata: branchResult.newNode.metadata, // Use the same metadata from the branch node
+          model: getCurrentModel(),
+          isReasoningModel: modelUsesReasoning
         });
       } else {
         // For regular branches, just navigate to the branch without generating new content
@@ -943,8 +1024,11 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
               streamingNodeId={streamingAiNodeId}
               thinkingContent={thinkingContent}
               isThinkingComplete={isThinkingComplete}
+              thinkingDuration={thinkingDuration}
+              isReasoningModel={isCurrentModelReasoning}
+              hasInternalReasoning={hasInternalReasoning}
               onBranchCreated={handleBranchCreated}
-              onMessageEdited={setEditedMessageId}
+              onMessageEdited={(messageId) => setEditedMessageId(messageId)}
             />
           </motion.main>
         </AnimatePresence>

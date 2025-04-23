@@ -191,10 +191,10 @@ export async function generateCompletion(
       // Set high max_tokens for Claude thinking (per OpenRouter docs example)
       requestBody.max_tokens = 16000;
       
-      // Use the standardized parameter for thinking
-      requestBody.thinking = {
-        budget_tokens: 4000,  // 4000 tokens for reasoning (must be less than max_tokens)
-        enabled: true
+      // Use the standardized reasoning parameter with a large gap (per docs example)
+      requestBody.reasoning = {
+        max_tokens: 8000,  // 8000 tokens for reasoning (must be less than max_tokens)
+        effort: "high"
       };
       
       // Remove any other parameters that might conflict
@@ -205,7 +205,7 @@ export async function generateCompletion(
       console.log("DEBUG - Claude thinking configuration:", {
         model: model,
         max_tokens: requestBody.max_tokens,
-        thinking: requestBody.thinking
+        reasoning: requestBody.reasoning
       });
     }
     
@@ -292,17 +292,20 @@ export async function generateCompletionStream(
       requestBody.reasoning = { effort: "high" };
     }
 
+    // Check if we're using a reasoning model that can provide thinking traces
+    const isReasoning = isReasoningModel(model);
+
     // Special handling for Claude with thinking
     if (model.includes(":thinking")) {
-      console.log("DEBUG - Configuring Claude model with thinking for streaming:", model);
+      console.log("DEBUG - Configuring Claude model with thinking:", model);
       
       // Set high max_tokens for Claude thinking (per OpenRouter docs example)
       requestBody.max_tokens = 16000;
       
       // Use the standardized reasoning parameter with a large gap (per docs example)
-      requestBody.thinking = {
-        budget_tokens: 4000,  // 4000 tokens for reasoning (must be less than max_tokens)
-        enabled: true
+      requestBody.reasoning = {
+        max_tokens: 8000,  // 8000 tokens for reasoning (must be less than max_tokens)
+        effort: "high"
       };
       
       // Remove any other parameters that might conflict
@@ -310,15 +313,20 @@ export async function generateCompletionStream(
       delete requestBody.anthropic_version;
       delete requestBody.stream_options;
       
-      console.log("DEBUG - Claude thinking configuration for streaming:", {
+      console.log("DEBUG - Claude thinking configuration:", {
         model: model,
         max_tokens: requestBody.max_tokens,
-        thinking: requestBody.thinking
+        reasoning: requestBody.reasoning
       });
     }
-
-    // Check if we're using a reasoning model that can provide thinking traces
-    const isReasoning = isReasoningModel(model);
+    
+    console.log("DEBUG - Request configuration for reasoning:", {
+      model,
+      isReasoningModel: isReasoning,
+      requestBodyKeys: Object.keys(requestBody),
+      hasReasoning: !!requestBody.reasoning,
+      systemPromptLength: requestBody.messages?.[0]?.content.length
+    });
 
     // Return to using direct fetch but with proper CORS settings
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/llm-api`, {

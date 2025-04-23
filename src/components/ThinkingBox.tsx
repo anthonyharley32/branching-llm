@@ -7,28 +7,54 @@ import remarkGfm from 'remark-gfm';
 interface ThinkingBoxProps {
   thinkingContent: string;
   isThinkingComplete: boolean;
+  thinkingDuration?: number | null; // Add duration prop
+  hasInternalReasoning?: boolean; // New prop to indicate models with internal reasoning only
 }
 
-const ThinkingBox: React.FC<ThinkingBoxProps> = ({ thinkingContent, isThinkingComplete }) => {
+const ThinkingBox: React.FC<ThinkingBoxProps> = ({ 
+  thinkingContent, 
+  isThinkingComplete, 
+  thinkingDuration,
+  hasInternalReasoning = false 
+}) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [hasContent, setHasContent] = useState<boolean>(false);
 
   // Automatically collapse when thinking is complete, but only if there was content
   useEffect(() => {
+    console.log('ThinkingBox collapse effect - isThinkingComplete:', isThinkingComplete, 'hasContent:', hasContent);
     if (isThinkingComplete && hasContent) {
       setIsExpanded(false);
+      console.log('ThinkingBox - Auto-collapsing thinking box');
     }
   }, [isThinkingComplete, hasContent]);
 
   // Track if any content has been received
   useEffect(() => {
+    console.log('ThinkingBox content effect - Content received:', 
+                thinkingContent ? `${thinkingContent.length} chars` : '0 chars', 
+                'Empty?:', !thinkingContent || thinkingContent.trim().length === 0,
+                'Current hasContent:', hasContent);
+    
     if (thinkingContent && thinkingContent.trim().length > 0) {
       setHasContent(true);
+      console.log('ThinkingBox - hasContent set to true, preview:', thinkingContent.substring(0, 30) + '...');
+    } else {
+      console.log('ThinkingBox - Content is empty or null');
     }
-  }, [thinkingContent]);
+  }, [thinkingContent, hasContent]);
 
-  // Don't render anything if thinking is complete AND no content was ever received
-  if (isThinkingComplete && !hasContent) {
+  // Set hasContent to true when hasInternalReasoning is true
+  useEffect(() => {
+    if (hasInternalReasoning && !isThinkingComplete) {
+      setHasContent(true);
+      console.log('ThinkingBox - hasContent set to true due to internal reasoning');
+    }
+  }, [hasInternalReasoning, isThinkingComplete]);
+
+  // Don't render anything if thinking is complete AND no content was ever received AND not using internal reasoning
+  if (isThinkingComplete && !hasContent && !hasInternalReasoning) {
+    console.log('ThinkingBox - Not rendering: thinking complete with no content');
     return null;
   }
 
@@ -71,9 +97,16 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({ thinkingContent, isThinkingCo
       exit: { opacity: 0, transition: { duration: 0.1 } }
   };
 
+  // Add shimmer animation styles
+  const shimmerStyle = {
+    backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%)',
+    backgroundSize: '200% 100%',
+    animation: 'shimmer 2s infinite linear',
+  };
+  
   return (
     <AnimatePresence>
-      {(hasContent || !isThinkingComplete) && ( // Only render if there's content or thinking is ongoing
+      {(hasContent || !isThinkingComplete || hasInternalReasoning) && ( // Add hasInternalReasoning to render condition
         <motion.div
           key="thinking-box"
           variants={boxVariants}
@@ -91,7 +124,9 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({ thinkingContent, isThinkingCo
             <div className="flex items-center space-x-2">
               <FiCpu className="h-5 w-5 text-gray-600" />
               <span className="text-sm font-medium text-gray-700">
-                {isThinkingComplete ? 'Thinking Process' : 'Thinking...'}
+                {isThinkingComplete 
+                  ? (thinkingDuration !== null ? `Thought for ${thinkingDuration}s` : 'Thinking Process') 
+                  : hasInternalReasoning ? 'Internal Reasoning...' : 'Thinking...'}
               </span>
             </div>
             {/* Show toggle button only when complete and content exists */}
@@ -105,6 +140,13 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({ thinkingContent, isThinkingCo
             )}
           </div>
 
+          {/* Collapsed Subtext */}
+          {!isExpanded && isThinkingComplete && hasContent && (
+            <div className="text-xs text-gray-500 px-3 pb-2 -mt-1">
+              Expand for details
+            </div>
+          )}
+
           {/* Expanded Content Area */}
           {isExpanded && (
             <motion.div
@@ -115,16 +157,50 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({ thinkingContent, isThinkingCo
               exit="exit"
               className="p-3 pt-0 border-t border-gray-200"
             >
-              <ReactMarkdown 
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  // Use a div wrapper for the content and apply the className there
-                  // Passing children directly to the div to render the markdown content
-                  div: ({node, children, ...props}) => <div className="prose prose-sm max-w-none text-gray-700 thinking-content" {...props}>{children}</div>
-                }}
-              >
-                {thinkingContent || (!isThinkingComplete ? '*Waiting for thoughts...*' : '*No thinking process recorded.*')}
-              </ReactMarkdown>
+              {console.log('Rendering content:', thinkingContent ? `${thinkingContent.length} chars` : 'empty', 'isThinkingComplete:', isThinkingComplete)}
+              
+              {/* Show shimmer animation for internal reasoning models */}
+              {hasInternalReasoning && !isThinkingComplete ? (
+                <div className="prose prose-sm max-w-none text-gray-700 thinking-content">
+                  <div 
+                    className="px-4 py-3 rounded bg-gray-50 text-gray-500 italic"
+                    style={{
+                      backgroundImage: 'linear-gradient(90deg, rgba(200,200,200,0.05) 0%, rgba(200,200,200,0.2) 50%, rgba(200,200,200,0.05) 100%)',
+                      backgroundSize: '200% 100%',
+                      animation: 'shimmer 2s infinite linear'
+                    }}
+                  >
+                    Model is using reasoning internally but doesn't expose the thinking process.
+                  </div>
+                  <style dangerouslySetInnerHTML={{ __html: `
+                    @keyframes shimmer {
+                      0% { background-position: 200% 0; }
+                      100% { background-position: -200% 0; }
+                    }
+                  `}} />
+                </div>
+              ) : (
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    // Use a div wrapper for the content and apply the className there
+                    // Passing children directly to the div to render the markdown content
+                    div: ({node, children, ...props}) => <div className="prose prose-sm max-w-none text-gray-700 thinking-content" {...props}>{children}</div>
+                  }}
+                >
+                  {thinkingContent ? 
+                    // If we have actual thinking content, show it
+                    thinkingContent : 
+                    // Otherwise, show a placeholder based on state
+                    (!isThinkingComplete ? 
+                      // If still thinking, show waiting message 
+                      '*Waiting for thoughts...*' : 
+                      // If done thinking and no content, show empty message 
+                      '*No thinking process was generated.*'
+                    )
+                  }
+                </ReactMarkdown>
+              )}
             </motion.div>
           )}
         </motion.div>

@@ -11,11 +11,14 @@ interface ChatThreadProps {
   streamingNodeId?: string | null;
   thinkingContent: string;
   isThinkingComplete: boolean;
+  thinkingDuration?: number | null;
+  isReasoningModel: boolean;
+  hasInternalReasoning?: boolean;
   onBranchCreated: (result: AddMessageResult, sourceText: string, isNewBranch: boolean) => void;
   onMessageEdited?: (messageId: string) => void;
 }
 
-const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, streamingNodeId = null, thinkingContent, isThinkingComplete, onBranchCreated, onMessageEdited }) => {
+const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, streamingNodeId = null, thinkingContent, isThinkingComplete, thinkingDuration, isReasoningModel, hasInternalReasoning = false, onBranchCreated, onMessageEdited }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [userHasScrolled, setUserHasScrolled] = useState(false);
@@ -238,8 +241,11 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
     return messages.length === 1;
   });
 
-  // Condition for showing the initial loading squiggles
-  const showInitialLoading = isLoading && !streamingNodeId && isThinkingComplete;
+  // Condition for showing the initial loading squiggles:
+  // - For non-reasoning models: Show if loading and no streamingNodeId (standard behavior)
+  // - For reasoning models: Show if loading, no streamingNodeId AND thinking is complete (not showing thinking box)
+  const showInitialLoading = isLoading && !streamingNodeId && 
+                             (isReasoningModel ? isThinkingComplete : true);
 
   return (
     <div 
@@ -254,15 +260,40 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
         lastScrollTimeRef.current = Date.now();
       }}
     >
-      {displayMessages.map((msg, index) => (
+      {/* Render all messages EXCEPT the currently streaming one */}
+      {displayMessages
+        .filter(msg => msg.id !== streamingNodeId)
+        .map((msg, index) => (
+          <ChatMessage 
+            key={msg.id || `msg-${index}`} 
+            message={msg}
+            streamingNodeId={streamingNodeId}
+            onBranchCreated={onBranchCreated}
+            onMessageEdited={onMessageEdited}
+          />
+        ))}
+      
+      {/* Render ThinkingBox if needed - ONLY for reasoning models */}
+      {isReasoningModel && (!isThinkingComplete || (isThinkingComplete && thinkingContent)) && (
+        <ThinkingBox 
+          thinkingContent={thinkingContent} 
+          isThinkingComplete={isThinkingComplete} 
+          thinkingDuration={thinkingDuration}
+          hasInternalReasoning={hasInternalReasoning}
+        />
+      )}
+
+      {/* Render the currently streaming message AFTER the thinking box */}
+      {streamingNodeId && displayMessages.find(msg => msg.id === streamingNodeId) && (
         <ChatMessage 
-          key={msg.id || `msg-${index}`} 
-          message={msg}
+          key={streamingNodeId} 
+          message={displayMessages.find(msg => msg.id === streamingNodeId)!}
           streamingNodeId={streamingNodeId}
           onBranchCreated={onBranchCreated}
           onMessageEdited={onMessageEdited}
         />
-      ))}
+      )}
+      
       {showInitialLoading && (
         <div className="flex flex-col items-start p-4 text-gray-800 px-4 max-w-prose self-start">
           {/* Squiggly wave placeholder - now a container for multiple lines */}
@@ -279,12 +310,6 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
             <div className="relative w-40 h-4 streaming-wave streaming-wave-10" />
           </div>
         </div>
-      )}
-      {(!isThinkingComplete || (isThinkingComplete && thinkingContent)) && (
-        <ThinkingBox 
-          thinkingContent={thinkingContent} 
-          isThinkingComplete={isThinkingComplete} 
-        />
       )}
       {displayMessages.length === 0 && !isLoading && (
         <div className="text-center text-gray-500 pt-10">
