@@ -27,6 +27,7 @@ export interface LLMError {
 // Interface for streaming callbacks
 export interface StreamCallbacks {
   onChunk: (chunk: string) => void;
+  onThinkingChunk?: (chunk: string) => void;
   onComplete?: () => void;
   onError?: (error: LLMError) => void;
 }
@@ -65,6 +66,15 @@ export const SUPPORTED_MODELS = {
   'x-ai/grok-3-mini-beta': 'Grok 3 Mini Beta',
   'x-ai/grok-3-beta': 'Grok 3 Beta'
 };
+
+// New function to check if a model is a reasoning model that supports thinking traces
+export function isReasoningModel(model: string): boolean {
+  // These models support explicit reasoning/thinking traces
+  return (
+    model.includes(':thinking') ||       // Claude with thinking
+    model.startsWith('x-ai/grok')        // All Grok models have reasoning
+  );
+}
 
 // Convert our message format to OpenRouter format
 function convertToOpenRouterMessages(messages: Message[]): any[] {
@@ -241,6 +251,9 @@ export async function generateCompletionStream(
       requestBody.reasoning = { effort: "high" };
     }
 
+    // Check if we're using a reasoning model that can provide thinking traces
+    const isReasoning = isReasoningModel(model);
+
     // For streaming, we'll use the fetch API directly to our Supabase function
     // This works around current limitations in Supabase JS client for streaming responses
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/llm-api`, {
@@ -325,7 +338,14 @@ export async function generateCompletionStream(
               throw err;
             }
             
-            // Handle different response formats
+            // Extract thinking trace for reasoning models
+            if (isReasoning && data.choices && data.choices[0]?.thinking_trace && callbacks.onThinkingChunk) {
+              callbacks.onThinkingChunk(data.choices[0].thinking_trace);
+              // Don't skip, as some models (like Claude) might send thinking and content in the same chunk
+              // continue; 
+            }
+            
+            // Handle different response formats for standard content
             let content = null;
             
             // Standard OpenAI/Claude format

@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { 
   generateCompletionStream,
   generateTitle,
+  isReasoningModel, // Import isReasoningModel
   LLMError, 
   ErrorType, 
   StreamCallbacks
@@ -89,6 +90,11 @@ function AppContent() {
 
   // State to track edited message for AI regeneration
   const [editedMessageId, setEditedMessageId] = useState<string | null>(null);
+
+  // >>> New state for Thinking Box <<<
+  const [thinkingContent, setThinkingContent] = useState<string>('');
+  const [isThinkingComplete, setIsThinkingComplete] = useState<boolean>(true);
+  // >>> End New state <<<
 
   const [showingMainThread, setShowingMainThread] = useState(false);
 
@@ -195,6 +201,11 @@ function AppContent() {
 
     const { parentId: aiParentId, path: messagePath, metadata } = pendingLlmCall;
     let tempAiNodeId: string | null = null; // Temporary ID within this async scope
+    let currentThinkingContent = ''; // Local accumulator for thinking
+    
+    // Reset thinking state at the beginning of a new stream
+    setThinkingContent('');
+    setIsThinkingComplete(false);
 
     const executeStream = async () => {
       try {
@@ -230,6 +241,12 @@ function AppContent() {
               updateMessageContent(tempAiNodeId, chunk);
             }
           },
+          // >>> New callback handler <<<
+          onThinkingChunk: (chunk) => {
+            currentThinkingContent += chunk;
+            setThinkingContent(currentThinkingContent);
+          },
+          // >>> End New callback handler <<<
           onComplete: () => {
             if (!session) {
               const newCount = guestMessageCount + 1;
@@ -237,11 +254,13 @@ function AppContent() {
             }
             setIsSending(false);
             setStreamingAiNodeId(null);
+            setIsThinkingComplete(true); // Mark thinking as complete
           },
           onError: (llmError) => {
             setError(llmError);
             setIsSending(false);
             setStreamingAiNodeId(null);
+            setIsThinkingComplete(true); // Mark thinking as complete on error too
           }
         };
 
@@ -310,6 +329,11 @@ function AppContent() {
     setStreamingAiNodeId(null); // Reset streaming ID on new message
     setShowingMainThread(false);
 
+    // >>> Reset thinking state when sending a new message <<<
+    setThinkingContent('');
+    setIsThinkingComplete(true); // Assume not thinking initially
+    // >>> End Reset <<<
+
     // --- Guest Rate Limit Check --- 
     if (!session) { 
       if (guestMessageCount >= GUEST_MESSAGE_LIMIT) {
@@ -374,6 +398,11 @@ function AppContent() {
     // Use the messagePath returned by addResult, as it includes the new message immediately
     const isFirstUserMessage = addResult.messagePath && 
       addResult.messagePath.filter(msg => msg.role === 'user').length === 1; 
+
+    // >>> Reset thinking state when sending a new message <<<
+    setThinkingContent('');
+    setIsThinkingComplete(true); // Assume not thinking initially
+    // >>> End Reset <<<
 
     // We also need the conversation ID, so check conversation exists too
     if (addResult && conversation && isFirstUserMessage) {
@@ -907,11 +936,13 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
               </div>
             )}
 
-            {/* Pass filtered messages */}
+            {/* Pass filtered messages, thinking state */}
             <ChatThread
               messages={displayedMessages}
               isLoading={isSending}
               streamingNodeId={streamingAiNodeId}
+              thinkingContent={thinkingContent}
+              isThinkingComplete={isThinkingComplete}
               onBranchCreated={handleBranchCreated}
               onMessageEdited={setEditedMessageId}
             />

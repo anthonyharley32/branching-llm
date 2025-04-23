@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { MessageNode } from '../types/conversation';
 import ChatMessage from './ChatMessage';
+import ThinkingBox from './ThinkingBox';
 import { AddMessageResult } from '../context/ConversationContext';
 
 interface ChatThreadProps {
@@ -8,11 +9,13 @@ interface ChatThreadProps {
   isLoading: boolean;
   /** If provided, the ID of the assistant message currently streaming. */
   streamingNodeId?: string | null;
+  thinkingContent: string;
+  isThinkingComplete: boolean;
   onBranchCreated: (result: AddMessageResult, sourceText: string, isNewBranch: boolean) => void;
   onMessageEdited?: (messageId: string) => void;
 }
 
-const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, streamingNodeId = null, onBranchCreated, onMessageEdited }) => {
+const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, streamingNodeId = null, thinkingContent, isThinkingComplete, onBranchCreated, onMessageEdited }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [userHasScrolled, setUserHasScrolled] = useState(false);
@@ -235,7 +238,8 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
     return messages.length === 1;
   });
 
-  const showInitialLoading = isLoading && !streamingNodeId;
+  // Condition for showing the initial loading squiggles
+  const showInitialLoading = isLoading && !streamingNodeId && isThinkingComplete;
 
   return (
     <div 
@@ -275,6 +279,12 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
             <div className="relative w-40 h-4 streaming-wave streaming-wave-10" />
           </div>
         </div>
+      )}
+      {(!isThinkingComplete || (isThinkingComplete && thinkingContent)) && (
+        <ThinkingBox 
+          thinkingContent={thinkingContent} 
+          isThinkingComplete={isThinkingComplete} 
+        />
       )}
       {displayMessages.length === 0 && !isLoading && (
         <div className="text-center text-gray-500 pt-10">

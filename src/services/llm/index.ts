@@ -9,6 +9,9 @@ import { config, LLMProvider } from './config';
 // Import providers
 import * as OpenRouterProvider from './openrouter';
 
+// Re-export specific functionality from providers
+export { isReasoningModel } from './openrouter';
+
 // Common error type definition
 export enum ErrorType {
   AUTHENTICATION = 'authentication',
@@ -29,6 +32,7 @@ export interface LLMError {
 // Interface for streaming callbacks
 export interface StreamCallbacks {
   onChunk: (chunk: string) => void;
+  onThinkingChunk?: (chunk: string) => void;
   onComplete?: () => void;
   onError?: (error: LLMError) => void;
 }
