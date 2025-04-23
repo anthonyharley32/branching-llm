@@ -17,12 +17,12 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
   thinkingDuration,
   hasInternalReasoning = false 
 }) => {
-  const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  // Start expanded during thinking, auto-collapse when complete
+  const [isExpanded, setIsExpanded] = useState<boolean>(!isThinkingComplete);
   const [hasContent, setHasContent] = useState<boolean>(false);
 
   // Automatically collapse when thinking is complete, but only if there was content
   useEffect(() => {
-    console.log('ThinkingBox collapse effect - isThinkingComplete:', isThinkingComplete, 'hasContent:', hasContent);
     if (isThinkingComplete && hasContent) {
       setIsExpanded(false);
       console.log('ThinkingBox - Auto-collapsing thinking box');

@@ -260,20 +260,28 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
         lastScrollTimeRef.current = Date.now();
       }}
     >
-      {/* Render all messages EXCEPT the currently streaming one */}
+      {/* First, render all messages up to the last user message */}
       {displayMessages
         .filter(msg => msg.id !== streamingNodeId)
-        .map((msg, index) => (
-          <ChatMessage 
-            key={msg.id || `msg-${index}`} 
-            message={msg}
-            streamingNodeId={streamingNodeId}
-            onBranchCreated={onBranchCreated}
-            onMessageEdited={onMessageEdited}
-          />
-        ))}
+        .map((msg, index, array) => {
+          // Find the index of the last user message
+          const lastUserMsgIndex = array.map(m => m.role).lastIndexOf('user');
+          // Render all messages up to and including the last user message
+          if (index <= lastUserMsgIndex) {
+            return (
+              <ChatMessage 
+                key={msg.id || `msg-${index}`} 
+                message={msg}
+                streamingNodeId={streamingNodeId}
+                onBranchCreated={onBranchCreated}
+                onMessageEdited={onMessageEdited}
+              />
+            );
+          }
+          return null;
+        }).filter(Boolean)}
       
-      {/* Render ThinkingBox if needed - ONLY for reasoning models */}
+      {/* Render ThinkingBox immediately after the last user message */}
       {isReasoningModel && (!isThinkingComplete || (isThinkingComplete && thinkingContent)) && (
         <ThinkingBox 
           thinkingContent={thinkingContent} 
@@ -282,6 +290,27 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
           hasInternalReasoning={hasInternalReasoning}
         />
       )}
+
+      {/* Then render any assistant messages that follow the last user message */}
+      {displayMessages
+        .filter(msg => msg.id !== streamingNodeId)
+        .map((msg, index, array) => {
+          // Find the index of the last user message
+          const lastUserMsgIndex = array.map(m => m.role).lastIndexOf('user');
+          // Render messages after the last user message
+          if (index > lastUserMsgIndex) {
+            return (
+              <ChatMessage 
+                key={msg.id || `msg-${index}`} 
+                message={msg}
+                streamingNodeId={streamingNodeId}
+                onBranchCreated={onBranchCreated}
+                onMessageEdited={onMessageEdited}
+              />
+            );
+          }
+          return null;
+        }).filter(Boolean)}
 
       {/* Render the currently streaming message AFTER the thinking box */}
       {streamingNodeId && displayMessages.find(msg => msg.id === streamingNodeId) && (
