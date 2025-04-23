@@ -5,7 +5,7 @@ import { UserProfile as UserProfileType } from '../../types/database';
 import { 
   FiUser, FiEdit, FiSave, FiX, FiCamera, FiAlertCircle, FiCreditCard, FiSettings, 
   FiSliders, FiDatabase, FiBox, FiSun, FiMoon, FiSmile, 
-  FiMousePointer, FiDollarSign, FiEdit3 // Added specific icons
+  FiMousePointer, FiDollarSign, FiEdit3, FiCpu // Added FiCpu
 } from 'react-icons/fi';
 import { HiOutlineSparkles } from 'react-icons/hi'; // Import sparkles icon for AI stars logo
 import { motion } from 'framer-motion';
@@ -17,7 +17,7 @@ interface UserProfileProps {
 }
 
 // Update Tab type for sidebar navigation
-type ActiveSetting = 'account' | 'appearance' | 'behavior' | 'customize' | 'dataControls' | 'billing';
+type ActiveSetting = 'account' | 'appearance' | 'behavior' | 'customize' | 'dataControls' | 'billing' | 'models'; // Added 'models'
 
 const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) => {
   const { user, session } = useAuth();
@@ -304,6 +304,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
           <SidebarItem setting="account" icon={FiUser} label="Account" />
           <SidebarItem setting="appearance" icon={FiEdit3} label="Appearance" /> {/* Updated Icon */} 
           <SidebarItem setting="behavior" icon={FiMousePointer} label="Behavior" /> {/* Updated Icon */} 
+          <SidebarItem setting="models" icon={FiCpu} label="Models" /> {/* Added Models Tab */}
           <SidebarItem setting="customize" icon={FiSliders} label="Customize" />
           <SidebarItem setting="dataControls" icon={FiDatabase} label="Data Controls" />
           {/* Conditionally render the billing tab based on subscription tier */}
@@ -510,12 +511,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
             <h3 className="text-xl font-semibold text-gray-900 mb-6">Customize</h3>
             <div className="space-y-4">
-              {/* LLM Provider Settings */}
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Language Model Settings</h4>
-                <LLMSettings />
-              </div>
-              
               {/* Additional System Prompt Section */}
               <div className="p-4 bg-gray-50 rounded-lg">
                 <h4 className="text-lg font-medium text-gray-900 mb-3">Additional System Prompt</h4>
@@ -540,6 +535,16 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
               </div>
               
               {/* Add other customization options here if needed */}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Models Settings Content */}
+        {activeSetting === 'models' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">Model Selection</h3>
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <LLMSettings />
             </div>
           </motion.div>
         )}

@@ -77,13 +77,9 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
       // Store previous conversation ID before updating it
       if (conversation.id !== prevConversationId) {
         // Save the current conversation ID as previous before updating
-        if (prevConversationId) {
-          console.log(`Switching from conversation ${prevConversationId} to ${conversation.id}`);
-        }
         
         // If we're switching away from an unused chat, mark it for potential removal
         if (unusedChatId && unusedChatId === prevConversationId) {
-          console.log(`Marking previous conversation ${prevConversationId} as unused`);
           setPrevConversationUnused(true);
         }
         
@@ -126,7 +122,6 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
 
   // Helper function to remove an unused chat
   const removeUnusedChat = (chatId: string) => {
-    console.log(`Removing unused chat: ${chatId}`);
     setRemovingId(chatId);
     
     // After animation completes, actually remove from history and database
@@ -141,7 +136,6 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
             .from('conversations')
             .delete()
             .eq('id', chatId);
-          console.log(`Removed unused chat from database: ${chatId}`);
         } catch (error) {
           console.error('Error deleting unused chat:', error);
         }
@@ -217,7 +211,6 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
           updatedAt: new Date(conversation.updatedAt || Date.now()).toISOString(),
         };
         // Add the new item and re-sort
-        console.log("Adding new conversation item to history:", newHistoryItem.id);
         return [newHistoryItem, ...updatedHistory] // Use updatedHistory in case other items were modified
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
       }
@@ -809,14 +802,13 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                           exit={{ opacity: 0 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <button
+                          <div
                             onClick={() => handleConversationClick(item)}
-                            disabled={loadingConversation === item.id}
                             className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
                               item.id === activeConversationId 
                                 ? 'bg-gray-900 text-white hover:bg-gray-800' 
                                 : 'hover:bg-gray-100'
-                            } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
+                            } ${loadingConversation === item.id ? 'opacity-70' : ''} cursor-pointer`}
                           >
                             <div className={`font-medium ${item.id === activeConversationId ? 'text-white' : 'text-gray-900'} flex items-center`}>
                               <span className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''}`}>
@@ -842,7 +834,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                             >
                               <FiMoreVertical className="h-4 w-4" />
                             </button>
-                          </button>
+                          </div>
                           
                           {/* Dropdown menu */}
                           {activeMenu === item.id && (

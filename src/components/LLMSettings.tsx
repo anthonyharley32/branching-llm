@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
+  FiSearch, FiX // Assuming you might use these later, keep consistency
+} from 'react-icons/fi'; // Import standard icons
+import { HiOutlineSparkles } from 'react-icons/hi'; // Import sparkles icon
+import { 
   getActiveProvider, 
   setProvider, 
   getCurrentModel, 
@@ -9,23 +13,27 @@ import {
   ModelInfo
 } from '../services/llm';
 
-interface LLMSettingsProps {
-  onClose?: () => void;
-}
-
 // Model description mapping
 const MODEL_DESCRIPTIONS: Record<string, string> = {
   'x-ai/grok-3-mini-beta': 'A lightweight, thinking model ideal for reasoning-heavy tasks that need less domain knowledge. Excels at math and solving puzzles.',
-  'x-ai/grok-3-beta': 'Full-sized thinking model with strong reasoning capabilities and wide knowledge. Shows its thinking process in responses.',
-  'anthropic/claude-3.7-sonnet:thinking': 'Claude 3.7 Sonnet with step-by-step reasoning visible in the response.',
-  'anthropic/claude-3.7-sonnet': 'Anthropic\'s balanced model with strong reasoning and instruction following capabilities.',
+  'x-ai/grok-3-beta': 'Full-sized model with wide knowledge. Shows its thinking process in responses.',
+  'anthropic/claude-3.7-sonnet:thinking': 'Claude 3.7 Sonnet with step-by-step reasoning visible in the response. Optimized for complex thought processes.',
+  'anthropic/claude-3.7-sonnet': 'Anthropic\'s balanced model with strong instruction following capabilities.',
   'openai/gpt-4.1': 'OpenAI\'s most capable model for complex tasks requiring deep understanding.',
-  'openai/o4-mini-high': 'Smaller, faster version of GPT-4.1 optimized for responsive interactions.',
+  'openai/o4-mini-high': 'Smaller, faster version of GPT-4.1 optimized for responsive interactions and efficient reasoning.',
   'google/gemini-2.5-flash-preview': 'Google\'s fastest Gemini model for responsive applications.',
   'google/gemini-2.5-pro-preview-03-25': 'Google\'s most capable Gemini model for complex reasoning tasks.'
 };
 
-const LLMSettings: React.FC<LLMSettingsProps> = ({ onClose }) => {
+// Define which models are considered reasoning models (Re-added)
+const REASONING_MODEL_IDS = new Set([
+  'x-ai/grok-3-mini-beta',
+  'anthropic/claude-3.7-sonnet:thinking',
+  'openai/o4-mini-high',
+  'google/gemini-2.5-pro-preview-03-25'
+]);
+
+const LLMSettings: React.FC = () => {
   const [allModels, setAllModels] = useState<ModelInfo[]>([]);
   const [filteredModels, setFilteredModels] = useState<ModelInfo[]>([]);
   const [currentModelId, setCurrentModelId] = useState<string>('');
@@ -37,8 +45,28 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ onClose }) => {
   // Load all models and set current model on initial load
   useEffect(() => {
     const models = getAllModels();
-    setAllModels(models);
-    setFilteredModels(models);
+    
+    // Sort models: Provider -> Reasoning Status -> Name
+    models.sort((a, b) => {
+      // 1. Sort by Provider Name
+      if (a.providerName.toLowerCase() < b.providerName.toLowerCase()) return -1;
+      if (a.providerName.toLowerCase() > b.providerName.toLowerCase()) return 1;
+      
+      // 2. Sort by Reasoning Status (non-reasoning first)
+      const aIsReasoning = REASONING_MODEL_IDS.has(a.fullId);
+      const bIsReasoning = REASONING_MODEL_IDS.has(b.fullId);
+      if (!aIsReasoning && bIsReasoning) return -1; // a (non-reasoning) comes before b (reasoning)
+      if (aIsReasoning && !bIsReasoning) return 1;  // a (reasoning) comes after b (non-reasoning)
+      
+      // 3. Sort by Model Name (alphabetical as tie-breaker)
+      if (a.name.toLowerCase() < b.name.toLowerCase()) return -1;
+      if (a.name.toLowerCase() > b.name.toLowerCase()) return 1;
+      
+      return 0; // Models are identical for sorting purposes
+    });
+    
+    setAllModels(models); // Set the sorted list
+    setFilteredModels(models); // Initialize filtered list with sorted models
     
     // Get current model and find its ID in our list
     const provider = getActiveProvider();
@@ -178,7 +206,17 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ onClose }) => {
                             />
                           )}
                         </div>
-                        <span className="font-medium text-gray-900">{selectedModel.name}</span>
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-800 flex items-center gap-1.5">
+                            <span>{selectedModel.name}</span>
+                            {REASONING_MODEL_IDS.has(selectedModel.fullId) && (
+                              <span className="flex items-center text-xs text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded-full">
+                                <HiOutlineSparkles className="mr-1" /> 
+                                Reasoning
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </>
                     );
                   }
@@ -249,7 +287,15 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ onClose }) => {
                   )}
                 </div>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-800">{model.name}</div>
+                  <div className="font-medium text-gray-800 flex items-center gap-1.5">
+                    <span>{model.name}</span>
+                    {REASONING_MODEL_IDS.has(model.fullId) && (
+                      <span className="flex items-center text-xs text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded-full">
+                        <HiOutlineSparkles className="mr-1" /> 
+                        Reasoning
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-gray-500">{model.providerName}</div>
                 </div>
                 {currentModelId === model.fullId && (
@@ -279,17 +325,6 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ onClose }) => {
             ))}
           </div>
         </div>
-        
-        {onClose && (
-          <div className="flex justify-end mt-4">
-            <button 
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 rounded-md text-gray-800 hover:bg-gray-300"
-            >
-              Close
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

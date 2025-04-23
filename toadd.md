@@ -15,6 +15,7 @@
 [-] conversation branches table?
 [-] 2 user tables?
 [-] Sidebar closes automatically on new chat/switch chat
+[ ] Does the additional prompt work?
 [ ] new chat small button opens sidebar.
 [ ] language
 [ ] cursor animation over all buttons

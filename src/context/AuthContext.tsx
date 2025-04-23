@@ -41,7 +41,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false); // Ensure loading is false after state change
-        console.log("Auth state changed:", _event, session);
       }
     );
 
