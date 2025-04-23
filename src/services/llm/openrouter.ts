@@ -189,11 +189,11 @@ export async function generateCompletion(
       console.log("DEBUG - Configuring Claude model with thinking:", model);
       
       // Set high max_tokens for Claude thinking (per OpenRouter docs example)
-      requestBody.max_tokens = 16000;
+      requestBody.max_tokens = 32000;
       
       // Use the standardized parameter for thinking
       requestBody.thinking = {
-        budget_tokens: 4000,  // 4000 tokens for reasoning (must be less than max_tokens)
+        budget_tokens: 8000,  // 4000 tokens for reasoning (must be less than max_tokens)
         enabled: true
       };
       
@@ -297,11 +297,11 @@ export async function generateCompletionStream(
       console.log("DEBUG - Configuring Claude model with thinking for streaming:", model);
       
       // Set high max_tokens for Claude thinking (per OpenRouter docs example)
-      requestBody.max_tokens = 16000;
+      requestBody.max_tokens = 32000;
       
       // Use the standardized reasoning parameter with a large gap (per docs example)
       requestBody.thinking = {
-        budget_tokens: 4000,  // 4000 tokens for reasoning (must be less than max_tokens)
+        budget_tokens: 8000,  // 4000 tokens for reasoning (must be less than max_tokens)
         enabled: true
       };
       
