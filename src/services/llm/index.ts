@@ -153,7 +153,7 @@ export function getAllModels(): ModelInfo[] {
   const openRouterModels = [
     // OpenAI models through OpenRouter
     { id: 'openai/gpt-4.1', name: 'GPT-4.1', providerName: 'OpenAI' },
-    { id: 'openai/o4-mini-high', name: 'o4 Mini High', providerName: 'OpenAI' },
+    { id: 'openai/o4-mini-high', name: 'o4-mini-high', providerName: 'OpenAI' },
     
     // Google models
     { id: 'google/gemini-2.5-flash-preview', name: 'Gemini 2.5 Flash Preview', providerName: 'Google' },
@@ -205,6 +205,51 @@ export function getCurrentModel(): string {
       return config.openRouterModel;
     default:
       throw new Error(`Unsupported LLM provider: ${provider}`);
+  }
+}
+
+// Load user's preferred model from their profile
+export async function loadUserModelPreference(userId: string): Promise<boolean> {
+  try {
+    // Import supabase using dynamic import to avoid circular dependency
+    const { supabase } = await import('../../lib/supabase');
+    
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('preferences')
+      .eq('user_id', userId)
+      .single();
+    
+    if (error) {
+      console.error('Error loading user model preference:', error);
+      return false;
+    }
+    
+    if (data?.preferences?.preferredModel) {
+      const preferredModel = data.preferences.preferredModel;
+      
+      // Get all available models
+      const models = getAllModels();
+      
+      // Find the preferred model in the list
+      const savedModel = models.find(model => model.fullId === preferredModel);
+      
+      if (savedModel) {
+        // Set provider if different from current
+        if (getActiveProvider() !== savedModel.provider) {
+          setProvider(savedModel.provider);
+        }
+        
+        // Set the model
+        setModel(savedModel.fullId);
+        return true;
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Exception loading user model preference:', error);
+    return false;
   }
 }
 

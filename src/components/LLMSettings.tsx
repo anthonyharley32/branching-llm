@@ -12,6 +12,8 @@ import {
   getAllModels,
   ModelInfo
 } from '../services/llm';
+import { supabase } from '../lib/supabase'; // Import supabase client
+import { useAuth } from '../context/AuthContext'; // Import auth context
 
 // Model description mapping
 const MODEL_DESCRIPTIONS: Record<string, string> = {
@@ -34,6 +36,7 @@ const REASONING_MODEL_IDS = new Set([
 ]);
 
 const LLMSettings: React.FC = () => {
+  const { user } = useAuth(); // Get current user
   const [allModels, setAllModels] = useState<ModelInfo[]>([]);
   const [filteredModels, setFilteredModels] = useState<ModelInfo[]>([]);
   const [currentModelId, setCurrentModelId] = useState<string>('');
@@ -44,44 +47,48 @@ const LLMSettings: React.FC = () => {
 
   // Load all models and set current model on initial load
   useEffect(() => {
-    const models = getAllModels();
-    
-    // Sort models: Provider -> Reasoning Status -> Name
-    models.sort((a, b) => {
-      // 1. Sort by Provider Name
-      if (a.providerName.toLowerCase() < b.providerName.toLowerCase()) return -1;
-      if (a.providerName.toLowerCase() > b.providerName.toLowerCase()) return 1;
+    const loadModels = async () => {
+      const models = getAllModels();
       
-      // 2. Sort by Reasoning Status (non-reasoning first)
-      const aIsReasoning = REASONING_MODEL_IDS.has(a.fullId);
-      const bIsReasoning = REASONING_MODEL_IDS.has(b.fullId);
-      if (!aIsReasoning && bIsReasoning) return -1; // a (non-reasoning) comes before b (reasoning)
-      if (aIsReasoning && !bIsReasoning) return 1;  // a (reasoning) comes after b (non-reasoning)
+      // Sort models: Provider -> Reasoning Status -> Name
+      models.sort((a, b) => {
+        // 1. Sort by Provider Name
+        if (a.providerName.toLowerCase() < b.providerName.toLowerCase()) return -1;
+        if (a.providerName.toLowerCase() > b.providerName.toLowerCase()) return 1;
+        
+        // 2. Sort by Reasoning Status (non-reasoning first)
+        const aIsReasoning = REASONING_MODEL_IDS.has(a.fullId);
+        const bIsReasoning = REASONING_MODEL_IDS.has(b.fullId);
+        if (!aIsReasoning && bIsReasoning) return -1; // a (non-reasoning) comes before b (reasoning)
+        if (aIsReasoning && !bIsReasoning) return 1;  // a (reasoning) comes after b (non-reasoning)
+        
+        // 3. Sort by Model Name (alphabetical as tie-breaker)
+        if (a.name.toLowerCase() < b.name.toLowerCase()) return -1;
+        if (a.name.toLowerCase() > b.name.toLowerCase()) return 1;
+        
+        return 0; // Models are identical for sorting purposes
+      });
       
-      // 3. Sort by Model Name (alphabetical as tie-breaker)
-      if (a.name.toLowerCase() < b.name.toLowerCase()) return -1;
-      if (a.name.toLowerCase() > b.name.toLowerCase()) return 1;
+      setAllModels(models); // Set the sorted list
+      setFilteredModels(models); // Initialize filtered list with sorted models
       
-      return 0; // Models are identical for sorting purposes
-    });
+      // Get current model from service
+      const provider = getActiveProvider();
+      const currentModelString = getCurrentModel();
+      
+      // Find the matching model in our list
+      const currentModel = models.find(model => 
+        model.provider === provider && 
+        (model.fullId === currentModelString || model.id === currentModelString)
+      );
+      
+      if (currentModel) {
+        setCurrentModelId(currentModel.fullId);
+        setSelectedModelDesc(MODEL_DESCRIPTIONS[currentModel.fullId] || null);
+      }
+    };
     
-    setAllModels(models); // Set the sorted list
-    setFilteredModels(models); // Initialize filtered list with sorted models
-    
-    // Get current model and find its ID in our list
-    const provider = getActiveProvider();
-    const currentModelString = getCurrentModel();
-    
-    // Find the matching model in our list
-    const currentModel = models.find(model => 
-      model.provider === provider && 
-      (model.fullId === currentModelString || model.id === currentModelString)
-    );
-    
-    if (currentModel) {
-      setCurrentModelId(currentModel.fullId);
-      setSelectedModelDesc(MODEL_DESCRIPTIONS[currentModel.fullId] || null);
-    }
+    loadModels();
   }, []);
 
   // Filter models based on search query
@@ -102,7 +109,7 @@ const LLMSettings: React.FC = () => {
   }, [searchQuery, allModels]);
 
   // Handle model change
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleModelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const modelId = e.target.value;
     setCurrentModelId(modelId);
     setIsUpdating(true);
@@ -120,8 +127,35 @@ const LLMSettings: React.FC = () => {
         
         // Set the model
         setModel(selectedModel.fullId);
-        setIsUpdating(false);
         setSelectedModelDesc(MODEL_DESCRIPTIONS[modelId] || null);
+        
+        // Save preference to user profile if user is logged in
+        if (user) {
+          // First get current preferences to avoid overwriting other settings
+          const { data: currentProfileData } = await supabase
+            .from('user_profiles')
+            .select('preferences')
+            .eq('user_id', user.id)
+            .single();
+          
+          // Merge existing preferences with new model preference
+          const updatedPreferences = {
+            ...(currentProfileData?.preferences || {}),
+            preferredModel: modelId
+          };
+          
+          // Update the user profile with new preferences
+          const { error: updateError } = await supabase
+            .from('user_profiles')
+            .update({ preferences: updatedPreferences })
+            .eq('user_id', user.id);
+          
+          if (updateError) {
+            console.error('Error saving model preference:', updateError);
+          }
+        }
+        
+        setIsUpdating(false);
       } else {
         throw new Error('Selected model not found');
       }

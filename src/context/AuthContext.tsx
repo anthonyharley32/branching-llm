@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { Session, User, Provider, SignInWithPasswordCredentials, SignUpWithPasswordCredentials } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase'; // Import your initialized Supabase client
+import { loadUserModelPreference } from '../services/llm'; // Import the new function
 
 type AuthContextType = {
   session: Session | null;
@@ -23,12 +24,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Load user model preference when user changes
+  useEffect(() => {
+    if (user) {
+      // Load the user's preferred model asynchronously
+      loadUserModelPreference(user.id).catch(err => {
+        console.error('Error loading user model preference:', err);
+      });
+    }
+  }, [user]);
+
   useEffect(() => {
     setIsLoading(true);
     // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
+      // If user is logged in, load their model preference
+      if (session?.user) {
+        loadUserModelPreference(session.user.id).catch(err => {
+          console.error('Error loading user model preference on initial session:', err);
+        });
+      }
+      
       setIsLoading(false);
     }).catch(error => {
         console.error("Error getting initial session:", error);
@@ -37,9 +56,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // If a user has logged in or token refreshed, load their model preference
+        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+          loadUserModelPreference(session.user.id).catch(err => {
+            console.error(`Error loading user model preference on ${event}:`, err);
+          });
+        }
+        
         setIsLoading(false); // Ensure loading is false after state change
       }
     );

@@ -515,7 +515,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
               <div className="p-4 bg-gray-50 rounded-lg">
                 <h4 className="text-lg font-medium text-gray-900 mb-3">Additional System Prompt</h4>
                 <p className="text-sm text-gray-600 mb-3">
-                  Optionally add instructions to the AI. This will be appended to the default system prompt.
+                  Optionally add instructions to the AI. This will replace the default system prompt.
                 </p>
                 <textarea
                   value={additionalSystemPrompt}

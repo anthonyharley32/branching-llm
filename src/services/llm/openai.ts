@@ -107,8 +107,9 @@ export async function generateCompletionStream(
     const client = getClient();
     
     // Combine system prompts
-    const combinedSystemPrompt = config.systemPrompt + 
-      (additionalSystemPrompt ? `\n\n${additionalSystemPrompt}` : '');
+    const combinedSystemPrompt = additionalSystemPrompt 
+      ? additionalSystemPrompt 
+      : config.systemPrompt;
       
     const systemMessage = { role: 'system' as const, content: combinedSystemPrompt };
     const openaiMessages = [systemMessage, ...convertToOpenAIMessages(messages)];
