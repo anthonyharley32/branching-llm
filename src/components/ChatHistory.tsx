@@ -45,6 +45,8 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
   const [newTitle, setNewTitle] = useState<string>('');
   const renameInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  // Add refs for dropdown positioning
+  const menuButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   // Reference to the chat history container for calculating positions
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -572,7 +574,9 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node) && 
+          // Don't close if clicking on the menu button that opened this dropdown
+          !Object.values(menuButtonRefs.current).some(ref => ref && ref.contains(event.target as Node))) {
         setActiveMenu(null);
       }
     }
@@ -820,11 +824,14 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                             </div>
                             <div className={`text-xs ${item.id === activeConversationId ? 'text-gray-300' : 'text-gray-500'}`}>{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</div>
                             
-                            {/* 3-dot menu button */}
+                            {/* 3-dot menu button with ref for positioning */}
                             <button
+                              ref={(el) => {
+                                menuButtonRefs.current[item.id] = el;
+                              }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setActiveMenu(activeMenu === item.id ? null : item.id);
+                                setActiveMenu(prevActiveMenu => prevActiveMenu === item.id ? null : item.id);
                               }}
                               className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full cursor-pointer ${
                                 item.id === activeConversationId 
@@ -840,13 +847,14 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                           {activeMenu === item.id && (
                             <div 
                               ref={menuRef}
-                              className="fixed left-[310px] top-auto z-50 w-48 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-gray-200 focus:outline-none overflow-hidden"
+                              className="fixed left-[310px] z-50 w-48 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-gray-200 focus:outline-none overflow-hidden"
                               style={{
                                 top: (() => {
-                                  // Get the button's position to align the menu with it
-                                  const buttonElement = document.querySelector(`[data-item-id="${item.id}"] button`);
-                                  if (buttonElement) {
-                                    const rect = buttonElement.getBoundingClientRect();
+                                  // Use the stored ref for precise positioning
+                                  const buttonRef = menuButtonRefs.current[item.id];
+                                  if (buttonRef) {
+                                    const rect = buttonRef.getBoundingClientRect();
+                                    // Align with the top of the button
                                     return `${rect.top}px`;
                                   }
                                   return 'auto';
