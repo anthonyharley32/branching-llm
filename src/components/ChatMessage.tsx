@@ -2,13 +2,11 @@ import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math'; // Import remark-math
-import rehypeRaw from 'rehype-raw'; // Import rehype-raw
-import { FiEdit, FiCopy } from 'react-icons/fi'; // Import pencil and copy icons
+import remarkMath from 'remark-math';
+import rehypeRaw from 'rehype-raw';
+import { FiEdit, FiCopy } from 'react-icons/fi';
 import { MessageNode } from '../types/conversation';
 import { useConversation, AddMessageResult } from '../context/ConversationContext';
-// TODO: Import store hook when needed for branch creation
-// import { useChatStore } from '../store/useChatStore';
 
 interface ChatMessageProps {
   message: MessageNode;
@@ -131,9 +129,6 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
       const childNodes = Object.values(conversation.messages)
         .filter(msg => msg.parentId === message.id);
       
-      // *** Add Logging Here ***
-      // console.log(`[Effect ${message.id}] Checking children:`, childNodes.map(c => ({id: c.id, role: c.role, meta: c.metadata})));
-
       // Filter children to find those created via text selection (metadata check)
       // Reassign sources if conditions met and valid sources found
       sources = childNodes
@@ -143,14 +138,10 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
           metadata: child.metadata // Store full metadata
         }))
         .filter(source => {
-          // *** Add Logging Here ***
           const hasText = source.text.trim().length > 0;
-          // console.log(`[Effect ${message.id}] Filtering child ${source.childId}: hasSelectedText=${hasText}, text="${source.text}"`);
           return hasText;
         }); // Only include if selectedText exists
         
-        // *** Add Logging Here ***
-        // console.log(`[Effect ${message.id}] Calculated sources:`, sources);
     }
     
     // Unconditionally set the state based on the calculated sources for this specific message

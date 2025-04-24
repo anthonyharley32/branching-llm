@@ -18,12 +18,8 @@ export interface MessageNode extends BaseMessage { // Extend the base Message ty
   // Optional: thinking content for reasoning models
   thinkingContent?: string;
   parentId: string | null; // ID of the parent message in the branch, null for root
-  // timestamp: number; // Remove if BaseMessage uses createdAt: Date
-  // createdAt: Date; // Inherited from BaseMessage
-  // Optional: Add childrenIds if needed for easier downward traversal, but can be derived
-  // childrenIds?: string[]; 
-  // Optional: Metadata specific to the node
-  // metadata?: Record<string, any>; 
+  // Inherited from BaseMessage: createdAt
+  // Inherited from BaseMessage: metadata (check ./chat.ts definition)
 }
 
 // Represents the entire conversation structure
@@ -36,6 +32,4 @@ export interface Conversation {
   updatedAt?: number; // Optional: Unix timestamp for the last update
   userId?: string; // Optional: Identifier for the user associated with the conversation
   _hasContentChanges?: boolean; // Internal flag to track when conversation content has changed
-  // Optional: Other conversation-level metadata
-  // title?: string;
 } 

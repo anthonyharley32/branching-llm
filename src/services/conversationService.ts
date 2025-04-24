@@ -10,7 +10,6 @@ import { Conversation as DbConversation, ConversationMessage as DbMessage } from
  * @returns The user's conversation in frontend format, or null if not found or error.
  */
 export const loadConversationFromSupabase = async (userId: string): Promise<FrontendConversation | null> => {
-  // console.log(`Attempting to load conversation for user ${userId}...`);
   try {
     // 1. Fetch the latest conversation metadata for the user
     const { data: convData, error: convError } = await supabase
@@ -32,7 +31,6 @@ export const loadConversationFromSupabase = async (userId: string): Promise<Fron
     }
 
     const dbConversation = convData as DbConversation;
-    // console.log(`Found conversation ${dbConversation.id}. Fetching messages...`);
 
     // 2. Fetch all messages for that conversation
     const { data: messagesData, error: messagesError } = await supabase
@@ -47,7 +45,6 @@ export const loadConversationFromSupabase = async (userId: string): Promise<Fron
     }
 
     const dbMessages = (messagesData || []) as DbMessage[];
-    // console.log(`Fetched ${dbMessages.length} messages for conversation ${dbConversation.id}.`);
 
     // 3. Convert DB messages to frontend MessageNode format
     const frontendMessages: Record<string, MessageNode> = {};
@@ -76,7 +73,6 @@ export const loadConversationFromSupabase = async (userId: string): Promise<Fron
       title: dbConversation.title || 'New Chat',
     };
 
-    // console.log(`Successfully loaded and formatted conversation ${frontendConversation.id} for user ${userId}.`);
     return frontendConversation;
 
   } catch (error) {
@@ -98,7 +94,6 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
       console.error("Cannot save conversation without a userId.");
       return false;
   }
-  // console.log(`Attempting to save conversation ${conversation.id} for user ${conversation.userId}...`);
 
   try {
     // 1. Prepare conversation metadata for upsert
@@ -121,7 +116,6 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
         console.error('Error upserting conversation metadata:', convUpsertError);
         return false; // Stop if conversation metadata fails
     }
-    // console.log(`Conversation metadata ${conversation.id} upserted.`);
 
     // 2. Prepare messages for upsert
     const messagesForDb: Partial<DbMessage>[] = Object.values(conversation.messages).map(node => ({
@@ -137,7 +131,6 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
     }));
 
     if (messagesForDb.length > 0) {
-        // console.log(`Upserting ${messagesForDb.length} messages for conversation ${conversation.id}...`);
         const { error: messagesUpsertError } = await supabase
             .from('conversation_messages')
             .upsert(messagesForDb, { onConflict: 'id' }); // Upsert based on message ID
@@ -146,12 +139,8 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
             console.error('Error upserting messages:', messagesUpsertError);
             return false;
         }
-        // console.log(`Messages for conversation ${conversation.id} upserted successfully.`);
-    } else {
-        // console.log(`No messages to upsert for conversation ${conversation.id}.`);
     }
 
-    // console.log(`Conversation ${conversation.id} saved successfully for user ${conversation.userId}.`);
     return true; // Success
 
   } catch (error) {
