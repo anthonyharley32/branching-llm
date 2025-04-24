@@ -9,13 +9,15 @@ interface ThinkingBoxProps {
   isThinkingComplete: boolean;
   thinkingDuration?: number | null; // Add duration prop
   hasInternalReasoning?: boolean; // New prop to indicate models with internal reasoning only
+  thinkingContentFinalized: boolean; // New prop to indicate if thinking content is finalized
 }
 
 const ThinkingBox: React.FC<ThinkingBoxProps> = ({ 
   thinkingContent, 
   isThinkingComplete, 
   thinkingDuration,
-  hasInternalReasoning = false 
+  hasInternalReasoning = false,
+  thinkingContentFinalized
 }) => {
   // Start expanded during thinking, auto-collapse when complete
   const [isExpanded, setIsExpanded] = useState<boolean>(!isThinkingComplete);
@@ -25,22 +27,13 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
   useEffect(() => {
     if (isThinkingComplete && hasContent) {
       setIsExpanded(false);
-      console.log('ThinkingBox - Auto-collapsing thinking box');
     }
   }, [isThinkingComplete, hasContent]);
 
   // Track if any content has been received
   useEffect(() => {
-    console.log('ThinkingBox content effect - Content received:', 
-                thinkingContent ? `${thinkingContent.length} chars` : '0 chars', 
-                'Empty?:', !thinkingContent || thinkingContent.trim().length === 0,
-                'Current hasContent:', hasContent);
-    
     if (thinkingContent && thinkingContent.trim().length > 0) {
       setHasContent(true);
-      console.log('ThinkingBox - hasContent set to true, preview:', thinkingContent.substring(0, 30) + '...');
-    } else {
-      console.log('ThinkingBox - Content is empty or null');
     }
   }, [thinkingContent, hasContent]);
 
@@ -48,13 +41,12 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
   useEffect(() => {
     if (hasInternalReasoning && !isThinkingComplete) {
       setHasContent(true);
-      console.log('ThinkingBox - hasContent set to true due to internal reasoning');
     }
   }, [hasInternalReasoning, isThinkingComplete]);
 
   // Don't render anything if thinking is complete AND no content was ever received AND not using internal reasoning
-  if (isThinkingComplete && !hasContent && !hasInternalReasoning) {
-    console.log('ThinkingBox - Not rendering: thinking complete with no content');
+  // AND thinking content is not finalized
+  if (isThinkingComplete && !hasContent && !hasInternalReasoning && !thinkingContentFinalized) {
     return null;
   }
 
@@ -157,7 +149,6 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
               exit="exit"
               className="p-3 pt-0 border-t border-gray-200"
             >
-              {console.log('Rendering content:', thinkingContent ? `${thinkingContent.length} chars` : 'empty', 'isThinkingComplete:', isThinkingComplete)}
               
               {/* Show shimmer animation for internal reasoning models */}
               {hasInternalReasoning && !isThinkingComplete ? (

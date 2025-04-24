@@ -15,6 +15,8 @@ import { Message as BaseMessage } from './chat';
 
 // Represents a node in the conversation tree, linking messages together
 export interface MessageNode extends BaseMessage { // Extend the base Message type
+  // Optional: thinking content for reasoning models
+  thinkingContent?: string;
   parentId: string | null; // ID of the parent message in the branch, null for root
   // timestamp: number; // Remove if BaseMessage uses createdAt: Date
   // createdAt: Date; // Inherited from BaseMessage

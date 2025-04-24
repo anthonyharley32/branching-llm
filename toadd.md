@@ -1,17 +1,18 @@
 [X] Preffered Model persistence
+[X] Put additional prompt as system prompt, not user prompt
+[X] cursor animation over all buttons
+[X] new chat opens when switching windows/tabs
+[X] unclick chat options
 [-] conversation branches table?
 [-] 2 user tables?
 [-] Sidebar closes automatically on new chat/switch chat
 [ ] Thinking bug across chats persists
-[ ] Put additional prompt as system prompt, not user prompt
 [ ] new chat small button opens sidebar.
 [ ] language
-[ ] cursor animation over all buttons
 [ ] Dark Mode
-[ ] new chat opens when switching windows/tabs
-[ ] pfp doesn't show sometimes
 [ ] when i come out of branch, scroll/load at branch point
 [ ] branching context is still off. (langsmith)
+[ ] click chat input while prev chat loading
 [ ] Pricing/Payments
     - No login: 5 messages per day, no storage
     - Free tier: stores messages, 20 messages per day
@@ -21,6 +22,7 @@
 
 
 [ ] fix bug with multiple indicators on one line
+[ ] pfp doesn't show sometimes
 
 
 

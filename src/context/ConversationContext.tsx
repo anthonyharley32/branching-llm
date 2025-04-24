@@ -41,6 +41,8 @@ const LOCAL_STORAGE_CONVERSATION_KEY = 'LearningLLM_conversation'; // Keep for p
 const LOCAL_STORAGE_ACTIVE_ID_KEY = 'LearningLLM_activeMessageId'; // Keep for potential migration or backup? Decided against using for logged-in users.
 const GUEST_LOCAL_STORAGE_CONVERSATION_KEY = 'LearningLLM_guest_conversation'; // New key for guests
 const GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY = 'LearningLLM_guest_activeMessageId'; // New key for guests
+// Add key to track if app has been initialized
+const APP_INITIALIZED_KEY = 'LearningLLM_initialized';
 
 // Type for the return value of addMessage, including the path for the API call
 export interface AddMessageResult {
@@ -61,6 +63,7 @@ interface ConversationContextType {
   createBranch: (sourceMessageId: string, selectedText: string, selectionStart?: number, selectionEnd?: number) => AddMessageResult | null;
   hasChildren: (messageId: string) => boolean;
   updateMessageContent: (messageId: string, contentChunk: string) => void;
+  updateMessageThinkingContent: (messageId: string, thinkingChunk: string) => void;
   startNewConversation: () => void;
   updateConversationTitle: (conversationId: string, title: string) => void;
   editMessage: (messageId: string, newContent: string, onMessageEdited?: (messageId: string) => void) => void;
@@ -128,42 +131,70 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
         return; 
       }
 
-      // Always initialize a fresh conversation when the app loads
-      // This will give users a blank chat experience on first load
-      initializeNewConversation(session?.user?.id);
-
-      // For logged-in users, still load their conversations for the sidebar
-      // but don't display them automatically in the chat area
+      // Check if app has been initialized in this browsing session
+      // This prevents creating a new conversation when switching tabs/apps
+      const appInitialized = sessionStorage.getItem(APP_INITIALIZED_KEY);
+      
       if (session) {
+        // --- USER IS LOGGED IN ---
         // Clear any old guest data
         localStorage.removeItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
         localStorage.removeItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
 
-        // We load conversations for the sidebar but don't set them active
-        // The ChatHistory component will handle displaying these in the sidebar
+        if (!appInitialized) {
+          // On first load, initialize a new conversation
+          initializeNewConversation(session.user.id);
+          sessionStorage.setItem(APP_INITIALIZED_KEY, 'true');
+        }
+        // The ChatHistory component will handle displaying conversations in the sidebar
       } else {
         // --- USER IS GUEST --- 
         // Clear any potential logged-in user data (e.g., if they logged out)
         localStorage.removeItem(LOCAL_STORAGE_CONVERSATION_KEY); 
         localStorage.removeItem(LOCAL_STORAGE_ACTIVE_ID_KEY);
         
-        // For guests, we can still keep the local storage clean
+        // Check if there's a stored conversation for guests
         try {
           const storedConversation = localStorage.getItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
-          if (!storedConversation) {
-            // If no stored conversation, we already initialized a new one above
-          } else {
-            // We still want to clean up any invalid data
+          const storedActiveId = localStorage.getItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
+          
+          if (storedConversation && storedActiveId && !appInitialized) {
             try {
-              JSON.parse(storedConversation);
+              // Try to parse and restore the conversation
+              const parsedConv = JSON.parse(storedConversation);
+              
+              // Restore dates
+              if (parsedConv && parsedConv.messages) {
+                Object.values(parsedConv.messages).forEach((msg: any) => {
+                  if (msg.createdAt) {
+                    msg.createdAt = new Date(msg.createdAt);
+                  }
+                });
+              }
+              
+              setConversation(parsedConv);
+              setActiveMessageId(storedActiveId);
+              sessionStorage.setItem(APP_INITIALIZED_KEY, 'true');
             } catch (error) {
+              // If parsing fails, initialize a new conversation
               localStorage.removeItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
               localStorage.removeItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
+              initializeNewConversation();
+              sessionStorage.setItem(APP_INITIALIZED_KEY, 'true');
             }
+          } else if (!appInitialized) {
+            // If no stored conversation or app already initialized, create a new one
+            initializeNewConversation();
+            sessionStorage.setItem(APP_INITIALIZED_KEY, 'true');
           }
         } catch (error) {
+          // On any error, initialize a new conversation
           localStorage.removeItem(GUEST_LOCAL_STORAGE_CONVERSATION_KEY);
           localStorage.removeItem(GUEST_LOCAL_STORAGE_ACTIVE_ID_KEY);
+          if (!appInitialized) {
+            initializeNewConversation();
+            sessionStorage.setItem(APP_INITIALIZED_KEY, 'true');
+          }
         }
       }
       setIsLoading(false); // Loading finished
@@ -194,7 +225,10 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
 
   // Function to start a new conversation
   const startNewConversation = () => {
+    // Clear the initialized flag to allow creating a new conversation
+    sessionStorage.removeItem(APP_INITIALIZED_KEY);
     initializeNewConversation(session?.user?.id); // Pass user ID if logged in
+    sessionStorage.setItem(APP_INITIALIZED_KEY, 'true'); // Mark as initialized again
     // Persisting the *new* conversation will be handled by the useEffect that watches `conversation`
   };
 
@@ -287,6 +321,32 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
       };
     });
   }, [isLoading]); // Dependency on isLoading
+
+  // --- Function to update thinking content of an existing message (for reasoning models) ---
+  const updateMessageThinkingContent = useCallback((messageId: string, thinkingChunk: string) => {
+    if (isLoading) {
+      return;
+    }
+    setConversation(prevConv => {
+      if (!prevConv || !prevConv.messages[messageId]) {
+        return prevConv; // Return previous state if ID not found
+      }
+
+      const updatedMessage: MessageNode = {
+        ...prevConv.messages[messageId],
+        thinkingContent: (prevConv.messages[messageId].thinkingContent || '') + thinkingChunk,
+      };
+
+      return {
+        ...prevConv,
+        messages: {
+          ...prevConv.messages,
+          [messageId]: updatedMessage,
+        },
+        _hasContentChanges: true,
+      };
+    });
+  }, [isLoading]);
 
   // --- Function to edit a message and regenerate conversation from that point ---
   const editMessage = useCallback((
@@ -515,6 +575,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     createBranch,
     hasChildren,
     updateMessageContent,
+    updateMessageThinkingContent,
     startNewConversation,
     updateConversationTitle,
     editMessage,

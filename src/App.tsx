@@ -123,6 +123,23 @@ function AppContent() {
   // State for user's additional system prompt
   const [additionalSystemPrompt, setAdditionalSystemPrompt] = useState<string | null>(null);
 
+  // Handle visibility changes when switching tabs or apps
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Don't start a new conversation when returning to the app
+        console.log('App is visible again - preserving conversation state');
+        // No need to do anything specific here since we're using sessionStorage
+        // to track initialization state in ConversationContext
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   // --- Click outside handler for profile dropdown ---
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -262,13 +279,6 @@ function AppContent() {
               return;
             }
             
-            console.log('DEBUG - Thinking chunk received:', {
-              chunkLength: chunk ? chunk.length : 0,
-              preview: chunk ? chunk.substring(0, 50) + '...' : 'empty',
-              currentAccumulatedLength: currentThinkingContent.length,
-              isFirstChunk: thinkingStartTimeRef.current === null
-            });
-            
             // Record start time on the first thinking chunk
             if (thinkingStartTimeRef.current === null) {
               thinkingStartTimeRef.current = Date.now();
@@ -277,13 +287,6 @@ function AppContent() {
             
             // Add received chunk to our accumulator
             currentThinkingContent += chunk;
-            
-            // Update the state with the complete thinking content so far
-            console.log('DEBUG - Setting thinking content state:', {
-              newLength: currentThinkingContent.length,
-              oldStateLength: thinkingContent.length,
-              isEmpty: !currentThinkingContent || currentThinkingContent.trim().length === 0
-            });
             
             setThinkingContent(currentThinkingContent);
           },
@@ -393,9 +396,9 @@ function AppContent() {
       currentModel === 'openai/o4-mini-high';
     setHasInternalReasoning(modelIsReasoning && usesInternalReasoning);
     
-    console.log(`Using model: ${currentModel}`, 
-                `Is reasoning model: ${modelIsReasoning ? 'YES ✅' : 'NO ❌'}`,
-                `Has internal reasoning: ${usesInternalReasoning ? 'YES ✅' : 'NO ❌'}`);
+    // console.log(`Using model: ${currentModel}`, 
+    //             `Is reasoning model: ${modelIsReasoning ? 'YES ✅' : 'NO ❌'}`,
+    //             `Has internal reasoning: ${usesInternalReasoning ? 'YES ✅' : 'NO ❌'}`);
 
     // >>> Reset thinking state when sending a new message <<<
     setThinkingContent('');
