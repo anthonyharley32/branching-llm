@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { MessageNode } from '../types/conversation';
 import ChatMessage from './ChatMessage';
 import ThinkingBox from './ThinkingBox';
@@ -21,8 +21,6 @@ interface ChatThreadProps {
 const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, streamingNodeId = null, thinkingContent, isThinkingComplete, thinkingDuration, isReasoningModel, hasInternalReasoning = false, onBranchCreated, onMessageEdited }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [userHasScrolled, setUserHasScrolled] = useState(false);
-  const [isNearBottom, setIsNearBottom] = useState(true);
   const prevMessagesLengthRef = useRef(messages.length);
   const mutationObserverRef = useRef<MutationObserver | null>(null);
   
@@ -67,7 +65,6 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
       if (checkIfNearBottom()) {
         userScrolledRef.current = false;
         autoScrollEnabledRef.current = true;
-        setUserHasScrolled(false);
       }
     }, 1000);
   }, [checkIfNearBottom]);
@@ -83,7 +80,6 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
         lastScrollTimeRef.current = Date.now();
         userScrolledRef.current = true;
         autoScrollEnabledRef.current = false;
-        setUserHasScrolled(true);
       }
     };
 
@@ -99,7 +95,6 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
     const handleScroll = () => {
       const now = Date.now();
       const bottom = checkIfNearBottom();
-      setIsNearBottom(bottom);
       
       // Detect manual scrolling:
       // 1. Not near bottom AND 
@@ -107,7 +102,6 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
       if (!bottom && now - lastScrollTimeRef.current < 100) {
         userScrolledRef.current = true;
         autoScrollEnabledRef.current = false;
-        setUserHasScrolled(true);
       }
       
       // Record scroll time for all events
@@ -197,7 +191,6 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
       if (checkIfNearBottom()) {
         userScrolledRef.current = false;
         autoScrollEnabledRef.current = true;
-        setUserHasScrolled(false);
       }
       
       // If auto-scroll is enabled or this is a new message (not just content update)
@@ -288,6 +281,7 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
           isThinkingComplete={isThinkingComplete} 
           thinkingDuration={thinkingDuration}
           hasInternalReasoning={hasInternalReasoning}
+          thinkingContentFinalized={!!thinkingContent}
         />
       )}
 

@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConversation } from '../context/ConversationContext';
-import { Conversation as DbConversation, ConversationMessage as DbMessage } from '../types/database';
 import { MessageNode } from '../types/conversation';
 import { FiEdit, FiChevronLeft, FiMoreVertical, FiTrash2, FiEdit2 } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
@@ -246,7 +245,6 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
     }
 
     let updated = false;
-    let itemExists = false;
     const baseHistory = [...history]; // Create a mutable copy
 
     // Check if the current conversation exists and update/add it
@@ -256,7 +254,6 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
 
     if (currentConvIndex > -1) {
       // Item exists, check if it needs updating
-      itemExists = true;
       const existingItem = baseHistory[currentConvIndex];
       if (existingItem.title !== currentConvTitle || existingItem.updatedAt !== currentConvTimestamp) {
         baseHistory[currentConvIndex] = { 
@@ -676,8 +673,10 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
     const containerRect = container.getBoundingClientRect();
     const itemRect = item.getBoundingClientRect();
     
-    // If the item is in the bottom third of the container
-    return itemRect.bottom > (containerRect.top + (containerRect.height * 0.66));
+    // Check if there's enough space below for the dropdown (approx 90px)
+    const dropdownHeight = 90; // Estimated height of dropdown with two menu items
+    const spaceBelow = containerRect.bottom - itemRect.bottom;
+    return spaceBelow < dropdownHeight;
   };
 
   return (
@@ -854,7 +853,15 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                   const buttonRef = menuButtonRefs.current[item.id];
                                   if (buttonRef) {
                                     const rect = buttonRef.getBoundingClientRect();
-                                    // Align with the top of the button
+                                    
+                                    // Check if item is near the bottom
+                                    if (isNearBottom(item.id)) {
+                                      // If near bottom, position the dropdown above the button
+                                      const dropdownHeight = 90; // Same height as used in isNearBottom
+                                      return `${rect.top - dropdownHeight}px`;
+                                    }
+                                    
+                                    // Otherwise, align with the top of the button
                                     return `${rect.top}px`;
                                   }
                                   return 'auto';

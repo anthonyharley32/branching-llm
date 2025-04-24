@@ -3,8 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { UserProfile as UserProfileType } from '../../types/database';
 import { 
-  FiUser, FiEdit, FiSave, FiX, FiCamera, FiAlertCircle, FiCreditCard, FiSettings, 
-  FiSliders, FiDatabase, FiBox, FiSun, FiMoon, FiSmile, 
+  FiUser, FiX, FiCamera,
+  FiSliders, FiDatabase, FiBox,  
   FiMousePointer, FiDollarSign, FiEdit3, FiCpu // Added FiCpu
 } from 'react-icons/fi';
 import { HiOutlineSparkles } from 'react-icons/hi'; // Import sparkles icon for AI stars logo
@@ -20,7 +20,7 @@ interface UserProfileProps {
 type ActiveSetting = 'account' | 'appearance' | 'behavior' | 'customize' | 'dataControls' | 'billing' | 'models'; // Added 'models'
 
 const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) => {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   
   const [profile, setProfile] = useState<UserProfileType | null>(null);
   const [loading, setLoading] = useState(true);

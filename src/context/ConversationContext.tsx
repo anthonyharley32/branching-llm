@@ -6,7 +6,7 @@ import { Conversation, MessageNode } from '../types/conversation';
 import { v4 as uuidv4 } from 'uuid'; // Need uuid for generating IDs
 import { useAuth } from './AuthContext'; // Import useAuth hook
 // Import Supabase service functions
-import { loadConversationFromSupabase, saveConversationToSupabase } from '../services/conversationService'; 
+import { saveConversationToSupabase } from '../services/conversationService'; 
 import { supabase } from '../lib/supabase';
 
 // --- Helper Functions (adapted for flat structure) ---
@@ -26,12 +26,6 @@ const getPathToNode = (messages: Record<string, MessageNode>, targetId: string |
   }
 
   return path.reverse(); // Reverse to get root-to-target order
-};
-
-// Function to get all direct children of a node
-const getChildrenOfNode = (messages: Record<string, MessageNode>, parentId: string | null): MessageNode[] => {
-    if (!parentId) return []; // Or handle root case differently if needed
-    return Object.values(messages).filter(msg => msg.parentId === parentId);
 };
 
 // --- End Helper Functions ---
@@ -85,42 +79,9 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [currentMessages, setCurrentMessages] = useState<MessageNode[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Internal loading state for context
-  const [isSaving, setIsSaving] = useState<boolean>(false); // Add saving state
 
   // Debounced save function reference using useRef to persist across renders
   const debouncedSaveRef = useRef(debounce(saveConversationToSupabase, 1500));
-
-  // Helper function to find the latest message ID in the main thread
-  const findLatestMessageId = (messages: Record<string, MessageNode>, rootId: string | null): string | null => {
-    if (!rootId || !messages[rootId]) return rootId; // Return root if invalid
-
-    let latestId = rootId;
-    let latestTimestamp = messages[rootId].createdAt.getTime();
-    let currentId: string | null = rootId;
-
-    while (currentId) {
-      const children = Object.values(messages)
-        .filter(msg => 
-          msg.parentId === currentId && 
-          !(msg.metadata?.isBranchStart === true) // Exclude branch starts
-        )
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); // Sort descending by time
-
-      if (children.length === 0) {
-        break; // No more children in the main thread
-      }
-
-      // The latest child is the next step in the main thread
-      const nextNode = children[0];
-      if (nextNode.createdAt.getTime() >= latestTimestamp) {
-        latestId = nextNode.id;
-        latestTimestamp = nextNode.createdAt.getTime();
-      }
-      currentId = nextNode.id;
-    }
-    
-    return latestId;
-  };
 
   // Load state from local storage or initialize based on auth state
   useEffect(() => {
@@ -218,6 +179,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
       rootMessageId: rootId,
       messages: { [rootId]: initialMessage },
       createdAt: new Date().getTime(),
+      userId: userId,
     };
     setConversation(newConv);
     setActiveMessageId(rootId);

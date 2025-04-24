@@ -121,7 +121,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             initial="hidden"
             animate="visible"
             exit="exit"
-            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking modal content
+            onClick={(e: React.MouseEvent) => e.stopPropagation()} // Prevent closing when clicking modal content
           >
             {/* Close Button */}
             <button

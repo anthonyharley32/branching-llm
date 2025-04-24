@@ -27,31 +27,6 @@ const preprocessMarkdown = (content: string): string => {
     .replace(/(\$\$)([^\n])/g, '$$\n\n$2');
 };
 
-// Helper function to darken/lighten color
-const shadeColor = (color: string, percent: number) => {
-  let R = parseInt(color.substring(1,3), 16);
-  let G = parseInt(color.substring(3,5), 16);
-  let B = parseInt(color.substring(5,7), 16);
-
-  R = Math.floor(R * (100 + percent) / 100);
-  G = Math.floor(G * (100 + percent) / 100);
-  B = Math.floor(B * (100 + percent) / 100);
-
-  R = (R < 255) ? R : 255;  
-  G = (G < 255) ? G : 255;  
-  B = (B < 255) ? B : 255;  
-
-  R = (R > 0) ? R : 0;  
-  G = (G > 0) ? G : 0;  
-  B = (B > 0) ? B : 0; 
-
-  const RR = ((R.toString(16).length === 1) ? "0" + R.toString(16) : R.toString(16));
-  const GG = ((G.toString(16).length === 1) ? "0" + G.toString(16) : G.toString(16));
-  const BB = ((B.toString(16).length === 1) ? "0" + B.toString(16) : B.toString(16));
-
-  return "#" + RR + GG + BB;
-};
-
 // The main component function
 const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNodeId, onBranchCreated, onMessageEdited }) => {
   // Determine if this is a user message
@@ -425,23 +400,10 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
       setTimeout(() => {
         const katexElements = messageContentRef.current?.querySelectorAll('.katex');
         if (katexElements?.length) {
-          // console.log(`Found ${katexElements.length} KaTeX elements`);
-          
-          // Log structure of first katex element to see what's happening
-          const firstKatex = katexElements[0];
-          const htmlEl = firstKatex.querySelector('.katex-html');
-          const mathmlEl = firstKatex.querySelector('.katex-mathml');
-          
-          // console.log('KaTeX structure:', {
-          //   htmlHidden: htmlEl?.hasAttribute('aria-hidden') || false,
-          //   mathmlVisible: mathmlEl !== null,
-          //   html: htmlEl?.innerHTML || 'not found',
-          //   mathml: mathmlEl?.innerHTML || 'not found'
-          // });
           
           // Check if we still have duplicated content
           const duplicateCheck: string[] = [];
-          katexElements.forEach((el, i) => {
+          katexElements.forEach((el) => {
             const textContent = el.textContent?.trim() || '';
             if (textContent && duplicateCheck.includes(textContent)) {
               // console.log(`Potential duplicate KaTeX content found at element ${i}:`, textContent);

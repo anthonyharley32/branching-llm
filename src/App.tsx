@@ -16,7 +16,7 @@ import {
   getCurrentModel
 } from './services/llm'
 import { MessageNode } from './types/conversation'
-import { FiLogOut, FiArrowLeft, FiUser, FiMenu, FiPlusSquare, FiEdit } from 'react-icons/fi' // Added FiEdit
+import { FiArrowLeft, FiUser, FiMenu, FiEdit } from 'react-icons/fi' // Removed unused FiLogOut and FiPlusSquare
 // import { supabase } from './lib/supabase' // Already removed
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Conversation } from './types/conversation'
@@ -25,7 +25,6 @@ import AuthModal from './components/auth/AuthModal'
 import ProfileModal from './components/profile/ProfileModal'
 import ChatHistory from './components/ChatHistory'
 import { supabase } from './lib/supabase' // Added supabase import
-import { UserProfile } from './types/database' // Added UserProfile type import
 
 // --- Constants ---
 const GUEST_MESSAGE_LIMIT = 1000;
@@ -235,8 +234,6 @@ function AppContent() {
 
     const executeStream = async () => {
       try {
-        const apiMessages = messagePath.map(node => ({ role: node.role, content: node.content }));
-
         // Check if we're using a reasoning model - use the current model
         const currentModel = pendingLlmCall.model || '';
         const isReasoningEnabled = isReasoningModel(currentModel);
@@ -478,7 +475,7 @@ function AppContent() {
         if (generatedTitle && generatedTitle !== "New Chat") {
           updateConversationTitle(conversation.id, generatedTitle);
         }
-      }).catch(err => {
+      }).catch(() => {
         // Silently handle errors in background title generation
       });
     }
@@ -561,7 +558,6 @@ function AppContent() {
   // Handler for when a branch is successfully created in ChatMessage
   const handleBranchCreated = (branchResult: AddMessageResult, sourceText: string, isAutoExplain: boolean) => {
     if (branchResult.newNode.parentId) { 
-      const userNodeId = branchResult.newNode.id;
       
       // Store the branch ID from the node metadata
       const currentBranchId = branchResult.newNode.metadata?.branchId || null;

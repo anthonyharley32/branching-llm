@@ -47,8 +47,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
-
-    const newImages: ImageData[] = [];
     
     // Process each selected file
     Array.from(files).forEach(file => {

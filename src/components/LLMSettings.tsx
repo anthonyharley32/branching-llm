@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FiSearch, FiX // Assuming you might use these later, keep consistency
-} from 'react-icons/fi'; // Import standard icons
 import { HiOutlineSparkles } from 'react-icons/hi'; // Import sparkles icon
 import { 
   getActiveProvider, 
   setProvider, 
   getCurrentModel, 
   setModel, 
-  LLMProvider,
   getAllModels,
   ModelInfo
 } from '../services/llm';
