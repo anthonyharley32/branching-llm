@@ -294,14 +294,14 @@ export async function generateCompletionStream(
 
     // Special handling for Claude with thinking
     if (model.includes(":thinking")) {
-      // console.log("DEBUG - Configuring Claude model with thinking for streaming:", model);
+      console.log("DEBUG - Configuring Claude model with thinking for streaming:", model);
       
       // Set high max_tokens for Claude thinking (per OpenRouter docs example)
       requestBody.max_tokens = 32000;
       
       // Use the standardized reasoning parameter with a large gap (per docs example)
       requestBody.thinking = {
-        budget_tokens: 8000,  // 4000 tokens for reasoning (must be less than max_tokens)
+        budget_tokens: 8000,  // 8000 tokens for reasoning (must be less than max_tokens)
         enabled: true
       };
       
@@ -310,11 +310,11 @@ export async function generateCompletionStream(
       delete requestBody.anthropic_version;
       delete requestBody.stream_options;
       
-      // console.log("DEBUG - Claude thinking configuration for streaming:", {
-      //   model: model,
-      //   max_tokens: requestBody.max_tokens,
-      //   thinking: requestBody.thinking
-      // });
+      console.log("DEBUG - Claude thinking configuration for streaming:", {
+        model: model,
+        max_tokens: requestBody.max_tokens,
+        thinking: requestBody.thinking
+      });
     }
 
     // Check if we're using a reasoning model that can provide thinking traces
@@ -406,19 +406,17 @@ export async function generateCompletionStream(
             
             // Extract thinking trace for reasoning models
             if (isReasoning && data.choices && callbacks.onThinkingChunk) {
-              // Debug log: Log raw response structure for reasoning models
-              // console.log('DEBUG - Full API response for reasoning model:', JSON.stringify(data, null, 2));
-              
-              // console.log('DEBUG - Reasoning model response structure:', JSON.stringify({
-              //   hasChoices: !!data.choices,
-              //   choicesLength: data.choices?.length,
-              //   firstChoiceKeys: data.choices?.[0] ? Object.keys(data.choices[0]) : null,
-              //   deltaKeys: data.choices?.[0]?.delta ? Object.keys(data.choices[0].delta) : null,
-              //   messageKeys: data.choices?.[0]?.message ? Object.keys(data.choices[0].message) : null,
-              //   hasDebug: !!data.debug,
-              //   debugKeys: data.debug ? Object.keys(data.debug) : null,
-              //   responseKeys: Object.keys(data)
-              // }));
+              // Debug log the raw data structure
+              console.log('DEBUG - Reasoning model response structure check:', JSON.stringify({
+                hasChoices: !!data.choices,
+                choicesLength: data.choices?.length,
+                firstChoiceKeys: data.choices?.[0] ? Object.keys(data.choices[0]) : null,
+                deltaKeys: data.choices?.[0]?.delta ? Object.keys(data.choices[0].delta) : null,
+                messageKeys: data.choices?.[0]?.message ? Object.keys(data.choices[0].message) : null,
+                hasDebug: !!data.debug,
+                debugKeys: data.debug ? Object.keys(data.debug) : null,
+                responseKeys: Object.keys(data)
+              }));
               
               // Check multiple possible locations for thinking content
               const thinkingContent = 
@@ -440,56 +438,36 @@ export async function generateCompletionStream(
                 data.choices[0]?.message?.tool_calls?.find((t: any) => t.type === 'thinking')?.thinking?.thoughts || // Message tool calls
                 
                 // Debug objects
-                (data.debug?.thinking || data.debug?.thinking_trace) || // Debug object (Claude)
+                (data.debug?.thinking || data.debug?.thinking_trace) ||
                 (data.choices[0]?.message?.debug?.thinking || data.choices[0]?.message?.debug?.thinking_trace) || // Message debug
                 (data.choices[0]?.message?.hidden?.thinking || data.choices[0]?.message?.hidden?.thinking_trace) || // Hidden metadata (Claude)
                 
                 // Last resort lookups
                 (data.thinking_trace || data.thinking || data.reasoning || ''); // Fallback to root object
               
-              // Find where the thinking content was found
-              // let thinkingContentSource = 'Not found';
-              // if (data.choices[0]?.thinking_trace) thinkingContentSource = 'choices[0].thinking_trace';
-              // else if (data.choices[0]?.delta?.thinking_trace) thinkingContentSource = 'choices[0].delta.thinking_trace';
-              // else if (data.choices[0]?.message?.thinking) thinkingContentSource = 'choices[0].message.thinking';
-              // else if (data.choices[0]?.thinking) thinkingContentSource = 'choices[0].thinking';
-              // else if (data.choices[0]?.reasoning) thinkingContentSource = 'choices[0].reasoning';
-              // else if (data.choices[0]?.delta?.reasoning) thinkingContentSource = 'choices[0].delta.reasoning';
-              // else if (data.choices[0]?.message?.reasoning) thinkingContentSource = 'choices[0].message.reasoning';
-              // else if (data.choices[0]?.message?.claude_thinking) thinkingContentSource = 'choices[0].message.claude_thinking';
-              // else if (data.choices[0]?.delta?.claude_thinking) thinkingContentSource = 'choices[0].delta.claude_thinking';
-              // // etc. for other paths
-              
-              // console.log('DEBUG - Thinking trace check results:', {
-              //   standardFormat: !!data.choices[0]?.thinking_trace,
-              //   deltaFormat: !!data.choices[0]?.delta?.thinking_trace,
-              //   toolCallsFormat: !!(data.choices[0]?.delta?.tool_calls?.find((t: any) => t.type === 'thinking')?.thinking?.thoughts),
-              //   messageToolCalls: !!(data.choices[0]?.message?.tool_calls?.find((t: any) => t.type === 'thinking')?.thinking?.thoughts),
-              //   directMessageThinking: !!data.choices[0]?.message?.thinking,
-              //   rootLevelThinking: !!data.choices[0]?.thinking,
-              //   reasoningField: !!data.choices[0]?.reasoning || !!data.choices[0]?.delta?.reasoning || !!data.choices[0]?.message?.reasoning,
-              //   claudeThinking: !!data.choices[0]?.message?.claude_thinking || !!data.choices[0]?.delta?.claude_thinking,
-              //   debugObject: !!(data.debug?.thinking || data.debug?.thinking_trace),
-              //   messageDebug: !!(data.choices[0]?.message?.debug?.thinking || data.choices[0]?.message?.debug?.thinking_trace),
-              //   hiddenMetadata: !!(data.choices[0]?.message?.hidden?.thinking || data.choices[0]?.message?.hidden?.thinking_trace),
-              //   rootFallback: !!(data.thinking_trace || data.thinking || data.reasoning),
-              //   thinkingContentSource: thinkingContentSource,
-              //   finalResult: !!thinkingContent,
-              //   contentLength: thinkingContent ? thinkingContent.length : 0
-              // });
+              console.log('DEBUG - Checking locations for thinking content:');
+              console.log('Standard format:', !!data.choices[0]?.thinking_trace);
+              console.log('Delta format:', !!data.choices[0]?.delta?.thinking_trace);
+              console.log('Message thinking format:', !!data.choices[0]?.message?.thinking);
+              console.log('Root level thinking:', !!data.choices[0]?.thinking);
+              console.log('Direct reasoning field:', !!data.choices[0]?.reasoning);
+              console.log('Delta reasoning field:', !!data.choices[0]?.delta?.reasoning);
+              console.log('Message reasoning field:', !!data.choices[0]?.message?.reasoning);
+              console.log('Claude thinking:', !!data.choices[0]?.message?.claude_thinking);
+              console.log('Claude thinking in delta:', !!data.choices[0]?.delta?.claude_thinking);
+              console.log('Tool calls format:', !!(data.choices[0]?.delta?.tool_calls?.find((t: any) => t.type === 'thinking')?.thinking?.thoughts));
+              console.log('Message tool calls:', !!(data.choices[0]?.message?.tool_calls?.find((t: any) => t.type === 'thinking')?.thinking?.thoughts));
+              console.log('Debug thinking:', !!(data.debug?.thinking || data.debug?.thinking_trace));
+              console.log('Message debug:', !!(data.choices[0]?.message?.debug?.thinking || data.choices[0]?.message?.debug?.thinking_trace));
+              console.log('Hidden metadata:', !!(data.choices[0]?.message?.hidden?.thinking || data.choices[0]?.message?.hidden?.thinking_trace));
+              console.log('Root fallback:', !!(data.thinking_trace || data.thinking || data.reasoning));
               
               if (thinkingContent) {
-                // console.log('Thinking trace detected:', thinkingContent.length, 'chars');
+                console.log('DEBUG - Thinking trace found with length:', thinkingContent.length);
+                console.log('Sample:', thinkingContent.substring(0, 100));
                 callbacks.onThinkingChunk(thinkingContent);
               } else {
-                // console.log('No thinking content found in response for reasoning model. Response structure:', 
-                //   JSON.stringify({
-                //     hasChoices: !!data.choices,
-                //     firstChoice: data.choices?.[0] ? Object.keys(data.choices[0]) : null,
-                //     hasDebug: !!data.debug,
-                //     responseKeys: Object.keys(data)
-                //   })
-                // );
+                console.log('DEBUG - No thinking content found in any location');
               }
             }
             

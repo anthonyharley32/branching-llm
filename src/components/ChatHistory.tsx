@@ -362,6 +362,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
           createdAt: new Date(dbMsg.created_at),
           parentId: dbMsg.parent_message_id,
           metadata: dbMsg.metadata || {},
+          thinkingContent: dbMsg.thinking_content || undefined, // Add thinking content from database
         };
       });
       

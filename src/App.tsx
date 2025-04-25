@@ -57,6 +57,7 @@ function AppContent() {
     startNewConversation, 
     addMessage,
     updateMessageContent,
+    updateMessageThinkingContent,
     updateConversationTitle,
     currentMessages,
     activeMessageId,
@@ -243,6 +244,7 @@ function AppContent() {
           onChunk: (chunk) => {
             if (!tempAiNodeId) {
               // First chunk: Create the AI message node
+              console.log('FIRST CHUNK - Creating AI message node');
               
               // --- Prepare metadata for the actual AI response node ---
               // Only include branchId if it exists in the pendingMetadata
@@ -261,8 +263,21 @@ function AppContent() {
               const newAiResult = addMessage(firstChunkData, aiParentId);
               if (newAiResult) {
                 tempAiNodeId = newAiResult.newNode.id;
+                console.log('Created new assistant node with ID:', tempAiNodeId);
+                
+                // Check if we already have accumulated thinking content that needs to be saved
+                if (currentThinkingContent && currentThinkingContent.length > 0) {
+                  console.log('Applying accumulated thinking content to new node', {
+                    nodeId: tempAiNodeId,
+                    thinkingLength: currentThinkingContent.length
+                  });
+                  // Save all accumulated thinking content to the new node
+                  updateMessageThinkingContent(tempAiNodeId, currentThinkingContent);
+                }
+                
                 setStreamingAiNodeId(tempAiNodeId); // Store in state for subsequent updates
               } else {
+                console.error('Failed to create new assistant message node');
               }
             } else {
               // Subsequent chunks: Update the existing node
@@ -277,16 +292,35 @@ function AppContent() {
               return;
             }
             
+            console.log('=== THINKING CHUNK RECEIVED ===');
+            console.log('Model:', currentModel);
+            console.log('Chunk length:', chunk.length);
+            console.log('Chunk sample:', chunk.substring(0, 100));
+            console.log('Current accumulated length:', currentThinkingContent.length);
+            console.log('Has tempAiNodeId:', !!tempAiNodeId);
+            
             // Record start time on the first thinking chunk
             if (thinkingStartTimeRef.current === null) {
               thinkingStartTimeRef.current = Date.now();
               console.log('Started thinking timer');
             }
             
-            // Add received chunk to our accumulator
+            // Always accumulate thinking content locally, regardless of node existence
             currentThinkingContent += chunk;
             
+            // Update the UI state
             setThinkingContent(currentThinkingContent);
+            
+            // Store thinking content to the actual message node if we have a valid ID
+            if (tempAiNodeId) {
+              console.log('Calling updateMessageThinkingContent with nodeId:', tempAiNodeId);
+              // Important: Send the FULL thinking content accumulated so far
+              // This ensures we don't lose content if chunks arrive before the node is created
+              updateMessageThinkingContent(tempAiNodeId, currentThinkingContent);
+            } else {
+              console.warn('No tempAiNodeId available yet - will save thinking chunk when node is created');
+              // The accumulated content will be applied when the node is created in the onChunk handler
+            }
           },
           // >>> End New callback handler <<<
           onComplete: () => {
@@ -295,6 +329,18 @@ function AppContent() {
               setGuestMessageCount(newCount);
             }
             setIsSending(false);
+            
+            // CRITICAL FIX: Make one final update to ensure thinking content is saved
+            // This is especially important if chunks were processed before tempAiNodeId was set
+            if (tempAiNodeId && isReasoningEnabled && currentThinkingContent) {
+              console.log('COMPLETION: Final thinking content update', {
+                nodeId: tempAiNodeId,
+                contentLength: currentThinkingContent.length
+              });
+              // We use the FULL accumulated thinking content to ensure nothing is lost
+              updateMessageThinkingContent(tempAiNodeId, currentThinkingContent);
+            }
+            
             setStreamingAiNodeId(null);
             setIsThinkingComplete(true); // Mark thinking as complete
             
@@ -336,7 +382,7 @@ function AppContent() {
 
     executeStream();
 
-  }, [pendingLlmCall, guestMessageCount, session, additionalSystemPrompt]); // Added additionalSystemPrompt to dependency array
+  }, [pendingLlmCall, guestMessageCount, session, additionalSystemPrompt, updateMessageThinkingContent]); // Added additionalSystemPrompt to dependency array
 
   // --- Effect to listen for message edits and trigger regeneration ---
   useEffect(() => {

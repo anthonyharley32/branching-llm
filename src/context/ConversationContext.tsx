@@ -57,7 +57,7 @@ interface ConversationContextType {
   createBranch: (sourceMessageId: string, selectedText: string, selectionStart?: number, selectionEnd?: number) => AddMessageResult | null;
   hasChildren: (messageId: string) => boolean;
   updateMessageContent: (messageId: string, contentChunk: string) => void;
-  updateMessageThinkingContent: (messageId: string, thinkingChunk: string) => void;
+  updateMessageThinkingContent: (messageId: string, thinkingContent: string) => void;
   startNewConversation: () => void;
   updateConversationTitle: (conversationId: string, title: string) => void;
   editMessage: (messageId: string, newContent: string, onMessageEdited?: (messageId: string) => void) => void;
@@ -285,27 +285,57 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   }, [isLoading]); // Dependency on isLoading
 
   // --- Function to update thinking content of an existing message (for reasoning models) ---
-  const updateMessageThinkingContent = useCallback((messageId: string, thinkingChunk: string) => {
+  const updateMessageThinkingContent = useCallback((messageId: string, thinkingContent: string) => {
+    console.log('updateMessageThinkingContent called:', {
+      messageId,
+      contentLength: thinkingContent.length,
+      isLoading
+    });
+    
     if (isLoading) {
+      console.warn('Skipping thinking content update because isLoading is true');
       return;
     }
+    
     setConversation(prevConv => {
       if (!prevConv || !prevConv.messages[messageId]) {
+        console.error('Unable to update thinking content - conversation or message not found:', {
+          hasConversation: !!prevConv,
+          messageExists: prevConv ? !!prevConv.messages[messageId] : false,
+          messageId
+        });
         return prevConv; // Return previous state if ID not found
       }
 
+      // Get existing thinking content
+      const existingContent = prevConv.messages[messageId].thinkingContent || '';
+      console.log('Existing thinking content length:', existingContent.length);
+      
+      // Check if we're replacing the entire content or appending
+      // If the new content is longer than what we had, assume it's a full replacement
+      const shouldReplaceEntireContent = thinkingContent.length >= existingContent.length;
+      const newThinkingContent = shouldReplaceEntireContent 
+        ? thinkingContent  // Use the provided content as-is
+        : existingContent + thinkingContent; // Append to existing
+      
+      console.log('Thinking content operation:', shouldReplaceEntireContent ? 'REPLACE' : 'APPEND');
+      
+      // Create updated message with thinking content
       const updatedMessage: MessageNode = {
         ...prevConv.messages[messageId],
-        thinkingContent: (prevConv.messages[messageId].thinkingContent || '') + thinkingChunk,
+        thinkingContent: newThinkingContent,
       };
+      
+      console.log('New thinking content length:', updatedMessage.thinkingContent?.length || 0);
 
+      // Always force the hasContentChanges flag to ensure database save
       return {
         ...prevConv,
         messages: {
           ...prevConv.messages,
           [messageId]: updatedMessage,
         },
-        _hasContentChanges: true,
+        _hasContentChanges: true, // Force this to true to ensure database save
       };
     });
   }, [isLoading]);
