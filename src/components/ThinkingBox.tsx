@@ -19,13 +19,15 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
   hasInternalReasoning = false,
   thinkingContentFinalized
 }) => {
-  // Start expanded during thinking, auto-collapse when complete
+  // Always start expanded when thinking is in progress
   const [isExpanded, setIsExpanded] = useState<boolean>(!isThinkingComplete);
   const [hasContent, setHasContent] = useState<boolean>(false);
 
-  // Automatically collapse when thinking is complete, but only if there was content
+  // Important: Keep expanded while thinking is in progress
   useEffect(() => {
-    if (isThinkingComplete && hasContent) {
+    if (!isThinkingComplete) {
+      setIsExpanded(true);
+    } else if (isThinkingComplete && hasContent) {
       setIsExpanded(false);
     }
   }, [isThinkingComplete, hasContent]);
@@ -65,33 +67,46 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
       opacity: 1, 
       marginTop: '0.5rem', 
       marginBottom: '0.5rem',
-      transition: { duration: 0.3, ease: 'easeInOut' } 
+      transition: { 
+        height: { duration: 0.3, ease: 'easeInOut' },
+        opacity: { duration: 0.2 },
+        marginTop: { duration: 0.2 },
+        marginBottom: { duration: 0.2 }
+      } 
     },
     collapsed: { 
       height: '2.5rem', // Height of the collapsed bar
       opacity: 1, 
       marginTop: '0.5rem', 
       marginBottom: '0.5rem',
-      transition: { duration: 0.3, ease: 'easeInOut' } 
+      transition: { 
+        height: { duration: 0.3, ease: 'easeInOut' },
+        opacity: { duration: 0.2 },
+        marginTop: { duration: 0.2 },
+        marginBottom: { duration: 0.2 }
+      } 
     },
     exit: { 
-        height: 0, 
-        opacity: 0, 
-        marginTop: 0, 
-        marginBottom: 0, 
-        transition: { duration: 0.2 } 
+      height: 0, 
+      opacity: 0, 
+      marginTop: 0, 
+      marginBottom: 0, 
+      transition: { duration: 0.2 } 
     },
   };
 
   const contentVariants = {
-      initial: { opacity: 0 },
-      animate: { opacity: 1, transition: { delay: 0.2 } },
-      exit: { opacity: 0, transition: { duration: 0.1 } }
+    initial: { opacity: 0 },
+    animate: { opacity: 1, transition: { duration: 0.2 } },
+    exit: { 
+      opacity: 0, 
+      transition: { duration: 0.15 } // Make exit slightly faster than the container collapse
+    }
   };
   
   return (
     <AnimatePresence>
-      {(hasContent || !isThinkingComplete || hasInternalReasoning) && ( // Add hasInternalReasoning to render condition
+      {(hasContent || !isThinkingComplete || hasInternalReasoning) && (
         <motion.div
           key="thinking-box"
           variants={boxVariants}
@@ -99,7 +114,7 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
           animate={isExpanded ? 'expanded' : 'collapsed'}
           exit="exit"
           className="bg-gray-100 border border-gray-200 rounded-lg overflow-hidden shadow-sm mx-4 my-2 max-w-prose self-start relative"
-          style={{ willChange: 'height, opacity' }} // Optimize animation performance
+          style={{ willChange: 'height, opacity' }}
         >
           {/* Collapsed View / Header */}
           <div 
@@ -116,77 +131,71 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
             </div>
             {/* Show toggle button only when complete and content exists */}
             {isThinkingComplete && hasContent && (
-                <button
-                  className="p-1 rounded-full hover:bg-gray-200 text-gray-500"
-                  aria-label={isExpanded ? 'Collapse Thinking' : 'Expand Thinking'}
-                >
-                  {isExpanded ? <FiChevronsUp className="h-4 w-4" /> : <FiChevronDown className="h-4 w-4" />}
-                </button>
+              <button
+                className="p-1 rounded-full hover:bg-gray-200 text-gray-500"
+                aria-label={isExpanded ? 'Collapse Thinking' : 'Expand Thinking'}
+              >
+                {isExpanded ? <FiChevronsUp className="h-4 w-4" /> : <FiChevronDown className="h-4 w-4" />}
+              </button>
             )}
           </div>
 
-          {/* Collapsed Subtext */}
-          {!isExpanded && isThinkingComplete && hasContent && (
-            <div className="text-xs text-gray-500 px-3 pb-2 -mt-1">
-              Expand for details
-            </div>
-          )}
-
           {/* Expanded Content Area */}
-          {isExpanded && (
-            <motion.div
-              key="thinking-content"
-              variants={contentVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="p-3 pt-0 border-t border-gray-200"
-            >
-              
-              {/* Show shimmer animation for internal reasoning models */}
-              {hasInternalReasoning && !isThinkingComplete ? (
-                <div className="prose prose-sm max-w-none text-gray-700 thinking-content">
-                  <div 
-                    className="px-4 py-3 rounded bg-gray-50 text-gray-500 italic"
-                    style={{
-                      backgroundImage: 'linear-gradient(90deg, rgba(200,200,200,0.05) 0%, rgba(200,200,200,0.2) 50%, rgba(200,200,200,0.05) 100%)',
-                      backgroundSize: '200% 100%',
-                      animation: 'shimmer 2s infinite linear'
+          <AnimatePresence mode="wait">
+            {isExpanded && (
+              <motion.div
+                key="thinking-content"
+                variants={contentVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="p-3 pt-0 border-t border-gray-200"
+              >
+                {/* Show shimmer animation for internal reasoning models */}
+                {hasInternalReasoning && !isThinkingComplete ? (
+                  <div className="prose prose-sm max-w-none text-gray-700 thinking-content">
+                    <div 
+                      className="px-4 py-3 rounded bg-gray-50 text-gray-500 italic"
+                      style={{
+                        backgroundImage: 'linear-gradient(90deg, rgba(200,200,200,0.05) 0%, rgba(200,200,200,0.2) 50%, rgba(200,200,200,0.05) 100%)',
+                        backgroundSize: '200% 100%',
+                        animation: 'shimmer 2s infinite linear'
+                      }}
+                    >
+                      Model is using reasoning internally but doesn't expose the thinking process.
+                    </div>
+                    <style dangerouslySetInnerHTML={{ __html: `
+                      @keyframes shimmer {
+                        0% { background-position: 200% 0; }
+                        100% { background-position: -200% 0; }
+                      }
+                    `}} />
+                  </div>
+                ) : (
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // Use a div wrapper for the content and apply the className there
+                      // Passing children directly to the div to render the markdown content
+                      div: ({node, children, ...props}) => <div className="prose prose-sm max-w-none text-gray-700 thinking-content" {...props}>{children}</div>
                     }}
                   >
-                    Model is using reasoning internally but doesn't expose the thinking process.
-                  </div>
-                  <style dangerouslySetInnerHTML={{ __html: `
-                    @keyframes shimmer {
-                      0% { background-position: 200% 0; }
-                      100% { background-position: -200% 0; }
+                    {thinkingContent ? 
+                      // If we have actual thinking content, show it
+                      thinkingContent : 
+                      // Otherwise, show a placeholder based on state
+                      (!isThinkingComplete ? 
+                        // If still thinking, show waiting message 
+                        '*Waiting for thoughts...*' : 
+                        // If done thinking and no content, show empty message 
+                        '*No thinking process was generated.*'
+                      )
                     }
-                  `}} />
-                </div>
-              ) : (
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    // Use a div wrapper for the content and apply the className there
-                    // Passing children directly to the div to render the markdown content
-                    div: ({node, children, ...props}) => <div className="prose prose-sm max-w-none text-gray-700 thinking-content" {...props}>{children}</div>
-                  }}
-                >
-                  {thinkingContent ? 
-                    // If we have actual thinking content, show it
-                    thinkingContent : 
-                    // Otherwise, show a placeholder based on state
-                    (!isThinkingComplete ? 
-                      // If still thinking, show waiting message 
-                      '*Waiting for thoughts...*' : 
-                      // If done thinking and no content, show empty message 
-                      '*No thinking process was generated.*'
-                    )
-                  }
-                </ReactMarkdown>
-              )}
-            </motion.div>
-          )}
+                  </ReactMarkdown>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>

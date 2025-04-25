@@ -56,6 +56,7 @@ export const loadConversationFromSupabase = async (userId: string): Promise<Fron
         content: dbMsg.content,
         createdAt: new Date(dbMsg.created_at), // Convert ISO string to Date
         parentId: dbMsg.parent_message_id,
+        thinkingContent: dbMsg.thinking_content || undefined, // Load thinking content from database
         // Map any other relevant fields from dbMsg.metadata if needed
          metadata: dbMsg.metadata || {}, // Ensure metadata is at least an empty object
       };
@@ -125,6 +126,7 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
         role: node.role,
         content: node.content,
         metadata: node.metadata || {},
+        thinking_content: node.thinkingContent || null, // Add thinking content to database save
         // Ensure dates are ISO strings for Supabase
         created_at: node.createdAt instanceof Date ? node.createdAt.toISOString() : new Date().toISOString(),
         updated_at: new Date().toISOString(),

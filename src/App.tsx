@@ -228,6 +228,7 @@ function AppContent() {
     
     // Reset thinking state at the beginning of a new stream
     setThinkingContent('');
+    // Always start in thinking state
     setIsThinkingComplete(false);
     thinkingStartTimeRef.current = null; // Reset start time
     setThinkingDuration(null); // Reset duration
@@ -393,13 +394,10 @@ function AppContent() {
       currentModel === 'openai/o4-mini-high';
     setHasInternalReasoning(modelIsReasoning && usesInternalReasoning);
     
-    // console.log(`Using model: ${currentModel}`, 
-    //             `Is reasoning model: ${modelIsReasoning ? 'YES ✅' : 'NO ❌'}`,
-    //             `Has internal reasoning: ${usesInternalReasoning ? 'YES ✅' : 'NO ❌'}`);
-
     // >>> Reset thinking state when sending a new message <<<
     setThinkingContent('');
-    setIsThinkingComplete(!modelIsReasoning); // Only set to false for reasoning models 
+    // Always set to false for all reasoning models (both internal and explicit reasoning)
+    setIsThinkingComplete(false);
     thinkingStartTimeRef.current = null; // Reset start time
     setThinkingDuration(null); // Reset duration
     // >>> End Reset <<<
