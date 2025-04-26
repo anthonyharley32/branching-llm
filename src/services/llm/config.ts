@@ -18,7 +18,7 @@ interface LLMConfig {
   isStreaming: boolean;
   
   // OpenRouter specific settings
-  openRouterApiKey: string | null;
+  // API key is stored securely in Edge Function environment
   openRouterModel: string;
 }
 
@@ -32,6 +32,6 @@ export const config: LLMConfig = {
   isStreaming: true,
   
   // OpenRouter specific config
-  openRouterApiKey: import.meta.env.VITE_OPENROUTER_API_KEY || null,
-  openRouterModel: 'openai/gpt-4.1', // Default to Claude
+  // API key is stored securely in Edge Function environment
+  openRouterModel: 'openai/gpt-4.1', // Default model
 }; 

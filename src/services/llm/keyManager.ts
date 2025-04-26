@@ -10,17 +10,13 @@ const STORAGE_PREFIX = 'llm-app';
 const getStorageKey = (provider: LLMProvider) => `${STORAGE_PREFIX}.${provider}.api_key`;
 
 /**
- * Check if an API key is configured via environment variables or browser storage
+ * Check if an API key is configured in browser storage
+ * Note: The Edge Function has its own API key configured server-side
  */
 export function hasApiKey(provider: LLMProvider): boolean {
   switch (provider) {
     case LLMProvider.OPENROUTER:
-      // Check environment variables first (for development)
-      if (import.meta.env.VITE_OPENROUTER_API_KEY) {
-        return true;
-      }
-      
-      // Check browser storage
+      // Check browser storage for user-provided key
       const key = localStorage.getItem(getStorageKey(provider));
       return key !== null && key.trim() !== '';
       
@@ -30,17 +26,13 @@ export function hasApiKey(provider: LLMProvider): boolean {
 }
 
 /**
- * Get the API key for the specified provider
+ * Get the API key for the specified provider from browser storage
+ * Note: This is only used for user-provided keys. The Edge Function uses its own server-side key.
  */
 export function getApiKey(provider: LLMProvider): string | null {
   switch (provider) {
     case LLMProvider.OPENROUTER:
-      // Check environment variables first (for development)
-      if (import.meta.env.VITE_OPENROUTER_API_KEY) {
-        return import.meta.env.VITE_OPENROUTER_API_KEY;
-      }
-      
-      // Fall back to browser storage
+      // Get from browser storage
       return localStorage.getItem(getStorageKey(provider));
       
     default:
