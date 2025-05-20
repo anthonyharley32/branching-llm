@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
+import ThinkingBox from './ThinkingBox'; // Added import
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -563,11 +564,14 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
             ref={messageContentRef}
             className={`${isUser ? userBubbleClasses : aiTextClasses} ${isBranchPoint ? 'relative pr-6' : ''} ${isUser ? 'relative' : ''}`}
           >
-            {/* Background wave for currently streaming assistant message */}
-            {isStreaming && (
-              <div
-                className="streaming-wave absolute left-0 pointer-events-none select-none"
-                style={{ top: '0.6rem', zIndex: -1 }}
+            {/* Render ThinkingBox for assistant messages */}
+            {message.role === 'assistant' && (
+              <ThinkingBox
+                thinkingContent={message.thinkingContent || ''}
+                isThinkingComplete={!message.isStreaming}
+                thinkingDuration={message.thinkingDuration}
+                hasInternalReasoning={message.modelReasoningType === 'internal'}
+                thinkingContentFinalized={!!message.thinkingContent && !message.isStreaming}
               />
             )}
 

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { MessageNode } from '../types/conversation';
 import ChatMessage from './ChatMessage';
-import ThinkingBox from './ThinkingBox';
+// import ThinkingBox from './ThinkingBox'; // Removed import
 import { AddMessageResult } from '../context/ConversationContext';
 
 interface ChatThreadProps {
@@ -9,16 +9,16 @@ interface ChatThreadProps {
   isLoading: boolean;
   /** If provided, the ID of the assistant message currently streaming. */
   streamingNodeId?: string | null;
-  thinkingContent: string;
-  isThinkingComplete: boolean;
-  thinkingDuration?: number | null;
-  isReasoningModel: boolean;
-  hasInternalReasoning?: boolean;
+  // thinkingContent: string; // Removed
+  // isThinkingComplete: boolean; // Removed
+  // thinkingDuration?: number | null; // Removed
+  // isReasoningModel: boolean; // Removed
+  // hasInternalReasoning?: boolean; // Removed
   onBranchCreated: (result: AddMessageResult, sourceText: string, isNewBranch: boolean) => void;
   onMessageEdited?: (messageId: string) => void;
 }
 
-const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, streamingNodeId = null, thinkingContent, isThinkingComplete, thinkingDuration, isReasoningModel, hasInternalReasoning = false, onBranchCreated, onMessageEdited }) => {
+const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, streamingNodeId = null, /* thinkingContent, isThinkingComplete, thinkingDuration, isReasoningModel, hasInternalReasoning = false, */ onBranchCreated, onMessageEdited }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(messages.length);
@@ -235,10 +235,9 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
   });
 
   // Condition for showing the initial loading squiggles:
-  // - For non-reasoning models: Show if loading and no streamingNodeId (standard behavior)
-  // - For reasoning models: Show if loading, no streamingNodeId AND thinking is complete (not showing thinking box)
-  const showInitialLoading = isLoading && !streamingNodeId && 
-                             (isReasoningModel ? isThinkingComplete : true);
+  // Condition for showing the initial loading squiggles:
+  // Show if loading, no messages yet, and no specific message is currently streaming.
+  const showInitialLoading = isLoading && messages.length === 0 && !streamingNodeId;
 
   return (
     <div 
@@ -274,16 +273,7 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
           return null;
         }).filter(Boolean)}
       
-      {/* Render ThinkingBox immediately after the last user message */}
-      {isReasoningModel && (!isThinkingComplete || (isThinkingComplete && thinkingContent)) && (
-        <ThinkingBox 
-          thinkingContent={thinkingContent} 
-          isThinkingComplete={isThinkingComplete} 
-          thinkingDuration={thinkingDuration}
-          hasInternalReasoning={hasInternalReasoning}
-          thinkingContentFinalized={!!thinkingContent}
-        />
-      )}
+      {/* Global ThinkingBox instance removed */}
 
       {/* Then render any assistant messages that follow the last user message */}
       {displayMessages

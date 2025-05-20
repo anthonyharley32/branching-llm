@@ -58,6 +58,7 @@ interface ConversationContextType {
   hasChildren: (messageId: string) => boolean;
   updateMessageContent: (messageId: string, contentChunk: string) => void;
   updateMessageThinkingContent: (messageId: string, thinkingContent: string) => void;
+  updateMessageMetadata: (messageId: string, dataToUpdate: Partial<Pick<MessageNode, 'isStreaming' | 'streamStartTime' | 'thinkingDuration' | 'modelReasoningType' | 'thinkingContent'>>) => void;
   startNewConversation: () => void;
   updateConversationTitle: (conversationId: string, title: string) => void;
   editMessage: (messageId: string, newContent: string, onMessageEdited?: (messageId: string) => void) => void;
@@ -270,7 +271,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
 
       const updatedMessage = {
         ...prevConv.messages[messageId],
-        content: prevConv.messages[messageId].content + contentChunk, // Append chunk
+        content: (prevConv.messages[messageId].content || '') + contentChunk, // Append chunk
       };
 
       return {
@@ -307,18 +308,8 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
         return prevConv; // Return previous state if ID not found
       }
 
-      // Get existing thinking content
-      const existingContent = prevConv.messages[messageId].thinkingContent || '';
-      console.log('Existing thinking content length:', existingContent.length);
-      
-      // Check if we're replacing the entire content or appending
-      // If the new content is longer than what we had, assume it's a full replacement
-      const shouldReplaceEntireContent = thinkingContent.length >= existingContent.length;
-      const newThinkingContent = shouldReplaceEntireContent 
-        ? thinkingContent  // Use the provided content as-is
-        : existingContent + thinkingContent; // Append to existing
-      
-      console.log('Thinking content operation:', shouldReplaceEntireContent ? 'REPLACE' : 'APPEND');
+      // Get existing thinking content and append new content
+      const newThinkingContent = (prevConv.messages[messageId].thinkingContent || '') + thinkingContent;
       
       // Create updated message with thinking content
       const updatedMessage: MessageNode = {
@@ -326,8 +317,6 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
         thinkingContent: newThinkingContent,
       };
       
-      console.log('New thinking content length:', updatedMessage.thinkingContent?.length || 0);
-
       // Always force the hasContentChanges flag to ensure database save
       return {
         ...prevConv,
@@ -336,6 +325,35 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
           [messageId]: updatedMessage,
         },
         _hasContentChanges: true, // Force this to true to ensure database save
+      };
+    });
+  }, [isLoading]);
+
+  // --- Function to update message metadata ---
+  const updateMessageMetadata = useCallback((
+    messageId: string, 
+    dataToUpdate: Partial<Pick<MessageNode, 'isStreaming' | 'streamStartTime' | 'thinkingDuration' | 'modelReasoningType' | 'thinkingContent'>>
+  ) => {
+    if (isLoading) {
+      return;
+    }
+    setConversation(prevConv => {
+      if (!prevConv || !prevConv.messages[messageId]) {
+        return prevConv; // Return previous state if ID not found
+      }
+
+      const updatedMessage = {
+        ...prevConv.messages[messageId],
+        ...dataToUpdate, // Merge the new data
+      };
+
+      return {
+        ...prevConv,
+        messages: {
+          ...prevConv.messages,
+          [messageId]: updatedMessage,
+        },
+        _hasContentChanges: true, // Mark that content has changed
       };
     });
   }, [isLoading]);
@@ -568,6 +586,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     hasChildren,
     updateMessageContent,
     updateMessageThinkingContent,
+    updateMessageMetadata,
     startNewConversation,
     updateConversationTitle,
     editMessage,

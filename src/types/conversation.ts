@@ -17,6 +17,10 @@ import { Message as BaseMessage } from './chat';
 export interface MessageNode extends BaseMessage { // Extend the base Message type
   // Optional: thinking content for reasoning models
   thinkingContent?: string;
+  isStreaming?: boolean;
+  streamStartTime?: number;
+  thinkingDuration?: number | null;
+  modelReasoningType?: 'internal' | 'explicit' | null;
   parentId: string | null; // ID of the parent message in the branch, null for root
   // Inherited from BaseMessage: createdAt
   // Inherited from BaseMessage: metadata (check ./chat.ts definition)
