@@ -58,6 +58,7 @@ function AppContent() {
     addMessage,
     updateMessageContent,
     updateMessageThinkingContent,
+    updateMessageMetadata,
     updateConversationTitle,
     currentMessages,
     activeMessageId,

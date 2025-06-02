@@ -28,7 +28,7 @@ export const config: LLMConfig = {
   activeProvider: LLMProvider.OPENROUTER,
   systemPrompt: "You are a helpful AI assistant. Answer the user's questions accurately and concisely.",
   temperature: 0.7,
-  maxTokens: 1024,
+  maxTokens: 8192,
   isStreaming: true,
   
   // OpenRouter specific config

@@ -120,34 +120,18 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
 
     // Log how many messages have thinking content
     const messagesWithThinking = Object.values(conversation.messages).filter(node => node.thinkingContent).length;
-    console.log(`Saving conversation: ${messagesWithThinking} assistant messages have thinking content`);
     
-    // Debug: log all assistant messages to check thinking content
-    console.log('DEBUG - Assistant messages thinking content status:');
-    Object.values(conversation.messages)
-      .filter(node => node.role === 'assistant')
-      .forEach(node => {
-        console.log(`Message ${node.id}: ${node.thinkingContent ? 'Has thinking (' + node.thinkingContent.length + ' chars)' : 'NO thinking content'}`);
-      });
-
     // 2. Prepare messages for upsert
     const messagesForDb: Partial<DbMessage>[] = Object.values(conversation.messages).map(node => {
         // Log thinking content existence for assistant messages
         if (node.role === 'assistant') {
           if (node.thinkingContent) {
-            console.log(`Assistant message ${node.id} has thinking content: ${node.thinkingContent.length} characters`);
-            // Add a sample of thinking content for debugging
-            console.log(`Sample: ${node.thinkingContent.substring(0, 100)}...`);
           } else {
-            console.log(`Assistant message ${node.id} has NO thinking content`);
           }
         }
         
         // Debug: log the actual value being saved to DB
         const thinkingContentForDb = node.thinkingContent || null;
-        if (node.role === 'assistant') {
-          console.log(`DB value for thinking_content for ${node.id}: ${thinkingContentForDb ? 'Present' : 'NULL'}`);
-        }
         
         return {
           id: node.id, // Use existing ID for upsert
@@ -168,7 +152,6 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
         const assistantMessagesWithThinking = messagesForDb.filter(
             msg => msg.role === 'assistant' && msg.thinking_content
         );
-        console.log(`About to save ${assistantMessagesWithThinking.length} messages with thinking content`);
         
         // Perform the database upsert without returning
         const { error: messagesUpsertError } = await supabase
@@ -180,10 +163,6 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
             return false;
         }
         
-        // Log success
-        console.log(`Database save completed successfully`);
-        console.log(`Thinking content status summary: ${assistantMessagesWithThinking.length} messages had thinking content`);
-        
         // Optionally verify with a separate query
         try {
           const { data: verifyData, error: verifyError } = await supabase
@@ -194,7 +173,6 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
               
           if (!verifyError && verifyData) {
               const messagesWithThinkingInDb = verifyData.filter(msg => msg.thinking_content !== null);
-              console.log(`Verification: ${messagesWithThinkingInDb.length} assistant messages have thinking content in DB`);
           }
         } catch (verifyError) {
           console.error('Error verifying thinking content in DB:', verifyError);
