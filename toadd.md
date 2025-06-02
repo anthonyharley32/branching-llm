@@ -1,17 +1,17 @@
+==BUGS==
+
 [-] conversation branches table?
 [-] 2 user tables?
 [-] Sidebar closes automatically on new chat/switch chat
-[ ] Thinking bug across chats persists
 [ ] new chat small button opens sidebar.
 [ ] language
-[ ] Dark Mode
-[ ] chat input sizer as user message grows
 [ ] when i come out of branch, scroll/load at branch point
 [ ] branching context is still off. (langsmith)
 [ ] click chat input while prev chat loading
 [ ] netlify app redirect to main domain
+[...] Remove supabase project name from google sign in
+[ ] Add claude 4 models
 [ ] Pricing/Payments
-[ ] Remove supabase project name from google sign in
     - No login: 5 messages per day, no storage
     - Free tier: stores messages, 20 messages per day
     - Pro: ($15) model selection (non-reasoning: claude, gpt-4.1, grok, gemini) and unlimited messages
@@ -20,14 +20,21 @@
 
 
 [ ] fix bug with multiple indicators on one line
-[ ] pfp doesn't show sometimes
 
 
 
+==FEATURES==
+[ ] Deep Research
+[ ] Video Input
 
 
-
-
+==DONE==
+[X] chat input sizer as user message grows
+[X] Dark Mode
+[X] pfp doesn't show sometimes with google login 
+[X] Thinking bug across chats persists
+[X] pointer on login modal
+[X] Voice Input (Whisper)
 
 
 

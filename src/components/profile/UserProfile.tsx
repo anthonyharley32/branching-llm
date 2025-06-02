@@ -47,6 +47,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
   // State to track the initial value for comparison
   const [initialAdditionalSystemPrompt, setInitialAdditionalSystemPrompt] = useState<string>('');
 
+  // Helper function to calculate background color based on theme and highlight color
+  const getBackgroundColor = (highlightColor: string, theme: string): string => {
+    if (theme === 'dark') {
+      const rgb = highlightColor.match(/\w\w/g);
+      if (rgb) {
+        const [r, g, b] = rgb.map(hex => parseInt(hex, 16));
+        return `rgba(${r}, ${g}, ${b}, 0.4)`;
+      }
+      return highlightColor;
+    }
+    return highlightColor;
+  };
+
   useEffect(() => {
     if (user) {
       fetchUserProfile();
@@ -518,11 +531,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                           document.documentElement.style.setProperty('--branch-highlight-color', newColor);
                           
                           // Create a more transparent version for dark mode
-                          const rgb = newColor.match(/\w\w/g);
-                          if (rgb) {
-                            const [r, g, b] = rgb.map(hex => parseInt(hex, 16));
-                            document.documentElement.style.setProperty('--branch-highlight-color-dark', `rgba(${r}, ${g}, ${b}, 0.4)`);
-                          }
+                          const darkModeColor = getBackgroundColor(newColor, 'dark');
+                          document.documentElement.style.setProperty('--branch-highlight-color-dark', darkModeColor);
                           
                           // Update via style element
                           const styleElement = document.getElementById('dynamic-styles') || document.createElement('style');
@@ -544,16 +554,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                         <span 
                           className="inline-block px-2 py-1 mr-1" 
                           style={{
-                            backgroundColor: theme === 'dark' 
-                              ? (() => {
-                                  const rgb = highlightColor.match(/\w\w/g);
-                                  if (rgb) {
-                                    const [r, g, b] = rgb.map(hex => parseInt(hex, 16));
-                                    return `rgba(${r}, ${g}, ${b}, 0.4)`;
-                                  }
-                                  return highlightColor;
-                                })()
-                              : highlightColor
+                            backgroundColor: getBackgroundColor(highlightColor, theme)
                           }}
                         >
                           Preview

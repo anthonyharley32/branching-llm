@@ -1,5 +1,6 @@
-import React, { useState, KeyboardEvent, FormEvent, useRef } from 'react';
-import { IoMdMic, IoMdArrowUp, IoMdAttach, IoMdClose } from 'react-icons/io';
+import React, { useState, KeyboardEvent, FormEvent, useRef, useEffect } from 'react';
+import { IoMdMic, IoMdArrowUp, IoMdAttach, IoMdClose, IoMdSquare } from 'react-icons/io';
+import { useVoiceRecording } from '../hooks/useVoiceRecording';
 
 interface ChatInputProps {
   onSendMessage: (message: string, images?: string[]) => void;
@@ -15,6 +16,29 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
   const [inputValue, setInputValue] = useState('');
   const [selectedImages, setSelectedImages] = useState<ImageData[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Voice recording functionality
+  const {
+    isRecording,
+    isTranscribing,
+    audioLevel,
+    error: voiceError,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+  } = useVoiceRecording();
+
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      // Set height to scrollHeight to fit content
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [inputValue]);
 
   const handleSubmit = (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
@@ -38,6 +62,10 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
       event.preventDefault();
       handleSubmit();
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputValue(e.target.value);
   };
 
   const handleAttachClick = () => {
@@ -97,8 +125,72 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Handle voice recording
+  const handleVoiceRecording = async () => {
+    if (isRecording) {
+      // Stop recording and get transcription
+      const transcription = await stopRecording();
+      if (transcription) {
+        // Add transcription to input
+        setInputValue(prev => prev + (prev ? ' ' : '') + transcription);
+        // Focus back to textarea
+        textareaRef.current?.focus();
+      }
+    } else {
+      // Start recording
+      await startRecording();
+    }
+  };
+
+  // Handle voice recording cancellation on Escape key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isRecording) {
+        cancelRecording();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown as any);
+    return () => document.removeEventListener('keydown', handleKeyDown as any);
+  }, [isRecording, cancelRecording]);
+
   return (
     <div className="flex flex-col mx-4 mb-4">
+      {/* Voice error message */}
+      {voiceError && (
+        <div className="mb-2 p-2 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-200 rounded text-sm">
+          {voiceError}
+        </div>
+      )}
+
+      {/* Voice recording status */}
+      {(isRecording || isTranscribing) && (
+        <div className="mb-2 p-3 border border-blue-200 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+          <div className="flex items-center gap-2">
+            {isRecording && (
+              <>
+                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-blue-700 dark:text-blue-300">Recording... (Press Escape to cancel)</span>
+                {audioLevel > 0 && (
+                  <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 ml-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-100"
+                      style={{ width: `${Math.min(audioLevel / 50 * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                )}
+              </>
+            )}
+            {isTranscribing && (
+              <>
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-spin border-2 border-white border-t-transparent"></div>
+                <span className="text-sm text-blue-700 dark:text-blue-300">Processing audio...</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Selected images preview */}
       {selectedImages.length > 0 && (
         <div className="flex flex-wrap gap-2 p-2 mb-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
@@ -126,9 +218,16 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
       >
         <button 
           type="button" 
-          className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex-shrink-0 cursor-pointer"
+          onClick={handleVoiceRecording}
+          disabled={isLoading || isTranscribing}
+          className={`p-2 flex-shrink-0 cursor-pointer transition-colors ${
+            isRecording 
+              ? 'text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300' 
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          title={isRecording ? 'Stop recording' : 'Start voice recording'}
         >
-          <IoMdMic size={20} />
+          {isRecording ? <IoMdSquare size={20} /> : <IoMdMic size={20} />}
         </button>
 
         <button 
@@ -148,14 +247,16 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
         </button>
 
         <textarea
+          ref={textareaRef}
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="How can Navi help?"
           disabled={isLoading}
-          className="flex-grow px-3 py-2 bg-transparent border-none focus:outline-none focus:ring-0 resize-none max-h-40 overflow-y-auto text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+          className="flex-grow px-3 py-2 bg-transparent border-none focus:outline-none focus:ring-0 resize-none overflow-hidden text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           rows={1}
+          style={{ minHeight: '2.5rem', maxHeight: '12rem' }}
         />
 
         <button

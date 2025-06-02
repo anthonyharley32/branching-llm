@@ -158,7 +158,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <button
                 onClick={() => handleSocialLogin('google')}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm hover:shadow-md"
+                className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm hover:shadow-md cursor-pointer"
               >
                 <FcGoogle size={22} />
                 <span className="font-medium">{isLoginView ? 'Sign in with Google' : 'Sign up with Google'}</span>
@@ -255,7 +255,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 px-4 bg-black hover:bg-gray-900 text-white font-medium rounded-xl shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-50 transition-all"
+                className="w-full py-2.5 px-4 bg-black hover:bg-gray-900 text-white font-medium rounded-xl shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-50 transition-all cursor-pointer"
               >
                 {loading ? 'Processing...' : (isLoginView ? 'Login' : 'Register')}
               </button>
@@ -268,7 +268,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             >
               <button
                 onClick={() => setIsLoginView(!isLoginView)}
-                className="text-sm font-medium text-black hover:text-gray-800 hover:underline focus:outline-none transition-colors"
+                className="text-sm font-medium text-black hover:text-gray-800 hover:underline focus:outline-none transition-colors cursor-pointer"
                 disabled={loading}
               >
                 {isLoginView ? 'Need an account? Register' : 'Already have an account? Login'}

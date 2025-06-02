@@ -82,10 +82,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('Error signing out:', error);
-      // Optionally handle error state here
+      // If the session is already missing, that's fine - user is already signed out
+      if (error.message === 'Auth session missing!') {
+        // Force clear the local state since the session is already gone
+        setSession(null);
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+      // For other errors, still clear loading state since we're done trying
+      setIsLoading(false);
+      return;
     }
-    // State will update via onAuthStateChange listener
-    // setIsLoading(false); // Handled by listener now
+    // For successful logout, the onAuthStateChange listener will handle the loading state
+    // But add a timeout as a safety net in case the listener doesn't fire quickly
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
   };
 
   const signInWithPassword = async (email: string, password: string): Promise<void> => {
