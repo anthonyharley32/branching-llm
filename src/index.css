@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+@theme {
+  --color-gray-50: #fafaf9;
+  --color-gray-100: #f5f5f4;
+  --color-gray-200: #e7e5e4;
+  --color-gray-300: #d6d3d1;
+  --color-gray-400: #a8a29e;
+  --color-gray-500: #78716c;
+  --color-gray-600: #57534e;
+  --color-gray-700: #44403c;
+  --color-gray-800: #292524;
+  --color-gray-900: #1c1917;
+}
+
+@variant dark (.dark &);
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -7,6 +22,7 @@
 
   /* Custom app variables */
   --branch-highlight-color: #f5f0a8;
+  --branch-highlight-color-dark: rgba(252, 211, 77, 0.4); /* Amber with transparency for dark mode */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -24,6 +40,11 @@
   padding: 0.5em 0 0.75em;
   background-color: rgba(248, 249, 250, 0.5);
   border-radius: 4px;
+}
+
+/* Dark mode KaTeX styling */
+.dark .katex-display {
+  background-color: rgba(31, 41, 55, 0.5);
 }
 
 /* Base KaTeX styling */
@@ -97,6 +118,11 @@ ul + span.katex {
   margin: 1em 0 1.75em;
 }
 
+/* Dark mode math display */
+.dark .math.math-display {
+  background-color: rgba(31, 41, 55, 0.5);
+}
+
 /* Handle headings with Markdown numbering */
 h2 strong:first-child + em, /* For cases like "**1.** *Title*" */
 h2 em:first-child + strong, /* For cases like "*1.* **Title**" */
@@ -120,8 +146,19 @@ body {
   min-width: 320px;
   min-height: 100vh;
   width: 100%;
-  color: #213547;
+  color: #292524;
   background-color: #ffffff;
+}
+
+/* Dark mode styles */
+.dark body {
+  color: #f5f5f4;
+  background-color: #1c1917;
+}
+
+/* Invert Navi logo in dark mode */
+.dark img[alt="Navi"] {
+  filter: invert(1) brightness(0.9);
 }
 
 #root {
@@ -178,11 +215,21 @@ pre {
   margin: 1rem 0;
 }
 
+/* Dark mode pre */
+.dark pre {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
 blockquote {
   border-left: 4px solid #e5e7eb;
   padding-left: 1rem;
   font-style: italic;
   margin: 1rem 0;
+}
+
+/* Dark mode blockquote */
+.dark blockquote {
+  border-left-color: #4b5563;
 }
 
 /* Direct styling for headers in chat messages without prose */
@@ -256,6 +303,34 @@ span.katex + hr {
 .branch-source-highlight {
   background-color: var(--branch-highlight-color);
   transition: background-color 0.2s ease;
+}
+
+/* Dark mode override for branch highlight - always use transparency */
+.dark .branch-source-highlight {
+  background-color: var(--branch-highlight-color-dark) !important;
+}
+
+/* Default text selection styling for light mode */
+::selection {
+  background-color: rgba(59, 130, 246, 0.3); /* Blue with 30% opacity */
+  color: inherit; /* Keep original text color */
+}
+
+/* Text selection styling for dark mode */
+.dark ::selection {
+  background-color: rgba(147, 197, 253, 0.25); /* Lighter blue with 25% opacity for dark mode */
+  color: inherit; /* Keep original text color - white text stays white */
+}
+
+/* Firefox selection styling */
+::-moz-selection {
+  background-color: rgba(59, 130, 246, 0.3);
+  color: inherit;
+}
+
+.dark ::-moz-selection {
+  background-color: rgba(147, 197, 253, 0.25);
+  color: inherit;
 }
 
 /* --- Squiggly wave placeholder for streaming text --- */

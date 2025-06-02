@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { UserProfile as UserProfileType } from '../../types/database';
 import { 
   FiUser, FiX, FiCamera,
   FiSliders, FiDatabase, FiBox,  
-  FiMousePointer, FiDollarSign, FiEdit3, FiCpu // Added FiCpu
+  FiMousePointer, FiDollarSign, FiEdit3, FiCpu, FiMoon, FiSun // Added FiCpu, FiMoon, FiSun
 } from 'react-icons/fi';
 import { HiOutlineSparkles } from 'react-icons/hi'; // Import sparkles icon for AI stars logo
 import { motion } from 'framer-motion';
@@ -21,6 +22,7 @@ type ActiveSetting = 'account' | 'appearance' | 'behavior' | 'customize' | 'data
 
 const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) => {
   const { user } = useAuth();
+  const { theme, setTheme } = useTheme();
   
   const [profile, setProfile] = useState<UserProfileType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -286,8 +288,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
       onClick={() => setActiveSetting(setting)}
       className={`flex items-center w-full px-4 py-3 rounded-md text-base font-medium transition-colors duration-150 ease-in-out ${ // Changed text-sm to text-base and increased py-2 to py-3
         activeSetting === setting
-          ? 'bg-gray-200 text-gray-900' // Adjusted active background
-          : 'text-gray-600 hover:bg-gray-100' // Adjusted hover background
+          ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' // Adjusted active background
+          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700' // Adjusted hover background
       }`}
     >
       <Icon className="mr-3 h-6 w-6 flex-shrink-0" /> {/* Increased icon size from h-5 w-5 to h-6 w-6 */}
@@ -298,8 +300,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
   return (
     <div className="w-full flex"> {/* Removed minHeight style */}
       {/* Sidebar */} 
-      <div className="w-60 border-r border-gray-200 p-4 flex flex-col shrink-0"> {/* Reduced width w-60 */} 
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 px-2">Settings</h2> {/* Changed from text-lg to text-xl */}
+      <div className="w-60 border-r border-gray-200 dark:border-gray-700 p-4 flex flex-col shrink-0"> {/* Reduced width w-60 */} 
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 px-2">Settings</h2> {/* Changed from text-lg to text-xl */}
         <nav className="flex-1 space-y-2"> {/* Changed from space-y-1 to space-y-2 */}
           <SidebarItem setting="account" icon={FiUser} label="Account" />
           <SidebarItem setting="appearance" icon={FiEdit3} label="Appearance" /> {/* Updated Icon */} 
@@ -321,32 +323,32 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
         {onClose && (
           <button 
             onClick={onClose} 
-            className="absolute top-4 right-4 p-1 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors z-10 cursor-pointer" // Added cursor-pointer
+            className="absolute top-4 right-4 p-1 rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors z-10 cursor-pointer" // Added cursor-pointer
             aria-label="Close"
           >
             <FiX className="h-5 w-5" />
           </button>
         )}
 
-        {loading && activeSetting === 'account' && <p className="text-center text-gray-500">Loading account...</p>}
+        {loading && activeSetting === 'account' && <p className="text-center text-gray-500 dark:text-gray-400">Loading account...</p>}
         
-        {error && <p className="text-red-500 text-center mb-4">Error: {error}</p>}
-        {success && <p className="text-green-500 text-center mb-4">{success}</p>}
+        {error && <p className="text-red-500 dark:text-red-400 text-center mb-4">Error: {error}</p>}
+        {success && <p className="text-green-500 dark:text-green-400 text-center mb-4">{success}</p>}
 
         {/* Account Settings Content */} 
         {activeSetting === 'account' && profile && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">Account Details</h3>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Account Details</h3>
             <div className="space-y-4"> {/* Reduced spacing */} 
               {/* User Info Section */} 
               <div className="flex items-center justify-between p-4 rounded-lg border border-transparent"> 
                 <div className="flex items-center gap-4">
                   <div className="relative shrink-0">
-                    <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-gray-200">
+                    <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-gray-200 dark:bg-gray-700">
                       {avatarUrl ? (
                         <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
                       ) : (
-                        <FiUser className="w-6 h-6 text-gray-500" />
+                        <FiUser className="w-6 h-6 text-gray-500 dark:text-gray-400" />
                       )}
                     </div>
                     {isEditing && (
@@ -364,15 +366,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                     )}
                   </div>
                   <div>
-                    <p className="text-md font-semibold text-gray-900">{userDisplayName}</p>
-                    <p className="text-sm text-gray-500">{user?.email}</p>
+                    <p className="text-md font-semibold text-gray-900 dark:text-white">{userDisplayName}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{user?.email}</p>
                   </div>
                 </div>
                 {!isEditing ? (
                   <button 
                     onClick={() => setIsEditing(true)}
                     // Adjusted styles to match target screenshot
-                    className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 cursor-pointer"
+                    className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-gray-500 cursor-pointer"
                   >
                     Manage
                   </button>
@@ -392,7 +394,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                         setAvatarFile(null);
                         setError(null);
                       }}
-                      className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 cursor-pointer"
+                      className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-gray-500 cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -404,11 +406,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
               {/* Status Section */} 
               <div className="flex items-center justify-between p-4 rounded-lg border border-transparent"> 
                 <div className="flex items-center gap-2">
-                  <FiBox className="w-5 h-5 text-gray-500" />
-                  <span className="text-md font-medium text-gray-900">Status</span>
+                  <FiBox className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                  <span className="text-md font-medium text-gray-900 dark:text-white">Status</span>
                 </div>
                 {/* Adjusted styles to match target screenshot */}
-                <span className={`px-3 py-0.5 text-sm font-medium rounded-full ${subscriptionTier === 'free' ? 'bg-gray-100 text-gray-600' : 'bg-yellow-100 text-yellow-800'}`}>
+                <span className={`px-3 py-0.5 text-sm font-medium rounded-full ${subscriptionTier === 'free' ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300' : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'}`}>
                   {subscriptionTier === 'free' ? 'Free' : 'Premium+'} 
                 </span>
               </div>
@@ -417,10 +419,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
               <div className="flex items-center justify-between p-4 rounded-lg border border-transparent"> 
                 <div className="flex items-center gap-2">
                   {/* ... Language Icon ... */}
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.06 7.94l-1.88-1.88M16.5 10.5a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0zm-1.5-1.82a4 4 0 00-5.36 0M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
                   </svg>
-                  <span className="text-md font-medium text-gray-900">Language</span>
+                  <span className="text-md font-medium text-gray-900 dark:text-white">Language</span>
                 </div>
                 <button 
                   onClick={() => console.log('Change Language')}
@@ -434,19 +436,68 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
           </motion.div>
         )}
         
-        {/* Appearance Settings Content (Placeholder) */} 
+        {/* Appearance Settings Content */} 
         {activeSetting === 'appearance' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">Appearance</h3>
-            <div className="space-y-4">              
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Appearance</h3>
+            <div className="space-y-4">
+              {/* Dark Mode Toggle */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Theme</h4>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {theme === 'dark' ? (
+                      <FiMoon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                    ) : (
+                      <FiSun className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {theme === 'dark' 
+                          ? 'Dark backgrounds with light text for reduced eye strain'
+                          : 'Light backgrounds with dark text for enhanced readability'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setTheme('light')}
+                      className={`p-2 rounded-md transition-colors ${
+                        theme === 'light'
+                          ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
+                          : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
+                      }`}
+                      title="Light mode"
+                    >
+                      <FiSun className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setTheme('dark')}
+                      className={`p-2 rounded-md transition-colors ${
+                        theme === 'dark'
+                          ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
+                          : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
+                      }`}
+                      title="Dark mode"
+                    >
+                      <FiMoon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
               {/* Text Selection Highlight Color - Moved from Customize tab */}
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Text Selection</h4>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Text Selection</h4>
                 
                 <div className="space-y-4">
                   {/* Branch Highlight Color Selection */}
                   <div className="flex flex-col">
-                    <label htmlFor="highlight-color" className="text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="highlight-color" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Branch Selection Highlight Color
                     </label>
                     <div className="flex items-center space-x-4">
@@ -454,7 +505,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                         type="color" 
                         id="highlight-color" 
                         value={highlightColor}
-                        className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
+                        className="w-10 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
                         onChange={(e) => {
                           const newColor = e.target.value;
                           // Update state 
@@ -463,8 +514,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                           // Update stored preference in localStorage
                           localStorage.setItem('branchHighlightColor', newColor);
                           
-                          // Update CSS variable
+                          // Update CSS variables for both light and dark mode
                           document.documentElement.style.setProperty('--branch-highlight-color', newColor);
+                          
+                          // Create a more transparent version for dark mode
+                          const rgb = newColor.match(/\w\w/g);
+                          if (rgb) {
+                            const [r, g, b] = rgb.map(hex => parseInt(hex, 16));
+                            document.documentElement.style.setProperty('--branch-highlight-color-dark', `rgba(${r}, ${g}, ${b}, 0.4)`);
+                          }
                           
                           // Update via style element
                           const styleElement = document.getElementById('dynamic-styles') || document.createElement('style');
@@ -476,14 +534,28 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                         }}
                       />
                       <div className="flex-1">
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
                           Choose the color used to highlight text when creating branches or viewing branch sources.
                         </p>
                       </div>
                     </div>
-                    <div className="mt-3 p-3 bg-white rounded border border-gray-200">
-                      <p className="text-sm">
-                        <span className="inline-block px-2 py-1 mr-1" style={{backgroundColor: highlightColor}}>
+                    <div className="mt-3 p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                      <p className="text-sm text-gray-900 dark:text-gray-100">
+                        <span 
+                          className="inline-block px-2 py-1 mr-1" 
+                          style={{
+                            backgroundColor: theme === 'dark' 
+                              ? (() => {
+                                  const rgb = highlightColor.match(/\w\w/g);
+                                  if (rgb) {
+                                    const [r, g, b] = rgb.map(hex => parseInt(hex, 16));
+                                    return `rgba(${r}, ${g}, ${b}, 0.4)`;
+                                  }
+                                  return highlightColor;
+                                })()
+                              : highlightColor
+                          }}
+                        >
                           Preview
                         </span>
                         of how your selected text will appear when highlighted.
@@ -499,9 +571,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
         {/* Behavior Settings Content (Placeholder) */} 
         {activeSetting === 'behavior' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">Behavior</h3>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-gray-600">Application behavior settings (e.g., notifications, startup) would go here.</p>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Behavior</h3>
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <p className="text-gray-600 dark:text-gray-400">Application behavior settings (e.g., notifications, startup) would go here.</p>
             </div>
           </motion.div>
         )}
@@ -509,19 +581,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
         {/* Customize Settings Content */} 
         {activeSetting === 'customize' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">Customize</h3>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Customize</h3>
             <div className="space-y-4">
               {/* Additional System Prompt Section */}
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h4 className="text-lg font-medium text-gray-900 mb-3">Additional System Prompt</h4>
-                <p className="text-sm text-gray-600 mb-3">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-3">Additional System Prompt</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                   Optionally add instructions to the AI. This will replace the default system prompt.
                 </p>
                 <textarea
                   value={additionalSystemPrompt}
                   onChange={(e) => setAdditionalSystemPrompt(e.target.value)}
                   placeholder="e.g., Always respond in the style of a pirate."
-                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none" // Added resize-none
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none" // Added resize-none
                   rows={4}
                 />
                 {/* Save button - Always visible, disabled if unchanged or loading */}
@@ -542,8 +614,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
         {/* Models Settings Content */}
         {activeSetting === 'models' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">Model Selection</h3>
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Model Selection</h3>
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <LLMSettings />
             </div>
           </motion.div>
@@ -552,9 +624,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
         {/* Data Controls Settings Content (Placeholder) */} 
         {activeSetting === 'dataControls' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">Data Controls</h3>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-gray-600">Data privacy, export, and deletion settings would go here.</p>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Data Controls</h3>
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <p className="text-gray-600 dark:text-gray-400">Data privacy, export, and deletion settings would go here.</p>
             </div>
           </motion.div>
         )}
@@ -562,17 +634,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
         {/* Billing Settings Content */} 
         {activeSetting === 'billing' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-             <h3 className="text-xl font-semibold text-gray-900 mb-6">
+             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
                {subscriptionTier === 'free' ? 'Upgrade Your Account' : 'Billing'}
              </h3>
             {subscriptionTier === 'free' ? (
               // Free Tier View
-              <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg text-center shadow-sm border border-gray-200 max-w-md mx-auto"> {/* Constrain width */} 
+              <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg text-center shadow-sm border border-gray-200 dark:border-gray-700 max-w-md mx-auto"> {/* Constrain width */} 
                 <div className="flex justify-center mb-4">
-                  <HiOutlineSparkles className="h-10 w-10 text-blue-500" />
+                  <HiOutlineSparkles className="h-10 w-10 text-blue-500 dark:text-blue-400" />
                 </div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-2">You are on the Free Plan</h4>
-                <p className="text-sm text-gray-600 mb-5">
+                <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">You are on the Free Plan</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
                   Upgrade to unlock premium features and support the development of LearningLLM.
                 </p>
                 <button 
@@ -585,16 +657,16 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
             ) : (
               // Paid Tier View
               <div className="space-y-4 max-w-md"> {/* Constrain width */} 
-                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-200"> {/* Added border */} 
-                   <p className="text-sm text-gray-600 mb-1">Current Plan</p>
-                   <p className="text-md font-medium text-gray-900 capitalize">{subscriptionTier}</p>
-                   <p className="text-xs text-gray-500 mt-1">Renews on: January 1, 2025</p>
+                 <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"> {/* Added border */} 
+                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Current Plan</p>
+                   <p className="text-md font-medium text-gray-900 dark:text-white capitalize">{subscriptionTier}</p>
+                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Renews on: January 1, 2025</p>
                  </div>
                 <div className="pt-2">
                   <button 
                     onClick={() => console.log('Navigate to billing management portal (e.g., Stripe)')} 
                     // Adjusted styles to match target screenshot
-                    className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 cursor-pointer"
+                    className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-gray-500 cursor-pointer"
                   >
                     Manage Subscription
                   </button>

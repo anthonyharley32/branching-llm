@@ -101,7 +101,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
     <div className="flex flex-col mx-4 mb-4">
       {/* Selected images preview */}
       {selectedImages.length > 0 && (
-        <div className="flex flex-wrap gap-2 p-2 mb-2 border border-gray-200 rounded-lg bg-white">
+        <div className="flex flex-wrap gap-2 p-2 mb-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
           {selectedImages.map((img, index) => (
             <div key={index} className="relative group">
               <img 
@@ -122,11 +122,11 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
 
       <form 
         onSubmit={handleSubmit} 
-        className="flex items-end p-3 border border-gray-200 rounded-2xl bg-white shadow-md transition-all hover:shadow-lg"
+        className="flex items-end p-3 border border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 shadow-md transition-all hover:shadow-lg"
       >
         <button 
           type="button" 
-          className="p-2 text-gray-500 hover:text-gray-700 flex-shrink-0 cursor-pointer"
+          className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex-shrink-0 cursor-pointer"
         >
           <IoMdMic size={20} />
         </button>
@@ -134,7 +134,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
         <button 
           type="button" 
           onClick={handleAttachClick}
-          className="p-2 mr-2 text-gray-500 hover:text-gray-700 flex-shrink-0 cursor-pointer"
+          className="p-2 mr-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex-shrink-0 cursor-pointer"
         >
           <IoMdAttach size={20} />
           <input
@@ -154,14 +154,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
           onPaste={handlePaste}
           placeholder="How can Navi help?"
           disabled={isLoading}
-          className="flex-grow px-3 py-2 bg-transparent border-none focus:outline-none focus:ring-0 resize-none max-h-40 overflow-y-auto text-sm"
+          className="flex-grow px-3 py-2 bg-transparent border-none focus:outline-none focus:ring-0 resize-none max-h-40 overflow-y-auto text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           rows={1}
         />
 
         <button
           type="submit"
           disabled={isLoading || (!inputValue.trim() && selectedImages.length === 0)}
-          className="p-2 ml-2 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 cursor-pointer"
+          className="p-2 ml-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 cursor-pointer"
         >
           <IoMdArrowUp size={20} />
         </button>

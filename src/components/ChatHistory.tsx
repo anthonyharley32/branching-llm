@@ -683,12 +683,12 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
   return (
     <div 
       ref={containerRef}
-      className="h-full w-80 bg-white border-r border-gray-200 overflow-y-auto p-4 flex flex-col"
+      className="h-full w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto p-4 flex flex-col"
     >
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center justify-between w-full">
-          <h2 className="text-lg font-semibold text-gray-900">Chat History</h2>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-800 cursor-pointer">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Chat History</h2>
+          <button onClick={onClose} className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer">
             <DoubleChevronLeft />
           </button>
         </div>
@@ -696,13 +696,13 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
       
       <button 
         onClick={handleNewChat}
-        className="flex items-center justify-center gap-2 w-full py-2 px-3 mb-6 text-sm font-medium rounded-md border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 transition-colors cursor-pointer"
+        className="flex items-center justify-center gap-2 w-full py-2 px-3 mb-6 text-sm font-medium rounded-md border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
       >
         <FiEdit className="h-4 w-4" />
         <span>New Conversation</span>
       </button>
       
-      <div className="text-sm font-medium text-gray-500 mb-2">Recent conversations</div>
+      <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Recent conversations</div>
       
       {/* Only show loading when there's no history content yet */}
       {/* {loading && history.length === 0 && <p className="text-gray-500">Loading...</p>} */}
@@ -753,10 +753,10 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                             className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
                               item.id === activeConversationId 
                                 ? 'bg-gray-900 text-white hover:bg-gray-800' 
-                                : 'hover:bg-gray-100'
+                                : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                             } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
                           >
-                            <div className={`font-medium ${item.id === activeConversationId ? 'text-white' : 'text-gray-900'} flex items-center`}>
+                            <div className={`font-medium ${item.id === activeConversationId ? 'text-white' : 'text-gray-900 dark:text-gray-100'} flex items-center`}>
                               <input
                                 ref={renameInputRef}
                                 type="text"
@@ -772,7 +772,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                   e.stopPropagation();
                                 }}
                                 onClick={(e) => e.stopPropagation()}
-                                className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''} bg-transparent focus:outline-none rounded px-1 -ml-1 ${item.id === activeConversationId ? 'text-white' : 'text-gray-900'}`}
+                                className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''} bg-transparent focus:outline-none rounded px-1 -ml-1 ${item.id === activeConversationId ? 'text-white' : 'text-gray-900 dark:text-gray-100'}`}
                                 placeholder="Enter new title"
                                 autoFocus
                               />
@@ -811,10 +811,10 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                             className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
                               item.id === activeConversationId 
                                 ? 'bg-gray-900 text-white hover:bg-gray-800' 
-                                : 'hover:bg-gray-100'
+                                : 'hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
                             } ${loadingConversation === item.id ? 'opacity-70' : ''} cursor-pointer`}
                           >
-                            <div className={`font-medium ${item.id === activeConversationId ? 'text-white' : 'text-gray-900'} flex items-center`}>
+                            <div className={`font-medium ${item.id === activeConversationId ? 'text-white' : 'text-gray-900 dark:text-gray-100'} flex items-center`}>
                               <span className={`truncate max-w-[85%] ${activeMenu === item.id || item.id === activeConversationId ? 'pr-7' : ''}`}>
                                 {item.title}
                               </span>
@@ -847,7 +847,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                           {activeMenu === item.id && (
                             <div 
                               ref={menuRef}
-                              className="fixed left-[310px] z-50 w-48 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-gray-200 focus:outline-none overflow-hidden"
+                              className="fixed left-[310px] z-50 w-48 origin-top-left rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 focus:outline-none overflow-hidden"
                               style={{
                                 top: (() => {
                                   // Use the stored ref for precise positioning
@@ -877,7 +877,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                     setNewTitle(item.title);
                                     setActiveMenu(null);
                                   }}
-                                  className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                  className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                                 >
                                   <FiEdit2 className="mr-3 h-4 w-4" />
                                   Rename
@@ -888,7 +888,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                                     handleDelete(item.id);
                                     setActiveMenu(null);
                                   }}
-                                  className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-gray-50 cursor-pointer"
+                                  className="flex items-center w-full px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                                 >
                                   <FiTrash2 className="mr-3 h-4 w-4" />
                                   Delete

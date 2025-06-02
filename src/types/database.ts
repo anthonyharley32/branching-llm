@@ -17,6 +17,9 @@ export type UserProfile = {
   additional_system_prompt: string | null;
   created_at: string;
   updated_at: string;
+  // Future fields (when added to database):
+  // avatar_fallback_url: string | null; // Fallback avatar URL if primary fails
+  // display_name: string | null; // User's display name for better profile handling
 };
 
 export type Conversation = {

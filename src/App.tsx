@@ -5,6 +5,7 @@ import ChatInput from './components/ChatInput'
 import ChatThread from './components/ChatThread'
 import { ConversationProvider, useConversation, AddMessageResult } from './context/ConversationContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 // import AuthContainer from './components/auth/AuthContainer' // Already removed
 import { 
   generateCompletionStream,
@@ -29,6 +30,64 @@ import { supabase } from './lib/supabase' // Added supabase import
 // --- Constants ---
 const GUEST_MESSAGE_LIMIT = 1000;
 const GUEST_MESSAGE_COUNT_KEY = 'LearningLLM_guest_message_count';
+
+// Default profile picture as a data URL (simple user icon)
+const DEFAULT_PROFILE_PICTURE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E";
+
+// ProfilePicture component with fallback handling
+interface ProfilePictureProps {
+  src?: string | null;
+  fallbackSrc?: string | null;
+  alt: string;
+  className?: string;
+}
+
+const ProfilePicture: React.FC<ProfilePictureProps> = ({ src, fallbackSrc, alt, className }) => {
+  const [imgSrc, setImgSrc] = useState<string>(src || fallbackSrc || DEFAULT_PROFILE_PICTURE);
+  const [hasErrored, setHasErrored] = useState<boolean>(false);
+  const [fallbackUsed, setFallbackUsed] = useState<boolean>(false);
+
+  // Reset error state and image source when src prop changes
+  useEffect(() => {
+    if (src) {
+      setImgSrc(src);
+      setHasErrored(false);
+      setFallbackUsed(false);
+    } else if (fallbackSrc) {
+      setImgSrc(fallbackSrc);
+      setHasErrored(false);
+      setFallbackUsed(true);
+    } else {
+      setImgSrc(DEFAULT_PROFILE_PICTURE);
+      setHasErrored(false);
+      setFallbackUsed(false);
+    }
+  }, [src, fallbackSrc]);
+
+  const handleError = () => {
+    if (!hasErrored) {
+      setHasErrored(true);
+      
+      // Try fallback URL if we haven't used it yet and it exists
+      if (!fallbackUsed && fallbackSrc && imgSrc !== fallbackSrc) {
+        setImgSrc(fallbackSrc);
+        setFallbackUsed(true);
+      } else {
+        // Use default profile picture as final fallback
+        setImgSrc(DEFAULT_PROFILE_PICTURE);
+      }
+    }
+  };
+
+  return (
+    <img 
+      src={imgSrc}
+      alt={alt}
+      className={className}
+      onError={handleError}
+    />
+  );
+};
 
 // Helper to get the main thread path (root to latest non-branch message)
 function getMainThreadPath(conversation: Conversation | null): MessageNode[] {
@@ -116,6 +175,11 @@ function AppContent() {
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   // State for user's additional system prompt
   const [additionalSystemPrompt, setAdditionalSystemPrompt] = useState<string | null>(null);
+  // State for user profile data
+  const [userProfile, setUserProfile] = useState<{
+    avatar_fallback_url?: string | null;
+    display_name?: string | null;
+  } | null>(null);
 
   // Handle visibility changes when switching tabs or apps
   useEffect(() => {
@@ -196,17 +260,21 @@ function AppContent() {
         try {
           const { data, error } = await supabase
             .from('user_profiles')
-            .select('additional_system_prompt')
+            .select('additional_system_prompt, avatar_url')
             .eq('user_id', user.id)
             .single();
             
           if (error && error.code !== 'PGRST116') { // Ignore 'No rows found' error
-            console.error('Error fetching user profile prompt:', error);
+            console.error('Error fetching user profile:', error);
           } else if (data) {
             setAdditionalSystemPrompt(data.additional_system_prompt || null);
+            setUserProfile({
+              avatar_fallback_url: data.avatar_url || null, // Use avatar_url as fallback for now
+              display_name: user.user_metadata?.full_name || user.email || null
+            });
           }
         } catch (err) {
-          console.error('Exception fetching user profile prompt:', err);
+          console.error('Exception fetching user profile:', err);
         }
       }
     };
@@ -232,7 +300,7 @@ function AppContent() {
         const callbacks: StreamCallbacks = {
           onChunk: (chunk) => {
             if (!tempAiNodeId) {
-              console.log('FIRST CHUNK - Creating AI message node');
+              console.log('FIRST CONTENT CHUNK - Creating AI message node (no thinking chunks received)');
               const responseMetadata: Record<string, any> = {};
               if (metadata?.branchId) {
                 responseMetadata.branchId = metadata.branchId;
@@ -245,7 +313,7 @@ function AppContent() {
               const newAiResult = addMessage(firstChunkData, aiParentId);
               if (newAiResult) {
                 tempAiNodeId = newAiResult.newNode.id;
-                console.log('Created new assistant node with ID:', tempAiNodeId);
+                console.log('Created new assistant node with ID (from content):', tempAiNodeId);
                 
                 // Initial metadata update on node creation
                 updateMessageMetadata(tempAiNodeId, { 
@@ -253,14 +321,6 @@ function AppContent() {
                   streamStartTime: Date.now(), 
                   modelReasoningType: reasoningType 
                 });
-
-                if (currentThinkingContent && currentThinkingContent.length > 0 && modelIsExplicitlyReasoning) {
-                  console.log('Applying accumulated thinking content to new node', {
-                    nodeId: tempAiNodeId,
-                    thinkingLength: currentThinkingContent.length
-                  });
-                  updateMessageThinkingContent(tempAiNodeId, currentThinkingContent);
-                }
                 setStreamingAiNodeId(tempAiNodeId);
               } else {
                 console.error('Failed to create new assistant message node');
@@ -271,16 +331,41 @@ function AppContent() {
           },
           onThinkingChunk: (chunk) => {
             if (!modelIsExplicitlyReasoning) {
-              console.log('Skipping thinking chunk - not an explicit reasoning model:', currentModel);
               return;
             }
-            console.log('=== THINKING CHUNK RECEIVED ===');
             currentThinkingContent += chunk;
+            
+            // Create AI node on first thinking chunk if it doesn't exist yet
+            if (!tempAiNodeId) {
+              console.log('FIRST THINKING CHUNK - Creating AI message node');
+              const responseMetadata: Record<string, any> = {};
+              if (metadata?.branchId) {
+                responseMetadata.branchId = metadata.branchId;
+              }
+              const firstNodeData: Omit<MessageNode, 'id' | 'parentId' | 'createdAt'> = {
+                role: 'assistant',
+                content: '', // Start with empty content - will be filled when content chunks arrive
+                metadata: responseMetadata
+              };
+              const newAiResult = addMessage(firstNodeData, aiParentId);
+              if (newAiResult) {
+                tempAiNodeId = newAiResult.newNode.id;
+                console.log('Created new assistant node with ID (from thinking):', tempAiNodeId);
+                
+                // Initial metadata update on node creation
+                updateMessageMetadata(tempAiNodeId, { 
+                  isStreaming: true, 
+                  streamStartTime: Date.now(), 
+                  modelReasoningType: reasoningType 
+                });
+                setStreamingAiNodeId(tempAiNodeId);
+              } else {
+                console.error('Failed to create new assistant message node from thinking chunk');
+              }
+            }
+            
             if (tempAiNodeId) {
-              console.log('Calling updateMessageThinkingContent with nodeId:', tempAiNodeId);
-              updateMessageThinkingContent(tempAiNodeId, currentThinkingContent); // Send full accumulated content
-            } else {
-              console.warn('No tempAiNodeId available yet - will save thinking chunk when node is created');
+              updateMessageThinkingContent(tempAiNodeId, chunk); // Send only the new chunk, not accumulated content
             }
           },
           onComplete: () => {
@@ -289,12 +374,12 @@ function AppContent() {
               setGuestMessageCount(newCount);
             }
             setIsSending(false);
-            if (tempAiNodeId && modelIsExplicitlyReasoning && currentThinkingContent) {
-              console.log('COMPLETION: Final thinking content update', {
+            if (tempAiNodeId && modelIsExplicitlyReasoning) {
+              console.log('COMPLETION: Thinking content finalized', {
                 nodeId: tempAiNodeId,
                 contentLength: currentThinkingContent.length
               });
-              updateMessageThinkingContent(tempAiNodeId, currentThinkingContent); // Send full accumulated content
+              // No need to send content again on completion - all chunks have already been sent
             }
             setStreamingAiNodeId(null);
             
@@ -761,7 +846,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
 
   return (
     // Layout: side panel (ChatHistory) and main content
-    <div className="flex h-screen w-full bg-gray-50 text-gray-900 overflow-hidden">
+    <div className="flex h-screen w-full bg-stone-50 dark:bg-stone-900 text-stone-900 dark:text-stone-100 overflow-hidden" style={{ height: '100dvh' }}>
       {/* Animated Chat History panel */}
       <AnimatePresence>
         {isHistoryOpen && (
@@ -770,7 +855,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
             animate={{ width: '20rem', opacity: 1 }}
             exit={{ width: 0, opacity: 1 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="flex-shrink-0 h-full z-20 overflow-hidden bg-white border-r border-gray-200"
+            className="flex-shrink-0 h-full z-20 overflow-hidden bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
             style={{ boxShadow: isHistoryOpen ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none' }}
           >
             <ChatHistory 
@@ -790,7 +875,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
       </AnimatePresence>
       {/* Main content area */}
       <div className="flex flex-col flex-1 overflow-hidden">
-        <header className="h-16 border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 shrink-0 relative">
+        <header className="h-16 border-b border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 flex items-center justify-between px-4 sm:px-6 shrink-0 relative">
           {/* Left Side: Show logo title */}
           {branchStack.length === 0 && (
             <div className="flex items-center gap-2">
@@ -819,21 +904,18 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                           <button
                               ref={profileButtonRef} // Attach ref
                               onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} // Toggle dropdown
-                              className="flex items-center justify-center h-8 w-8 rounded-full text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-blue-500 cursor-pointer overflow-hidden" // Adjusted focus rings
+                              className="flex items-center justify-center h-8 w-8 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-blue-500 cursor-pointer overflow-hidden" // Adjusted focus rings
                               aria-label="Profile menu"
                               title="Profile menu"
                               aria-haspopup="true"
                               aria-expanded={isProfileDropdownOpen}
                           >
-                              {user?.user_metadata?.avatar_url ? (
-                                  <img 
-                                      src={user.user_metadata.avatar_url} 
-                                      alt="User profile" 
-                                      className="h-full w-full object-cover" // Ensure image covers the button area
-                                  />
-                              ) : (
-                                  <FiUser className="h-5 w-5" /> // Default icon
-                              )}
+                              <ProfilePicture 
+                                  src={user?.user_metadata?.avatar_url} 
+                                  fallbackSrc={userProfile?.avatar_fallback_url}
+                                  alt={userProfile?.display_name || user?.user_metadata?.full_name || "User profile"}
+                                  className="h-full w-full object-cover"
+                              />
                           </button>
                           
                           {/* Profile Dropdown Menu */} 
@@ -845,7 +927,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                                       animate={{ opacity: 1, scale: 1, y: 0 }}
                                       exit={{ opacity: 0, scale: 0.95, y: -10 }}
                                       transition={{ duration: 0.15, ease: "easeOut" }}
-                                      className="absolute right-0 mt-2 w-48 origin-top-right bg-white rounded-md shadow-lg border border-gray-200 focus:outline-none z-50"
+                                      className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none z-50"
                                       role="menu"
                                       aria-orientation="vertical"
                                       aria-labelledby="profile-menu-button"
@@ -856,7 +938,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                                                   openProfileModal();
                                                   setIsProfileDropdownOpen(false); // Close dropdown after click
                                               }}
-                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
+                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md cursor-pointer"
                                               role="menuitem"
                                           >
                                               Settings
@@ -866,7 +948,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                                                   signOut();
                                                   setIsProfileDropdownOpen(false); // Close dropdown after click
                                               }}
-                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
+                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md cursor-pointer"
                                               role="menuitem"
                                           >
                                               Sign Out
@@ -893,7 +975,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
           <div className="absolute top-16 left-0 p-4 z-10 flex gap-2">
             <button
               onClick={() => setIsHistoryOpen(true)}
-              className="p-2 rounded-md text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer"
+              className="p-2 rounded-md text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors cursor-pointer"
               title="Open History"
             >
               <FiMenu className="h-5 w-5" />
@@ -907,7 +989,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                 // Clear any error messages that might be showing
                 setError(null);
               }}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-stone-200 dark:border-stone-600 text-stone-700 dark:text-stone-200 bg-white dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-stone-400 dark:focus:ring-stone-500 transition-colors cursor-pointer"
               title="Start a new conversation thread"
             >
               <FiEdit className="h-4 w-4" />
@@ -930,7 +1012,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
             {branchStack.length > 0 && (
               <button
                 onClick={handleGoBack}
-                className="absolute top-4 left-4 z-10 text-gray-600 hover:text-gray-800 focus:outline-none rounded-full p-1 transition-colors bg-transparent hover:bg-gray-200"
+                className="absolute top-4 left-4 z-10 text-stone-600 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 focus:outline-none rounded-full p-1 transition-colors bg-transparent hover:bg-stone-200 dark:hover:bg-stone-700"
                 aria-label="Go back"
                 title="Go back"
               >
@@ -940,7 +1022,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
 
             {/* Show breadcrumb-style navigation for nested branches */}
             {branchStack.length > 0 && (
-              <div className="text-sm italic text-gray-500 text-center mb-4 pt-10 flex-shrink-0">
+              <div className="text-sm italic text-stone-500 dark:text-stone-400 text-center mb-4 pt-10 flex-shrink-0">
                 {branchStack.length > 1 ? (
                   <div className="flex flex-wrap justify-center items-center gap-1">
                     <span>Branches:</span>
@@ -950,7 +1032,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                         setActiveMessageId(conversation?.rootMessageId || null);
                         setShowingMainThread(true);
                       }}
-                      className="bg-gray-100 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200 relative group"
+                      className="bg-stone-100 dark:bg-stone-700 px-2 py-0.5 rounded cursor-pointer hover:bg-stone-200 dark:hover:bg-stone-600 relative group"
                       title="Return to main conversation"
                     >
                       Main
@@ -982,7 +1064,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                               setActiveMessageId(branchStack[0].parentId);
                             }
                           }}
-                          className="bg-gray-100 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-200"
+                          className="bg-stone-100 dark:bg-stone-700 px-2 py-0.5 rounded cursor-pointer hover:bg-stone-200 dark:hover:bg-stone-600"
                           title={`Navigate to ${branch.sourceText || `Branch ${index + 1}`}`}
                         >
                           {branch.sourceText || `Branch ${index + 1}`}
@@ -1015,7 +1097,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
           </div>
         )}
 
-        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pb-2">
+        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pb-2 sm:pb-4" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
           {!session && (
               <p className="text-xs text-gray-500 text-center mb-1">
                   Chat history isn't saved for guest users. 
@@ -1050,14 +1132,27 @@ function App() {
     if (savedHighlightColor) {
       document.documentElement.style.setProperty('--branch-highlight-color', savedHighlightColor);
     }
+    
+    // Always ensure dark mode color is set (for both default and custom colors)
+    const currentColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim();
+    if (currentColor && currentColor !== '') {
+      // Convert hex to RGB with transparency for dark mode
+      const rgb = currentColor.replace('#', '').match(/\w\w/g);
+      if (rgb) {
+        const [r, g, b] = rgb.map(hex => parseInt(hex, 16));
+        document.documentElement.style.setProperty('--branch-highlight-color-dark', `rgba(${r}, ${g}, ${b}, 0.4)`);
+      }
+    }
   }, []);
 
   return (
-    <AuthProvider>
-      <ConversationProvider>
-        <AppContent />
-      </ConversationProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ConversationProvider>
+          <AppContent />
+        </ConversationProvider>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

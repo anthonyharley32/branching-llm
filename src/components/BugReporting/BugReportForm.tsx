@@ -128,15 +128,15 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-6">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">Report a Bug</h2>
+    <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
+      <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">Report a Bug</h2>
       
       {success ? (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+        <div className="bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-600 text-green-700 dark:text-green-200 px-4 py-3 rounded mb-4">
           <p>Bug report submitted successfully!</p>
-          <button 
+                      <button 
             onClick={() => setSuccess(false)}
-            className="mt-2 bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded text-sm"
+            className="mt-2 bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm"
           >
             Submit Another
           </button>
@@ -144,13 +144,13 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
       ) : (
         <form onSubmit={handleSubmit}>
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-200 px-4 py-3 rounded mb-4">
               <p>{error}</p>
             </div>
           )}
           
-          <div className="mb-6 p-3 bg-blue-50 rounded border border-blue-200">
-            <p className="text-sm text-blue-700">
+          <div className="mb-6 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+            <p className="text-sm text-blue-700 dark:text-blue-200">
               Help us improve by reporting issues you encounter. We'll automatically collect technical information.
             </p>
           </div>
@@ -159,13 +159,13 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
           <div className="space-y-4 mb-6">
             {/* Title */}
             <div>
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="title">
+              <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2" htmlFor="title">
                 Issue Title <span className="text-red-500">*</span>
               </label>
               <input
                 id="title"
                 type="text"
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="shadow appearance-none border border-gray-300 dark:border-gray-600 rounded w-full py-2 px-3 text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500 dark:focus:border-blue-400"
                 placeholder="Briefly describe the issue (e.g., 'App crashes when uploading images')"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -176,12 +176,12 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
             
             {/* Description */}
             <div>
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
+              <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2" htmlFor="description">
                 Description <span className="text-red-500">*</span>
               </label>
               <textarea
                 id="description"
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline min-h-[100px]"
+                className="shadow appearance-none border border-gray-300 dark:border-gray-600 rounded w-full py-2 px-3 text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500 dark:focus:border-blue-400 min-h-[100px]"
                 placeholder="Please provide details about what happened..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -192,7 +192,7 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
             
             {/* Screenshot */}
             <div>
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="screenshots">
+              <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2" htmlFor="screenshots">
                 Add a Screenshot
               </label>
               <input
@@ -200,7 +200,7 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
                 type="file"
                 accept="image/*"
                 onChange={handleScreenshotUpload}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="shadow appearance-none border border-gray-300 dark:border-gray-600 rounded w-full py-2 px-3 text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500 dark:focus:border-blue-400"
                 disabled={isSubmitting}
               />
               {screenshots.length > 0 && (
@@ -215,7 +215,7 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
                       <button
                         type="button"
                         onClick={() => setScreenshots(screenshots.filter((_, i) => i !== index))}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                        className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
                         disabled={isSubmitting}
                       >
                         x
@@ -232,7 +232,7 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center text-sm text-blue-600 hover:underline focus:outline-none"
+              className="flex items-center text-sm text-blue-600 dark:text-blue-400 hover:underline focus:outline-none"
             >
               <svg 
                 className={`w-4 h-4 mr-1 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} 
@@ -248,15 +248,15 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
           
           {/* Advanced Fields */}
           {showAdvanced && (
-            <div className="space-y-4 mb-6 p-3 bg-gray-50 rounded border border-gray-200">
+            <div className="space-y-4 mb-6 p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
               {/* Severity */}
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="severity">
+                <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2" htmlFor="severity">
                   Severity
                 </label>
                 <select
                   id="severity"
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  className="shadow appearance-none border border-gray-300 dark:border-gray-600 rounded w-full py-2 px-3 text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500 dark:focus:border-blue-400"
                   value={severity}
                   onChange={(e) => setSeverity(e.target.value as 'minor' | 'major' | 'critical')}
                   disabled={isSubmitting}
@@ -269,13 +269,13 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
               
               {/* Related Component */}
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="relatedComponent">
+                <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2" htmlFor="relatedComponent">
                   Related Component
                 </label>
                 <input
                   id="relatedComponent"
                   type="text"
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  className="shadow appearance-none border border-gray-300 dark:border-gray-600 rounded w-full py-2 px-3 text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500 dark:focus:border-blue-400"
                   placeholder="Which part of the application is affected? (e.g., Chat, Auth, UI)"
                   value={relatedComponent}
                   onChange={(e) => setRelatedComponent(e.target.value)}
@@ -285,12 +285,12 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
               
               {/* Steps to Reproduce */}
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="stepsToReproduce">
+                <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2" htmlFor="stepsToReproduce">
                   Steps to Reproduce
                 </label>
                 <textarea
                   id="stepsToReproduce"
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline min-h-[80px]"
+                  className="shadow appearance-none border border-gray-300 dark:border-gray-600 rounded w-full py-2 px-3 text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500 dark:focus:border-blue-400 min-h-[80px]"
                   placeholder="1. Go to... 2. Click on... 3. Observe..."
                   value={stepsToReproduce}
                   onChange={(e) => setStepsToReproduce(e.target.value)}
@@ -301,12 +301,12 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
               {/* Expected/Actual Behavior */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="expectedBehavior">
+                  <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2" htmlFor="expectedBehavior">
                     Expected Behavior
                   </label>
                   <textarea
                     id="expectedBehavior"
-                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-24"
+                    className="shadow appearance-none border border-gray-300 dark:border-gray-600 rounded w-full py-2 px-3 text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500 dark:focus:border-blue-400 h-24"
                     placeholder="What should have happened?"
                     value={expectedBehavior}
                     onChange={(e) => setExpectedBehavior(e.target.value)}
@@ -315,12 +315,12 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
                 </div>
                 
                 <div>
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="actualBehavior">
+                  <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2" htmlFor="actualBehavior">
                     Actual Behavior
                   </label>
                   <textarea
                     id="actualBehavior"
-                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-24"
+                    className="shadow appearance-none border border-gray-300 dark:border-gray-600 rounded w-full py-2 px-3 text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500 dark:focus:border-blue-400 h-24"
                     placeholder="What actually happened?"
                     value={actualBehavior}
                     onChange={(e) => setActualBehavior(e.target.value)}
@@ -331,7 +331,7 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
             </div>
           )}
           
-          <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
+          <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 p-2 rounded">
             Technical info will be collected: Browser ({getBrowserName()}), OS ({getOS()}), URL ({window.location.href}), App Version ({appVersion})
           </div>
           
@@ -340,7 +340,7 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
               <button
                 type="button"
                 onClick={onCancel}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 focus:outline-none"
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none"
                 disabled={isSubmitting}
               >
                 Cancel
@@ -348,7 +348,7 @@ const BugReportForm: React.FC<BugReportFormProps> = ({ onSuccess, onCancel }) =>
             )}
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none disabled:opacity-50"
+              className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none disabled:opacity-50"
               disabled={isSubmitting}
             >
               {isSubmitting ? (

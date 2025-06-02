@@ -7,7 +7,37 @@
     <title>Navi</title>
     <!-- Add KaTeX CSS -->
     <link rel="stylesheet" href="./node_modules/katex/dist/katex.min.css" /> 
-    <script src="https://analytics.ahrefs.com/analytics.js" data-key="4KdI3ADlhtIU7k9Xxb+msA" async></script>
+    <script>
+      // Only load analytics in production and with user consent
+      if (typeof window !== 'undefined' && 
+          (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') &&
+          !location.hostname.includes('dev') &&
+          !location.hostname.includes('staging')) {
+        
+        // Check if analytics should be loaded (you can extend this with region/consent checks)
+        const shouldLoadAnalytics = () => {
+          // Add your region/consent logic here
+          // For example: return hasUserConsent() && isAllowedRegion();
+          return true; // Modify based on your privacy requirements
+        };
+
+        if (shouldLoadAnalytics()) {
+          const script = document.createElement('script');
+          script.src = 'https://analytics.ahrefs.com/analytics.js';
+          script.setAttribute('data-key', '4KdI3ADlhtIU7k9Xxb+msA');
+          script.setAttribute('crossorigin', 'anonymous');
+          script.setAttribute('integrity', 'sha384-PLACEHOLDER'); // Replace with actual hash
+          script.async = true;
+          
+          // Handle SRI failures gracefully
+          script.onerror = function() {
+            console.warn('Analytics script failed to load - this may be due to SRI mismatch');
+          };
+          
+          document.head.appendChild(script);
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

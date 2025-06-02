@@ -105,11 +105,11 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
   };
 
   // Specific classes for user messages (Grok style)
-  const userBubbleClasses = 'bg-white text-gray-900 px-3 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl rounded-br-md max-w-xs md:max-w-md lg:max-w-lg break-words self-end border border-gray-200 shadow-sm transition-colors text-[15px]';
+  const userBubbleClasses = 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl rounded-br-md max-w-xs md:max-w-md lg:max-w-lg break-words self-end border border-gray-200 dark:border-gray-600 shadow-sm transition-colors text-[15px]';
 
   // Minimal classes for AI messages (plain text with adjusted leading)
   // Keep relative positioning to allow absolutely positioned wave background
-  const aiTextClasses = 'text-gray-800 px-4 py-2 max-w-prose break-words self-start leading-relaxed relative';
+  const aiTextClasses = 'text-gray-800 dark:text-gray-200 px-4 py-2 max-w-prose break-words self-start leading-relaxed relative';
 
   // --- Check if this message is a branch point --- 
   const isBranchPoint = !isUser && hasChildren(message.id);
@@ -277,7 +277,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
               // Create a highlight span
               const highlightSpan = document.createElement('span');
               highlightSpan.className = 'branch-source-highlight';
-              highlightSpan.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim() || '#f5f0a8'; // Use CSS variable
+              // CSS will handle the appropriate color based on light/dark mode
               highlightSpan.dataset.branchIndex = index.toString(); // Store index for later hover effects
               
               // Surround the text with the highlight span
@@ -518,13 +518,13 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
       >
         {isUser && isEditing ? (
           // Edit mode as a standalone UI rather than inside the bubble
-          <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="w-full bg-white dark:bg-gray-700 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-600 overflow-hidden">
             <textarea
               ref={editInputRef}
               value={editedContent}
               onChange={(e) => setEditedContent(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="px-4 py-3 w-full border-none outline-none resize-none text-gray-900 text-[15px]"
+              className="px-4 py-3 w-full border-none outline-none resize-none text-gray-900 dark:text-gray-100 text-[15px] bg-transparent"
               style={{ 
                 minHeight: '60px',
                 overflow: 'hidden',
@@ -543,16 +543,16 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
                 target.style.height = `${target.scrollHeight}px`;
               }}
             />
-            <div className="flex justify-end space-x-2 px-4 py-2 bg-white">
+            <div className="flex justify-end space-x-2 px-4 py-2 bg-white dark:bg-gray-700">
               <button
                 onClick={handleCancelEdit}
-                className="px-4 py-2 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 rounded-full bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800 transition-colors"
+                className="px-4 py-2 rounded-full bg-black dark:bg-gray-900 text-white hover:bg-gray-800 dark:hover:bg-gray-800 transition-colors"
               >
                 Send
               </button>
@@ -567,6 +567,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
             {/* Render ThinkingBox for assistant messages */}
             {message.role === 'assistant' && (
               <ThinkingBox
+                key={`thinking-${message.id}`}
                 thinkingContent={message.thinkingContent || ''}
                 isThinkingComplete={!message.isStreaming}
                 thinkingDuration={message.thinkingDuration}
@@ -574,6 +575,8 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
                 thinkingContentFinalized={!!message.thinkingContent && !message.isStreaming}
               />
             )}
+
+
 
             {/* Render message content using react-markdown */}
             <ReactMarkdown
@@ -671,8 +674,6 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
                   if (messageContentRef.current) {
                     const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
                     if (highlight) {
-                      const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim() || '#f5f0a8';
-                      (highlight as HTMLElement).style.backgroundColor = highlightColor;
                       (highlight as HTMLElement).style.filter = 'brightness(0.8)'; // Make significantly darker on hover
                     }
                   }
@@ -682,8 +683,6 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
                   if (messageContentRef.current) {
                     const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
                     if (highlight) {
-                      const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--branch-highlight-color').trim() || '#f5f0a8';
-                      (highlight as HTMLElement).style.backgroundColor = highlightColor;
                       (highlight as HTMLElement).style.filter = 'none'; // Remove brightness filter
                     }
                   }
@@ -692,9 +691,9 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
                 title="View branch created from this text"
               >
                 <div 
-                  className="w-3.5 h-3.5 border border-gray-400 rounded-full 
+                  className="w-3.5 h-3.5 border border-gray-400 dark:border-gray-500 rounded-full 
                              transition-colors duration-150 ease-in-out 
-                             group-hover:bg-gray-500 group-hover:border-gray-500"
+                             group-hover:bg-gray-500 dark:group-hover:bg-gray-400 group-hover:border-gray-500 dark:group-hover:border-gray-400"
                 >
                   {/* Empty div serves as the circle */}
                 </div>
@@ -718,14 +717,14 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
                 <div className="flex shadow rounded-xl overflow-hidden">
                   <button
                     onClick={handleBranchClick}
-                    className="px-3 py-2 text-base font-semibold bg-black text-white rounded-l-xl hover:bg-gray-900 focus:outline-none transition-colors whitespace-nowrap cursor-pointer border-r border-gray-700"
+                    className="px-3 py-2 text-base font-semibold bg-black dark:bg-gray-800 text-white hover:bg-gray-900 dark:hover:bg-gray-700 focus:outline-none transition-colors whitespace-nowrap cursor-pointer border-r border-gray-700 dark:border-gray-600 rounded-l-xl"
                     title="Branch from selection"
                   >
                     Branch
                   </button>
                   <button
                     onClick={handleExplainClick}
-                    className="px-3 py-2 text-base font-semibold bg-black text-white rounded-r-xl hover:bg-gray-900 focus:outline-none transition-colors whitespace-nowrap cursor-pointer"
+                    className="px-3 py-2 text-base font-semibold bg-black dark:bg-gray-800 text-white hover:bg-gray-900 dark:hover:bg-gray-700 focus:outline-none transition-colors whitespace-nowrap cursor-pointer rounded-r-xl"
                     title="Get explanation of selection"
                   >
                     Explain
@@ -742,14 +741,14 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
             <div className="flex space-x-3">
               <button
                 onClick={handleCopyClick}
-                className="p-1.5 text-gray-500 hover:text-gray-800 rounded transition-colors"
+                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 rounded transition-colors"
                 title="Copy message"
               >
                 <FiCopy className="h-4 w-4" />
               </button>
               <button
                 onClick={handleEditClick} 
-                className="p-1.5 text-gray-500 hover:text-gray-800 rounded transition-colors"
+                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 rounded transition-colors"
                 title="Edit message"
               >
                 <FiEdit className="h-4 w-4" />

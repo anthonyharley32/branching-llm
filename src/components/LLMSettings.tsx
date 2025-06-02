@@ -181,16 +181,16 @@ const LLMSettings: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
       {errorMessage && (
-        <div className="mb-4 p-2 bg-red-100 border border-red-400 text-red-700 rounded">
+        <div className="mb-4 p-2 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-200 rounded">
           {errorMessage}
         </div>
       )}
       
       <div className="relative mb-4">
-        <div className="flex items-center border border-blue-200 rounded-md overflow-hidden bg-blue-50 p-2">
-          <div className="flex-shrink-0 pl-1 text-blue-500">
+        <div className="flex items-center border border-blue-200 dark:border-blue-700 rounded-md overflow-hidden bg-blue-50 dark:bg-blue-900/20 p-2">
+          <div className="flex-shrink-0 pl-1 text-blue-500 dark:text-blue-400">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -200,12 +200,12 @@ const LLMSettings: React.FC = () => {
             placeholder="Search models by name or provider..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-grow py-2 px-3 focus:outline-none bg-transparent"
+            className="flex-grow py-2 px-3 focus:outline-none bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           />
           {searchQuery && (
             <button 
               onClick={() => setSearchQuery('')}
-              className="flex-shrink-0 pr-2 text-blue-500 hover:text-blue-600"
+              className="flex-shrink-0 pr-2 text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -218,9 +218,9 @@ const LLMSettings: React.FC = () => {
       <div className="mb-4">
         {/* Currently selected model indicator with inline description */}
         {currentModelId && (
-          <div className="mb-2 p-2 bg-gray-50 rounded-md border border-gray-200">
+          <div className="mb-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600">
             <div className="flex items-center gap-2 mb-1">
-              <div className="text-sm font-medium text-gray-700">Current Model:</div>
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-200">Current Model:</div>
               <div className="flex items-center gap-1.5 flex-grow">
                 {(() => {
                   const selectedModel = allModels.find(m => m.fullId === currentModelId);
@@ -237,10 +237,10 @@ const LLMSettings: React.FC = () => {
                           )}
                         </div>
                         <div className="flex-1">
-                          <div className="font-medium text-gray-800 flex items-center gap-1.5">
+                          <div className="font-medium text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
                             <span>{selectedModel.name}</span>
                             {REASONING_MODEL_IDS.has(selectedModel.fullId) && (
-                              <span className="flex items-center text-xs text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded-full">
+                              <span className="flex items-center text-xs text-purple-600 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 px-1.5 py-0.5 rounded-full">
                                 <HiOutlineSparkles className="mr-1" /> 
                                 Reasoning
                               </span>
@@ -256,10 +256,10 @@ const LLMSettings: React.FC = () => {
             </div>
             {/* Show description inline */}
             {selectedModelDesc && (
-              <div className="text-xs text-gray-600 pl-1 pt-1">
+              <div className="text-xs text-gray-600 dark:text-gray-300 pl-1 pt-1">
                 {selectedModelDesc}
                 {currentModelId.startsWith('x-ai/grok-') && (
-                  <span className="block mt-1 text-blue-600">
+                  <span className="block mt-1 text-blue-600 dark:text-blue-400">
                     <strong>Note:</strong> Shows thinking process and requires special handling (configured automatically).
                   </span>
                 )}
@@ -268,7 +268,7 @@ const LLMSettings: React.FC = () => {
           </div>
         )}
         
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
           Select Model
         </label>
         <div className="relative">
@@ -287,9 +287,9 @@ const LLMSettings: React.FC = () => {
         </div>
         
         {/* Custom visual model list */}
-        <div className="border rounded-md overflow-hidden max-h-64 overflow-y-auto">
+        <div className="border border-gray-200 dark:border-gray-600 rounded-md overflow-hidden max-h-64 overflow-y-auto">
           {filteredModels.length === 0 ? (
-            <div className="p-3 text-center text-gray-500 bg-white">
+            <div className="p-3 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
               No models found matching your search
             </div>
           ) : (
@@ -302,8 +302,8 @@ const LLMSettings: React.FC = () => {
                     handleModelChange({ target: { value: model.fullId } } as React.ChangeEvent<HTMLSelectElement>);
                   }
                 }}
-                className={`flex items-center gap-2 p-2 hover:bg-gray-100 cursor-pointer ${
-                  currentModelId === model.fullId ? 'bg-blue-50' : 'bg-white'
+                className={`flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
+                  currentModelId === model.fullId ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-white dark:bg-gray-800'
                 }`}
                 title={MODEL_DESCRIPTIONS[model.fullId] || ""}
               >
@@ -317,19 +317,19 @@ const LLMSettings: React.FC = () => {
                   )}
                 </div>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-800 flex items-center gap-1.5">
+                  <div className="font-medium text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
                     <span>{model.name}</span>
                     {REASONING_MODEL_IDS.has(model.fullId) && (
-                      <span className="flex items-center text-xs text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded-full">
+                      <span className="flex items-center text-xs text-purple-600 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 px-1.5 py-0.5 rounded-full">
                         <HiOutlineSparkles className="mr-1" /> 
                         Reasoning
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500">{model.providerName}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{model.providerName}</div>
                 </div>
                 {currentModelId === model.fullId && (
-                  <div className="flex-shrink-0 text-blue-500">
+                  <div className="flex-shrink-0 text-blue-500 dark:text-blue-400">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
@@ -341,7 +341,7 @@ const LLMSettings: React.FC = () => {
         </div>
         
         <div className="mt-4 text-center">
-          <div className="text-xs text-gray-500 mb-2">
+          <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
             Powered by
           </div>
           <div className="flex justify-center flex-wrap gap-3">
@@ -350,7 +350,7 @@ const LLMSettings: React.FC = () => {
                 {getProviderLogo(provider) && (
                   <img src={getProviderLogo(provider)} alt={`${provider} logo`} className="w-5 h-5" />
                 )}
-                <span className="text-xs font-medium text-gray-700">{provider}</span>
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{provider}</span>
               </div>
             ))}
           </div>

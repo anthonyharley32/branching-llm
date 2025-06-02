@@ -23,6 +23,16 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
   const [isExpanded, setIsExpanded] = useState<boolean>(!isThinkingComplete);
   const [hasContent, setHasContent] = useState<boolean>(false);
 
+  // Reset state when a new thinking process starts (component reused for different message)
+  useEffect(() => {
+    if (!isThinkingComplete) {
+      setIsExpanded(true);
+      if (!thinkingContent && !hasInternalReasoning) {
+        setHasContent(false);
+      }
+    }
+  }, [isThinkingComplete, thinkingContent, hasInternalReasoning]);
+
   // Important: Keep expanded while thinking is in progress
   useEffect(() => {
     if (!isThinkingComplete) {
@@ -36,8 +46,11 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
   useEffect(() => {
     if (thinkingContent && thinkingContent.trim().length > 0) {
       setHasContent(true);
+    } else if (!thinkingContent) {
+      // Reset hasContent when thinking content is empty
+      setHasContent(false);
     }
-  }, [thinkingContent, hasContent]);
+  }, [thinkingContent]);
 
   // Set hasContent to true when hasInternalReasoning is true
   useEffect(() => {
@@ -113,7 +126,7 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
           initial="initial"
           animate={isExpanded ? 'expanded' : 'collapsed'}
           exit="exit"
-          className="bg-gray-100 border border-gray-200 rounded-lg overflow-hidden shadow-sm mx-4 my-2 max-w-prose self-start relative"
+          className="bg-stone-50/70 dark:bg-stone-800/70 border border-stone-200/60 dark:border-stone-700/60 rounded-lg overflow-hidden shadow-sm/40 mx-4 my-2 max-w-prose self-start relative backdrop-blur-sm"
           style={{ willChange: 'height, opacity' }}
         >
           {/* Collapsed View / Header */}
@@ -122,8 +135,8 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
             onClick={toggleExpand}
           >
             <div className="flex items-center space-x-2">
-              <FiCpu className="h-5 w-5 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">
+              <FiCpu className="h-5 w-5 text-stone-600 dark:text-stone-400" />
+              <span className="text-sm font-medium text-stone-700 dark:text-stone-300">
                 {isThinkingComplete 
                   ? (thinkingDuration !== null ? `Thought for ${thinkingDuration}s` : 'Thinking Process') 
                   : hasInternalReasoning ? 'Internal Reasoning...' : 'Thinking...'}
@@ -132,7 +145,7 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
             {/* Show toggle button only when complete and content exists */}
             {isThinkingComplete && hasContent && (
               <button
-                className="p-1 rounded-full hover:bg-gray-200 text-gray-500"
+                className="p-1 rounded-full hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-500 dark:text-stone-400"
                 aria-label={isExpanded ? 'Collapse Thinking' : 'Expand Thinking'}
               >
                 {isExpanded ? <FiChevronsUp className="h-4 w-4" /> : <FiChevronDown className="h-4 w-4" />}
@@ -149,15 +162,15 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                className="p-3 pt-0 border-t border-gray-200"
+                className="p-3 pt-0 border-t border-stone-200 dark:border-stone-600"
               >
                 {/* Show shimmer animation for internal reasoning models */}
                 {hasInternalReasoning && !isThinkingComplete ? (
-                  <div className="prose prose-sm max-w-none text-gray-700 thinking-content">
+                  <div className="prose prose-sm max-w-none text-stone-700 dark:text-stone-300 thinking-content">
                     <div 
-                      className="px-4 py-3 rounded bg-gray-50 text-gray-500 italic"
+                      className="px-4 py-3 rounded bg-stone-100 dark:bg-stone-700 text-stone-500 dark:text-stone-400 italic"
                       style={{
-                        backgroundImage: 'linear-gradient(90deg, rgba(200,200,200,0.05) 0%, rgba(200,200,200,0.2) 50%, rgba(200,200,200,0.05) 100%)',
+                        backgroundImage: 'linear-gradient(90deg, rgba(120,113,108,0.05) 0%, rgba(120,113,108,0.15) 50%, rgba(120,113,108,0.05) 100%)',
                         backgroundSize: '200% 100%',
                         animation: 'shimmer 2s infinite linear'
                       }}
@@ -177,7 +190,7 @@ const ThinkingBox: React.FC<ThinkingBoxProps> = ({
                     components={{
                       // Use a div wrapper for the content and apply the className there
                       // Passing children directly to the div to render the markdown content
-                      div: ({node, children, ...props}) => <div className="prose prose-sm max-w-none text-gray-700 thinking-content" {...props}>{children}</div>
+                      div: ({node, children, ...props}) => <div className="prose prose-sm max-w-none text-stone-700 dark:text-stone-300 thinking-content" {...props}>{children}</div>
                     }}
                   >
                     {thinkingContent ? 

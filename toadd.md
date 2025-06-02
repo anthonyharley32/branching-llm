@@ -11,7 +11,7 @@
 [ ] click chat input while prev chat loading
 [ ] netlify app redirect to main domain
 [ ] Pricing/Payments
-[ ] Remove supabase project name from 
+[ ] Remove supabase project name from google sign in
     - No login: 5 messages per day, no storage
     - Free tier: stores messages, 20 messages per day
     - Pro: ($15) model selection (non-reasoning: claude, gpt-4.1, grok, gemini) and unlimited messages
