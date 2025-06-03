@@ -36,7 +36,7 @@ serve(async (req) => {
     // Create customer portal session
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: subscription.stripe_customer_id,
-      return_url: `${Deno.env.get('FRONTEND_URL')}/dashboard`,
+      return_url: `${Deno.env.get('FRONTEND_URL')}/`,
     });
 
     return new Response(

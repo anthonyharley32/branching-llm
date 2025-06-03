@@ -48,9 +48,36 @@ $$ LANGUAGE plpgsql;
 -- Function to handle new user creation
 CREATE OR REPLACE FUNCTION handle_new_user() 
 RETURNS TRIGGER AS $$
+DECLARE
+  free_tier_id UUID;
 BEGIN
+  -- Insert into public.users table
   INSERT INTO public.users (id, email, created_at, updated_at)
   VALUES (NEW.id, NEW.email, NEW.created_at, NEW.updated_at);
+  
+  -- Create a user profile with default values
+  INSERT INTO public.user_profiles (user_id, avatar_url, preferences, additional_system_prompt, created_at, updated_at)
+  VALUES (
+    NEW.id, 
+    COALESCE(NEW.raw_user_meta_data->>'avatar_url', NEW.raw_user_meta_data->>'picture'), -- Get avatar from OAuth providers
+    '{}'::JSONB, 
+    '', 
+    NEW.created_at, 
+    NEW.updated_at
+  );
+  
+  -- Get the free tier ID
+  SELECT id INTO free_tier_id 
+  FROM public.subscription_tiers 
+  WHERE slug = 'free' AND is_active = true 
+  LIMIT 1;
+  
+  -- Create a free tier subscription for the new user
+  IF free_tier_id IS NOT NULL THEN
+    INSERT INTO public.user_subscriptions (user_id, tier_id, status, created_at, updated_at)
+    VALUES (NEW.id, free_tier_id, 'active', NEW.created_at, NEW.updated_at);
+  END IF;
+  
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

@@ -83,7 +83,12 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onUpgr
     }).format(priceCents / 100);
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, subscription?: UserSubscription) => {
+    // Check for expiring conditions first
+    if (isSubscriptionExpiring(subscription)) {
+      return 'text-yellow-600 bg-yellow-100';
+    }
+    
     switch (status) {
       case 'active':
         return 'text-green-600 bg-green-100';
@@ -98,7 +103,12 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onUpgr
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string, subscription?: UserSubscription) => {
+    // Check for expiring conditions first
+    if (isSubscriptionExpiring(subscription)) {
+      return 'Expiring';
+    }
+    
     switch (status) {
       case 'active':
         return 'Active';
@@ -117,6 +127,55 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onUpgr
       default:
         return status;
     }
+  };
+
+  // Helper function to determine if subscription is expiring
+  const isSubscriptionExpiring = (subscription?: UserSubscription): boolean => {
+    if (!subscription || !subscription.current_period_end) return false;
+    
+    const now = new Date();
+    const periodEnd = new Date(subscription.current_period_end);
+    const daysUntilExpiry = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Consider expiring if:
+    // 1. Subscription is set to cancel at period end
+    // 2. Subscription is past_due (payment failed)
+    // 3. Active subscription with less than 7 days until renewal (upcoming)
+    // 4. Subscription status indicates payment issues
+    return (
+      subscription.cancel_at_period_end ||
+      subscription.status === 'past_due' ||
+      subscription.status === 'incomplete' ||
+      subscription.status === 'unpaid' ||
+      (subscription.status === 'active' && daysUntilExpiry <= 7 && daysUntilExpiry > 0)
+    );
+  };
+
+  // Helper function to get expiration message
+  const getExpirationMessage = (subscription: UserSubscription): string | null => {
+    if (!subscription.current_period_end) return null;
+    
+    const now = new Date();
+    const periodEnd = new Date(subscription.current_period_end);
+    const daysUntilExpiry = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (subscription.cancel_at_period_end) {
+      return `Subscription will end on ${formatDate(subscription.current_period_end)}`;
+    }
+    
+    if (subscription.status === 'past_due') {
+      return `Payment failed. Subscription expires on ${formatDate(subscription.current_period_end)} without payment`;
+    }
+    
+    if (subscription.status === 'incomplete' || subscription.status === 'unpaid') {
+      return `Payment required to continue service. Expires on ${formatDate(subscription.current_period_end)}`;
+    }
+    
+    if (subscription.status === 'active' && daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+      return `Subscription renews in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} on ${formatDate(subscription.current_period_end)}`;
+    }
+    
+    return null;
   };
 
   if (loading) {
@@ -163,8 +222,8 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onUpgr
         <h3 className="text-lg font-medium text-gray-900">
           Subscription
         </h3>
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(subscription.status)}`}>
-          {getStatusText(subscription.status)}
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(subscription.status, subscription)}`}>
+          {getStatusText(subscription.status, subscription)}
         </span>
       </div>
 
@@ -201,7 +260,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onUpgr
           </div>
         )}
 
-        {subscription.cancel_at_period_end && (
+        {isSubscriptionExpiring(subscription) && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
             <div className="flex">
               <div className="flex-shrink-0">
@@ -211,10 +270,13 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onUpgr
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-yellow-800">
-                  Subscription Ending
+                  {subscription.cancel_at_period_end ? 'Subscription Ending' : 
+                   subscription.status === 'past_due' ? 'Payment Failed' :
+                   subscription.status === 'incomplete' || subscription.status === 'unpaid' ? 'Payment Required' :
+                   'Renewal Upcoming'}
                 </h3>
                 <div className="mt-1 text-sm text-yellow-700">
-                  Your subscription will end on {subscription.current_period_end ? formatDate(subscription.current_period_end) : 'the next billing date'}.
+                  {getExpirationMessage(subscription)}
                 </div>
               </div>
             </div>

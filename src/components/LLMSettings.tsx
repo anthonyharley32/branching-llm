@@ -220,22 +220,41 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ subscriptionTier = 'free' }) 
     }
   }, [allModels, availableModelIds]);
 
-  // Filter models based on search query
+  // Filter models based on search query and organize them
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredModels(allModels);
-      return;
+    let modelsToFilter = allModels;
+    
+    // Filter by search query if provided
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      modelsToFilter = allModels.filter(
+        model => 
+          model.model_name.toLowerCase().includes(query) || 
+          model.company.toLowerCase().includes(query)
+      );
     }
     
-    const query = searchQuery.toLowerCase();
-    const filtered = allModels.filter(
-      model => 
-        model.model_name.toLowerCase().includes(query) || 
-        model.company.toLowerCase().includes(query)
-    );
+    // Organize models: current model first, then available models, then unavailable models
+    const organizedModels = [...modelsToFilter].sort((a, b) => {
+      const aIsAvailable = isModelAvailable(a.api_model_id);
+      const bIsAvailable = isModelAvailable(b.api_model_id);
+      const aIsCurrent = a.api_model_id === currentModelId;
+      const bIsCurrent = b.api_model_id === currentModelId;
+      
+      // Current model always goes first
+      if (aIsCurrent && !bIsCurrent) return -1;
+      if (!aIsCurrent && bIsCurrent) return 1;
+      
+      // Then organize by availability (available first)
+      if (aIsAvailable && !bIsAvailable) return -1;
+      if (!aIsAvailable && bIsAvailable) return 1;
+      
+      // Within the same availability group, sort alphabetically by model name
+      return a.model_name.localeCompare(b.model_name);
+    });
     
-    setFilteredModels(filtered);
-  }, [searchQuery, allModels]);
+    setFilteredModels(organizedModels);
+  }, [searchQuery, allModels, currentModelId, availableModelIds]);
 
   // Handle model change
   const handleModelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -482,6 +501,11 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ subscriptionTier = 'free' }) 
                 <div className="flex-1">
                   <div className="font-medium text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
                     <span>{model.model_name}</span>
+                    {currentModelId === model.api_model_id && isAvailable && (
+                      <span className="flex items-center text-xs text-blue-600 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full font-medium">
+                        Current
+                      </span>
+                    )}
                     {model.is_reasoning && (
                       <span className="flex items-center text-xs text-purple-600 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 px-1.5 py-0.5 rounded-full">
                         <HiOutlineSparkles className="mr-1" /> 

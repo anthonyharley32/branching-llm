@@ -51,7 +51,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           message: 'Free subscription activated',
-          redirect: `${Deno.env.get('FRONTEND_URL')}/dashboard`
+          redirect: `${Deno.env.get('FRONTEND_URL')}/`
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -74,8 +74,8 @@ serve(async (req) => {
         },
       ],
       mode: 'subscription',
-      success_url: `${Deno.env.get('FRONTEND_URL')}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${Deno.env.get('FRONTEND_URL')}/dashboard`,
+      success_url: `${Deno.env.get('FRONTEND_URL')}/?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${Deno.env.get('FRONTEND_URL')}/`,
       allow_promotion_codes: true, // Enable discount codes on Stripe checkout page
       metadata: {
         user_id: user.id,

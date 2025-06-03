@@ -82,7 +82,8 @@ export async function createOrUpdateUserSubscription(
   stripeSubscriptionId?: string,
   status = 'active',
   periodStart?: Date,
-  periodEnd?: Date
+  periodEnd?: Date,
+  cancelAtPeriodEnd?: boolean
 ): Promise<void> {
   const subscriptionData = {
     user_id: userId,
@@ -92,6 +93,7 @@ export async function createOrUpdateUserSubscription(
     status,
     current_period_start: periodStart?.toISOString(),
     current_period_end: periodEnd?.toISOString(),
+    cancel_at_period_end: cancelAtPeriodEnd || false,
     updated_at: new Date().toISOString(),
   };
 

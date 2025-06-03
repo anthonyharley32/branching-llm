@@ -7,19 +7,19 @@
 - [X] ✅ Create Pro Plan product ($15/month) - get price ID
 - [X] ✅ Create Unlimited Plan product ($30/month) - get price ID
 - [X] ✅ Update database with live price IDs (run production-setup.sql)
-- [ ] ✅ Configure live webhook endpoint
-- [ ] ✅ Copy live webhook signing secret
-- [ ] ✅ Configure customer portal settings
+- [X] ✅ Configure live webhook endpoint
+- [X] ✅ Copy live webhook signing secret
+- [X] ✅ Configure customer portal settings
 
 ## Environment Variables
 - [X] ✅ Update STRIPE_SECRET_KEY (sk_live_...)
-- [ ] ✅ Update STRIPE_WEBHOOK_SECRET (whsec_...)
+- [X] ✅ Update STRIPE_WEBHOOK_SECRET (whsec_...)
 - [X] ✅ Update VITE_STRIPE_PUBLISHABLE_KEY (pk_live_...)
-- [ ] ✅ Update FRONTEND_URL to production domain
-- [ ] ✅ Secure storage of live keys (no git commits!)
+- [X] ✅ Update FRONTEND_URL to production domain
+- [X] ✅ Secure storage of live keys (no git commits!)
 
 ## Deployment
-- [ ] ✅ Deploy updated edge functions: `supabase functions deploy`
+- [X] ✅ Deploy updated edge functions: `supabase functions deploy`
 - [ ] ✅ Deploy frontend with production environment variables
 - [ ] ✅ Verify webhook endpoint is accessible
 - [ ] ✅ Test SSL certificate on production domain

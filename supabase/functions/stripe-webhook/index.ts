@@ -115,6 +115,14 @@ serve(async (req) => {
         await handlePaymentFailed(event.data.object as any);
         break;
       
+      case 'invoice.upcoming':
+        await handleInvoiceUpcoming(event.data.object as any);
+        break;
+      
+      case 'invoice.finalized':
+        await handleInvoiceFinalized(event.data.object as any);
+        break;
+      
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
@@ -177,6 +185,7 @@ async function handleSubscriptionUpdated(subscription: any) {
     return;
   }
 
+  // Update the subscription info including cancel_at_period_end
   await createOrUpdateUserSubscription(
     userId,
     tierId,
@@ -184,10 +193,11 @@ async function handleSubscriptionUpdated(subscription: any) {
     subscription.id,
     subscription.status,
     new Date(subscription.current_period_start * 1000),
-    new Date(subscription.current_period_end * 1000)
+    new Date(subscription.current_period_end * 1000),
+    subscription.cancel_at_period_end || false
   );
 
-  console.log(`Subscription updated for user ${userId}: ${subscription.status}`);
+  console.log(`Subscription updated for user ${userId}: ${subscription.status}, cancel_at_period_end: ${subscription.cancel_at_period_end}`);
 }
 
 async function handleSubscriptionDeleted(subscription: any) {
@@ -258,4 +268,31 @@ async function handlePaymentFailed(invoice: any) {
   }
 
   console.log(`Payment failed for subscription ${subscriptionId}`);
+}
+
+async function handleInvoiceUpcoming(invoice: any) {
+  const subscriptionId = invoice.subscription;
+  
+  if (!subscriptionId) {
+    return;
+  }
+
+  // This webhook is sent 3 days before renewal
+  // We can use this to update metadata or trigger notifications
+  // The frontend will automatically show "Expiring" based on date calculation
+  
+  console.log(`Upcoming invoice for subscription ${subscriptionId}. Due: ${new Date(invoice.created * 1000 + (invoice.days_until_due || 0) * 24 * 60 * 60 * 1000)}`);
+}
+
+async function handleInvoiceFinalized(invoice: any) {
+  const subscriptionId = invoice.subscription;
+  
+  if (!subscriptionId) {
+    return;
+  }
+
+  // Invoice is finalized and ready for payment attempt
+  // Can be used for additional business logic if needed
+  
+  console.log(`Invoice finalized for subscription ${subscriptionId}. Amount: ${invoice.amount_due}`);
 } 

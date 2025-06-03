@@ -302,6 +302,33 @@ function AppContent() {
     fetchProfile();
   }, [user]); // Re-run when user changes
 
+  // Handle payment success redirect
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    const sessionId = urlParams.get('session_id');
+    
+    if (paymentStatus === 'success' && sessionId) {
+      // Show success notification
+      setNotificationPopup({
+        isOpen: true,
+        title: '🎉 Payment Successful!',
+        message: 'Your subscription has been activated. You now have access to premium features!',
+        actionButton: {
+          text: 'Got it!',
+          onClick: () => {
+            setNotificationPopup(prev => ({ ...prev, isOpen: false }));
+            // Clean up URL parameters
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete('payment');
+            newUrl.searchParams.delete('session_id');
+            window.history.replaceState({}, document.title, newUrl.toString());
+          }
+        }
+      });
+    }
+  }, []); // Run once on component mount
+
   // --- Effect to initiate LLM stream after user message state is updated ---
   useEffect(() => {
     if (!pendingLlmCall) return;

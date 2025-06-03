@@ -53,6 +53,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
   // New state for subscription tier
   const [subscriptionTier, setSubscriptionTier] = useState<string>('free'); // Default to 'free'
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [subscriptionData, setSubscriptionData] = useState<any>(null); // Store full subscription data
 
   // New state for processing payment
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
@@ -83,12 +84,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
   const fetchUserSubscription = async () => {
     try {
       setSubscriptionLoading(true);
-      const usageLimit = await PaymentService.checkUsageLimit(user?.id);
+      const [usageLimit, fullSubscription] = await Promise.all([
+        PaymentService.checkUsageLimit(user?.id),
+        PaymentService.getUserSubscription(user?.id!)
+      ]);
       setSubscriptionTier(usageLimit.tierSlug);
+      setSubscriptionData(fullSubscription);
     } catch (err: any) {
       console.error('Error fetching user subscription:', err);
       // Default to free tier on error
       setSubscriptionTier('free');
+      setSubscriptionData(null);
     } finally {
       setSubscriptionLoading(false);
     }
@@ -385,6 +391,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
   };
 
   // Handle downgrade to a different plan with proration
+  /* Commented out to fix TS6133 error - unused function
   const handleDowngrade = async (newPlanSlug: string) => {
     if (!user) {
       alert('Please log in to manage subscription');
@@ -413,10 +420,65 @@ const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
       setError('Failed to downgrade subscription. Please try again or contact support.');
     }
   };
+  */
 
   // --- MOCK DATA ---
   const userDisplayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
   // --- END MOCK DATA ---
+
+  // Helper function to determine if subscription is expiring
+  const isSubscriptionExpiring = (): boolean => {
+    if (!subscriptionData || !subscriptionData.current_period_end || subscriptionTier === 'free') return false;
+    
+    const now = new Date();
+    const periodEnd = new Date(subscriptionData.current_period_end);
+    const daysUntilExpiry = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    return (
+      subscriptionData.cancel_at_period_end ||
+      subscriptionData.status === 'past_due' ||
+      subscriptionData.status === 'incomplete' ||
+      subscriptionData.status === 'unpaid' ||
+      (subscriptionData.status === 'active' && daysUntilExpiry <= 7 && daysUntilExpiry > 0)
+    );
+  };
+
+  // Helper function to format subscription status and renewal date
+  const getSubscriptionStatusText = () => {
+    if (!subscriptionData || subscriptionTier === 'free') return null;
+    
+    const currentPeriodEnd = subscriptionData.current_period_end 
+      ? new Date(subscriptionData.current_period_end).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        })
+      : null;
+    
+    if (subscriptionData.cancel_at_period_end) {
+      return `Expiring on ${currentPeriodEnd}`;
+    }
+    
+    if (subscriptionData.status === 'past_due') {
+      return `Payment failed - Expires on ${currentPeriodEnd}`;
+    }
+    
+    if (subscriptionData.status === 'incomplete' || subscriptionData.status === 'unpaid') {
+      return `Payment required - Expires on ${currentPeriodEnd}`;
+    }
+    
+    if (subscriptionData.status === 'active' && currentPeriodEnd) {
+      const now = new Date();
+      const periodEnd = new Date(subscriptionData.current_period_end);
+      const daysUntilExpiry = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+        return `Renews in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} on ${currentPeriodEnd}`;
+      }
+    }
+    
+    return currentPeriodEnd ? `Renews on ${currentPeriodEnd}` : 'Active';
+  };
 
   // Helper component for sidebar items
   const SidebarItem: React.FC<{ 
@@ -684,15 +746,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
                     </div>
                     <div className="mt-3 p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
                       <p className="text-sm text-gray-900 dark:text-gray-100">
-                        <span 
-                          className="inline-block px-2 py-1 mr-1" 
+                        This is how your <span 
+                          className="branch-source-highlight" 
                           style={{
                             backgroundColor: getBackgroundColor(highlightColor, theme)
                           }}
-                        >
-                          Preview
-                        </span>
-                        of how your selected text will appear when highlighted.
+                        >selected text</span> will appear when highlighted.
                       </p>
                     </div>
                   </div>
@@ -946,11 +1005,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
                         <span className="ml-1 text-lg text-gray-500 dark:text-gray-400">/month</span>
                       </div>
                       <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-                        Renews on January 1, 2025
+                        {getSubscriptionStatusText() || 'Active'}
                       </p>
                       <div className="flex items-center mt-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                        <span className="text-sm text-green-600 dark:text-green-400 font-medium">Active</span>
+                        <div className={`w-2 h-2 rounded-full mr-2 ${isSubscriptionExpiring() ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+                        <span className={`text-sm font-medium ${isSubscriptionExpiring() ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'}`}>
+                          {isSubscriptionExpiring() ? 'Expiring' : 'Active'}
+                        </span>
                       </div>
                     </div>
 
@@ -1085,11 +1146,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
                         <span className="ml-1 text-lg text-gray-500 dark:text-gray-400">/month</span>
                       </div>
                       <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-                        Renews on January 1, 2025
+                        {getSubscriptionStatusText() || 'Active'}
                       </p>
                       <div className="flex items-center mt-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                        <span className="text-sm text-green-600 dark:text-green-400 font-medium">Active</span>
+                        <div className={`w-2 h-2 rounded-full mr-2 ${isSubscriptionExpiring() ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+                        <span className={`text-sm font-medium ${isSubscriptionExpiring() ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'}`}>
+                          {isSubscriptionExpiring() ? 'Expiring' : 'Active'}
+                        </span>
                       </div>
                     </div>
 
@@ -1125,15 +1188,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
                   </motion.div>
                 </div>
 
-                {/* Management Actions */}
-                <div className="flex justify-center">
-                  <button 
-                    onClick={() => handleDowngrade('pro')}
-                    className="px-5 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors cursor-pointer"
-                  >
-                    Downgrade to Pro
-                  </button>
-                </div>
+
               </div>
             )}
           </motion.div>
