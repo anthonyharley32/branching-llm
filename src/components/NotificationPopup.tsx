@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiX, FiInfo } from 'react-icons/fi';
+import { FiX } from 'react-icons/fi';
 
 interface NotificationPopupProps {
   isOpen: boolean;
@@ -26,60 +26,66 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({
   };
 
   const modalVariants = {
-    hidden: { opacity: 0, scale: 0.95, y: 10 },
+    hidden: { opacity: 0, scale: 0.9, y: 20 },
     visible: { 
       opacity: 1, 
       scale: 1, 
       y: 0, 
       transition: { 
         type: "spring", 
-        stiffness: 300, 
-        damping: 30 
+        stiffness: 400, 
+        damping: 25,
+        mass: 0.8
       } 
     },
-    exit: { opacity: 0, scale: 0.95, y: 10, transition: { duration: 0.2 } },
+    exit: { 
+      opacity: 0, 
+      scale: 0.9, 
+      y: 20, 
+      transition: { 
+        duration: 0.15,
+        ease: "easeInOut"
+      } 
+    },
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-500/10 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
           variants={backdropVariants}
           initial="hidden"
           animate="visible"
           exit="hidden"
-          onClick={onClose} // Close when clicking backdrop
+          onClick={onClose}
         >
           <motion.div
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.2)] border border-gray-100 dark:border-gray-700 p-6 w-full max-w-md relative text-gray-900 dark:text-gray-100"
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.4)] border border-gray-200/50 dark:border-gray-700/50 p-8 w-full max-w-md mx-4 relative text-gray-900 dark:text-gray-100 backdrop-blur-xl"
             variants={modalVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
-            onClick={(e: React.MouseEvent) => e.stopPropagation()} // Prevent closing when clicking modal content
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
           >
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer hover:cursor-pointer"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all duration-200 p-2 rounded-full hover:bg-gray-100/80 dark:hover:bg-gray-800/50 cursor-pointer group"
               aria-label="Close notification"
             >
-              <FiX size={20} />
+              <FiX size={20} className="group-hover:scale-110 transition-transform duration-200" />
             </button>
 
-            {/* Icon and Title */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex-shrink-0 p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                <FiInfo className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+            {/* Title */}
+            <div className="mb-6 pr-8">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
                 {title}
               </h2>
             </div>
 
             {/* Message */}
-            <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+            <p className="text-gray-600 dark:text-gray-300 mb-8 leading-relaxed text-base">
               {message}
             </p>
 
@@ -87,7 +93,7 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({
             <div className="flex gap-3 justify-end">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                className="px-6 py-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium transition-colors duration-200 cursor-pointer"
               >
                 Close
               </button>
@@ -97,7 +103,7 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({
                     actionButton.onClick();
                     onClose();
                   }}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors cursor-pointer"
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-xl transition-all duration-200 cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
                 >
                   {actionButton.text}
                 </button>

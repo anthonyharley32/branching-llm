@@ -363,15 +363,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
       // Check if user has an existing subscription
       if (subscriptionTier && subscriptionTier !== 'free' && subscriptionTier !== 'no-login') {
         // Existing subscriber - use proration
-        const confirmUpgrade = window.confirm(
-          'You will be charged the prorated difference for the remainder of your billing period. Continue with upgrade?'
-        );
-        
-        if (!confirmUpgrade) {
-          setProcessingPlan(null);
-          return;
-        }
-        
         const result = await PaymentService.changeSubscriptionPlan(user.id, planSlug, true);
         setSuccess(result.message);
         await fetchUserSubscription();
@@ -746,12 +737,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
                     </div>
                     <div className="mt-3 p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
                       <p className="text-sm text-gray-900 dark:text-gray-100">
-                        This is how your <span 
+                        <span 
                           className="branch-source-highlight" 
                           style={{
                             backgroundColor: getBackgroundColor(highlightColor, theme)
                           }}
-                        >selected text</span> will appear when highlighted.
+                        >Preview</span> of how your selected text will appear when highlighted.
                       </p>
                     </div>
                   </div>
