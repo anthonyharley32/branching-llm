@@ -663,10 +663,12 @@ SELECT * FROM (
     
     -- Pro tier models (non-reasoning)
     ('Claude 3.7 Sonnet', 'anthropic', 'anthropic/claude-3.7-sonnet', (SELECT pro_id FROM tier_ids), false, 'Anthropic''s balanced model with strong instruction following capabilities.'),
+    ('Claude Sonnet 4', 'anthropic', 'anthropic/claude-sonnet-4', (SELECT pro_id FROM tier_ids), false, 'Anthropic''s latest high-performance model with state-of-the-art coding capabilities (72.7% on SWE-bench). Balances performance and efficiency for everyday development tasks.'),
     ('Grok 3 Beta', 'xai', 'x-ai/grok-3-beta', (SELECT pro_id FROM tier_ids), false, 'Full-sized model with wide knowledge. Shows its thinking process in responses.'),
     ('Gemini 2.5 Flash Preview', 'google', 'google/gemini-2.5-flash-preview', (SELECT pro_id FROM tier_ids), false, 'Google''s fastest Gemini model for responsive applications.'),
     
-    -- Unlimited tier models (reasoning)
+    -- Unlimited tier models (reasoning and premium)
+    ('Claude Opus 4', 'anthropic', 'anthropic/claude-opus-4', (SELECT unlimited_id FROM tier_ids), false, 'The world''s best coding model with sustained performance on complex, long-running tasks. Excels at agent workflows and complex problem-solving with extended context handling.'),
     ('Claude 3.7 Sonnet Thinking', 'anthropic', 'anthropic/claude-3.7-sonnet:thinking', (SELECT unlimited_id FROM tier_ids), true, 'Claude 3.7 Sonnet with step-by-step reasoning visible in the response. Optimized for complex thought processes.'),
     ('o4 Mini High', 'openai', 'openai/o4-mini-high', (SELECT unlimited_id FROM tier_ids), true, 'Smaller, faster version of GPT-4.1 optimized for responsive interactions and efficient reasoning.'),
     ('Grok 3 Mini Beta', 'xai', 'x-ai/grok-3-mini-beta', (SELECT unlimited_id FROM tier_ids), true, 'A lightweight, thinking model ideal for reasoning-heavy tasks that need less domain knowledge. Excels at math and solving puzzles.'),

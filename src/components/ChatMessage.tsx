@@ -741,14 +741,14 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
             <div className="flex space-x-3">
               <button
                 onClick={handleCopyClick}
-                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 rounded transition-colors"
+                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 rounded transition-colors cursor-pointer"
                 title="Copy message"
               >
                 <FiCopy className="h-4 w-4" />
               </button>
               <button
                 onClick={handleEditClick} 
-                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 rounded transition-colors"
+                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 rounded transition-colors cursor-pointer"
                 title="Edit message"
               >
                 <FiEdit className="h-4 w-4" />

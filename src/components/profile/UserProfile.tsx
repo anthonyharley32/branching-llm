@@ -339,34 +339,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
     }
   };
 
-  // Handle subscription cancellation
-  const handleCancelSubscription = async () => {
-    if (!user) {
-      alert('Please log in to manage subscription');
-      return;
-    }
 
-    const confirmCancel = window.confirm(
-      'Are you sure you want to cancel your subscription? You will retain access until the end of your current billing period, and no refund will be issued.'
-    );
-
-    if (!confirmCancel) return;
-
-    try {
-      setError(null);
-      setSuccess(null);
-      
-      const result = await PaymentService.cancelSubscription(user.id);
-      setSuccess(`${result.message} Access until: ${new Date(result.accessUntil).toLocaleDateString()}`);
-      
-      // Refresh subscription data
-      await fetchUserSubscription();
-      
-    } catch (error) {
-      console.error('Failed to cancel subscription:', error);
-      setError('Failed to cancel subscription. Please try again or contact support.');
-    }
-  };
 
   // Handle plan changes via Stripe Customer Portal
   const handleManageSubscription = async (action: 'upgrade' | 'downgrade' | 'manage') => {
@@ -522,16 +495,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
       </div>
 
       {/* Content Area */} 
-      <div className="flex-1 overflow-y-auto p-6 relative"> {/* Reduced padding p-6, added overflow-y-auto */} 
-        {onClose && (
-          <button 
-            onClick={onClose} 
-            className="absolute top-4 right-4 p-1 rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors z-10 cursor-pointer" // Added cursor-pointer
-            aria-label="Close"
-          >
-            <FiX className="h-5 w-5" />
-          </button>
-        )}
+      <div className="flex-1 overflow-y-auto p-6 relative"> {/* Reduced padding p-6, added overflow-y-auto */}
 
         {loading && activeSetting === 'account' && <p className="text-center text-gray-500 dark:text-gray-400">Loading account...</p>}
         
@@ -840,9 +804,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
         {/* Billing Settings Content */} 
         {activeSetting === 'billing' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-               {subscriptionTier === 'free' ? 'Upgrade Your Account' : 'Manage Subscription'}
-             </h3>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {subscriptionTier === 'free' ? 'Upgrade Your Account' : 'Manage Subscription'}
+              </h3>
+              {subscriptionTier !== 'free' && (
+                <button 
+                  onClick={() => PaymentService.openCustomerPortal(user?.id!)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors cursor-pointer shadow-sm"
+                >
+                  Manage Billing
+                </button>
+              )}
+            </div>
             {subscriptionTier === 'free' ? (
               // Free Tier View - New Modern Design with Two Cards
               <div className="flex gap-6 justify-center">
@@ -903,7 +877,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleCheckout('pro')}
                       disabled={processingPlan === 'pro'}
-                      className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {processingPlan === 'pro' ? 'Processing...' : 'Choose Pro'}
                     </motion.button>
@@ -962,7 +936,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                         <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">DeepSeek-R1 & Gemini 2.5 Pro</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Claude 4 Opus & Gemini 2.5 Pro</span>
                       </li>
                     </ul>
                   </div>
@@ -974,7 +948,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleCheckout('unlimited')}
                       disabled={processingPlan === 'unlimited'}
-                      className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {processingPlan === 'unlimited' ? 'Processing...' : 'Choose Unlimited'}
                     </motion.button>
@@ -1099,7 +1073,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                         <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">DeepSeek-R1 & Gemini 2.5 Pro</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Claude 4 Opus & Gemini 2.5 Pro</span>
                       </li>
                       </ul>
                     </div>
@@ -1111,7 +1085,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleUpgradeCheckout('unlimited')}
                         disabled={processingPlan === 'unlimited'}
-                        className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                       >
                         {processingPlan === 'unlimited' ? 'Processing...' : 'Upgrade to Unlimited'}
                       </motion.button>
@@ -1119,21 +1093,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                   </motion.div>
                 </div>
 
-                {/* Management Actions */}
-                <div className="flex justify-center gap-4">
-                  <button 
-                    onClick={() => PaymentService.openCustomerPortal(user?.id!)}
-                    className="px-6 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                  >
-                    Manage Billing
-                  </button>
-                  <button 
-                    onClick={() => handleCancelSubscription()}
-                    className="px-6 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                  >
-                    Cancel Subscription
-                  </button>
-                </div>
+
               </div>
             ) : (
               // Unlimited Tier View - Show current plan info + downgrade/cancel options
@@ -1194,7 +1154,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                           <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
-                          <span className="text-sm text-gray-700 dark:text-gray-300">DeepSeek-R1 & Gemini 2.5 Pro</span>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Claude 4 Opus & Gemini 2.5 Pro</span>
                         </li>
                       </ul>
                     </div>
@@ -1202,24 +1162,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                 </div>
 
                 {/* Management Actions */}
-                <div className="flex justify-center gap-3">
-                  <button 
-                    onClick={() => PaymentService.openCustomerPortal(user?.id!)}
-                    className="px-5 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-                  >
-                    Manage Billing
-                  </button>
+                <div className="flex justify-center">
                   <button 
                     onClick={() => handleDowngrade('pro')}
-                    className="px-5 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    className="px-5 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors cursor-pointer"
                   >
                     Downgrade to Pro
-                  </button>
-                  <button 
-                    onClick={() => handleCancelSubscription()}
-                    className="px-5 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                  >
-                    Cancel
                   </button>
                 </div>
               </div>

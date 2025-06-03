@@ -658,9 +658,27 @@ function AppContent() {
         msg.id !== addResult.newNode.id
       ).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
       
-      // 7. Construct the properly ordered message path
+      // 7. Get the highlighted text that started this branch for context
+      const selectedText = branchStarter?.metadata?.selectedText || '';
+      
+      // 8. Create branch context system message
+      const branchContextMessage: MessageNode = {
+        id: 'branch-context-system',
+        role: 'system',
+        content: `BRANCH CONTEXT: This conversation is now focused on a specific topic that was highlighted from the previous discussion. The highlighted text was: "${selectedText}"
+
+Please keep this context in mind when responding. While you have access to the previous conversation for background understanding, your responses should be primarily focused on and relevant to this highlighted text: "${selectedText}"
+
+The user's questions and comments in this branch should be interpreted in relation to this specific highlighted text unless they explicitly indicate they want to discuss something else.`,
+        parentId: null,
+        createdAt: new Date(),
+        metadata: { isBranchContext: true }
+      };
+      
+      // 9. Construct the properly ordered message path
       const orderedPath = [
         ...systemMessages,         // System instructions first
+        branchContextMessage,      // Branch focus context
         ...parentContext,          // Parent context next
         ...branchMessages,         // Branch messages in chronological order
         addResult.newNode          // Current user message last
@@ -735,6 +753,17 @@ function AppContent() {
         const focusedPath = currentMessages
           .filter(msg => msg.role === 'system')
           .concat([
+            // Add branch context system message to guide the AI's focus
+            {
+              id: 'explain-branch-context-system',
+              role: 'system',
+              content: `EXPLAIN REQUEST: The user has highlighted specific text from the previous conversation and wants an explanation. The highlighted text is: "${sourceText}"
+
+You should focus your explanation specifically on this highlighted text. While the previous conversation provides context, your response should be targeted at explaining just this specific selection. Be direct and informative.`,
+              parentId: null,
+              createdAt: new Date(),
+              metadata: { isBranchContext: true, isExplainContext: true }
+            } as MessageNode,
             // Add parent message for context if it exists and isn't a system message
             ...(parentMessage && parentRole !== 'system' ? [{
               id: 'context-parent-msg',
@@ -748,9 +777,7 @@ function AppContent() {
             {
               id: 'synthetic-user-msg',
               role: 'user',
-              content: `Explain ONLY this exact highlighted text: "${sourceText}"
-Do not ask for clarification. Focus specifically on explaining this exact text, not any other words that may appear in context.
-${sourceText.length > 100 ? 'For this longer selection, explain its key points and significance.' : 'Be direct and concise with your explanation.'}`, 
+              content: `Explain this highlighted text: "${sourceText}"`, 
               parentId: null,
               createdAt: new Date(),
               metadata: branchResult.newNode.metadata // Use the same metadata
@@ -1066,7 +1093,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
             {branchStack.length > 0 && (
               <button
                 onClick={handleGoBack}
-                className="absolute top-4 left-4 z-10 text-stone-600 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 focus:outline-none rounded-full p-1 transition-colors bg-transparent hover:bg-stone-200 dark:hover:bg-stone-700"
+                className="absolute top-4 left-4 z-10 text-stone-600 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 focus:outline-none rounded-full p-1 transition-colors bg-transparent hover:bg-stone-200 dark:hover:bg-stone-700 cursor-pointer"
                 aria-label="Go back"
                 title="Go back"
               >
