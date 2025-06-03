@@ -9,16 +9,13 @@ interface ChatThreadProps {
   isLoading: boolean;
   /** If provided, the ID of the assistant message currently streaming. */
   streamingNodeId?: string | null;
-  // thinkingContent: string; // Removed
-  // isThinkingComplete: boolean; // Removed
-  // thinkingDuration?: number | null; // Removed
-  // isReasoningModel: boolean; // Removed
-  // hasInternalReasoning?: boolean; // Removed
+  /** Whether the current model being used is a reasoning model */
+  isReasoningModel?: boolean;
   onBranchCreated: (result: AddMessageResult, sourceText: string, isNewBranch: boolean) => void;
   onMessageEdited?: (messageId: string) => void;
 }
 
-const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, streamingNodeId = null, /* thinkingContent, isThinkingComplete, thinkingDuration, isReasoningModel, hasInternalReasoning = false, */ onBranchCreated, onMessageEdited }) => {
+const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, streamingNodeId = null, isReasoningModel = false, onBranchCreated, onMessageEdited }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(messages.length);
@@ -234,10 +231,9 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
     return messages.length === 1;
   });
 
-  // Condition for showing the initial loading squiggles:
-  // Condition for showing the initial loading squiggles:
-  // Show if loading, no messages yet, and no specific message is currently streaming.
-  const showInitialLoading = isLoading && messages.length === 0 && !streamingNodeId;
+  // Condition for showing the squiggle animation:
+  // Show for non-reasoning models when loading but not yet streaming a specific message
+  const showSquiggleAnimation = isLoading && !isReasoningModel && !streamingNodeId;
 
   return (
     <div 
@@ -307,8 +303,8 @@ const ChatThread: React.FC<ChatThreadProps> = ({ messages = [], isLoading, strea
         />
       )}
       
-      {showInitialLoading && (
-        <div className="flex flex-col items-start p-4 text-gray-800 px-4 max-w-prose self-start">
+      {showSquiggleAnimation && (
+        <div className="flex flex-col items-start p-4 text-gray-800 dark:text-gray-200 px-4 max-w-prose self-start">
           {/* Squiggly wave placeholder - now a container for multiple lines */}
           <div className="scribble-container">
             <div className="relative w-40 h-4 streaming-wave streaming-wave-1" />

@@ -16,6 +16,7 @@ import {
   StreamCallbacks,
   getCurrentModel
 } from './services/llm'
+import { PaymentService } from './services/paymentService'
 import { MessageNode } from './types/conversation'
 import { FiArrowLeft, FiMenu, FiEdit } from 'react-icons/fi' // Removed unused imports
 // import { supabase } from './lib/supabase' // Already removed
@@ -25,10 +26,12 @@ import { BugReportButton } from './components/BugReporting'
 import AuthModal from './components/auth/AuthModal'
 import ProfileModal from './components/profile/ProfileModal'
 import ChatHistory from './components/ChatHistory'
+import { UsageTracker } from './components/UsageTracker'
 import { supabase } from './lib/supabase' // Added supabase import
+import NotificationPopup from './components/NotificationPopup'
 
 // --- Constants ---
-const GUEST_MESSAGE_LIMIT = 1000;
+const GUEST_MESSAGE_LIMIT = 5;
 const GUEST_MESSAGE_COUNT_KEY = 'LearningLLM_guest_message_count';
 
 // Default profile picture as a data URL (simple user icon)
@@ -141,6 +144,9 @@ function AppContent() {
   const branchSourceText = branchStack.length > 0 ? branchStack[branchStack.length - 1].sourceText : null;
   
   const [streamingAiNodeId, setStreamingAiNodeId] = useState<string | null>(null); // Track the ID of the AI message being streamed
+  
+  // Track if current sending operation is using a reasoning model
+  const [currentIsReasoningModel, setCurrentIsReasoningModel] = useState<boolean>(false);
 
   // State to trigger LLM call after user message is added
   const [pendingLlmCall, setPendingLlmCall] = useState<{
@@ -180,6 +186,21 @@ function AppContent() {
     avatar_fallback_url?: string | null;
     display_name?: string | null;
   } | null>(null);
+
+  // Add state for notification popup
+  const [notificationPopup, setNotificationPopup] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    actionButton?: {
+      text: string;
+      onClick: () => void;
+    };
+  }>({
+    isOpen: false,
+    title: '',
+    message: ''
+  });
 
   // Handle visibility changes when switching tabs or apps
   useEffect(() => {
@@ -368,12 +389,20 @@ function AppContent() {
               updateMessageThinkingContent(tempAiNodeId, chunk); // Send only the new chunk, not accumulated content
             }
           },
-          onComplete: () => {
+          onComplete: async () => {
+            // Increment usage for both guest and logged-in users
             if (!session) {
               const newCount = guestMessageCount + 1;
               setGuestMessageCount(newCount);
+            } else {
+              try {
+                await PaymentService.incrementUsage(session.user.id);
+              } catch (error) {
+                console.error('Error incrementing usage:', error);
+              }
             }
             setIsSending(false);
+            setCurrentIsReasoningModel(false); // Reset reasoning model flag
             if (tempAiNodeId && modelIsExplicitlyReasoning) {
               console.log('COMPLETION: Thinking content finalized', {
                 nodeId: tempAiNodeId,
@@ -392,6 +421,7 @@ function AppContent() {
           onError: (llmError) => {
             setError(llmError);
             setIsSending(false);
+            setCurrentIsReasoningModel(false); // Reset reasoning model flag
             setStreamingAiNodeId(null);
             if (tempAiNodeId) {
               const aiMessage = conversation?.messages[tempAiNodeId];
@@ -412,6 +442,7 @@ function AppContent() {
         };
         setError(setupError);
         setIsSending(false);
+        setCurrentIsReasoningModel(false); // Reset reasoning model flag
       } finally {
         setPendingLlmCall(null); // Clear the trigger regardless of success/failure
       }
@@ -471,19 +502,50 @@ function AppContent() {
     // are now passed to pendingLlmCall and handled via updateMessageMetadata within its useEffect.
     const currentModel = getCurrentModel(); // Still need to get current model to pass to pendingLlmCall
     const modelIsReasoning = isReasoningModel(currentModel); // Same for isReasoningModel
+    
+    // Set reasoning model flag immediately to prevent squiggle animation flash
+    setCurrentIsReasoningModel(modelIsReasoning);
 
-    // --- Guest Rate Limit Check --- 
+    // --- Rate Limit Check ---
     if (!session) { 
+      // Guest user limit check
       if (guestMessageCount >= GUEST_MESSAGE_LIMIT) {
-        setError({ 
-          type: ErrorType.QUOTA_EXCEEDED, // Using QUOTA_EXCEEDED type
-          message: `Message limit reached (${guestMessageCount}/${GUEST_MESSAGE_LIMIT}). Please log in or register to continue.` 
+        setNotificationPopup({
+          isOpen: true,
+          title: 'Message Limit Reached',
+          message: `You've used all ${GUEST_MESSAGE_LIMIT} free messages. Please log in or register to continue chatting with unlimited access.`,
+          actionButton: {
+            text: 'Login / Register',
+            onClick: openAuthModal
+          }
         });
         setIsSending(false);
         return;
       }
+    } else {
+      // Logged-in user limit check
+      try {
+        const usageLimit = await PaymentService.checkUsageLimit(session.user.id);
+        if (!usageLimit.canSendMessage) {
+          const limitText = usageLimit.dailyLimit === null ? 'unlimited' : usageLimit.dailyLimit;
+          setNotificationPopup({
+            isOpen: true,
+            title: 'Daily Limit Reached',
+            message: `You've reached your daily message limit (${usageLimit.currentUsage}/${limitText}). ${usageLimit.tierName === 'Free' ? 'Upgrade to Pro or Unlimited for more messages.' : 'Your limit will reset tomorrow.'}`,
+            actionButton: usageLimit.tierName === 'Free' ? {
+              text: 'View Plans',
+              onClick: openProfileModal
+            } : undefined
+          });
+          setIsSending(false);
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking usage limit:', error);
+        // Continue anyway if usage check fails
+      }
     }
-    // --- End Guest Rate Limit Check ---
+    // --- End Rate Limit Check ---
 
     // If we're in a branch view, add the branch metadata to the message
     let metadata = undefined;
@@ -635,6 +697,9 @@ function AppContent() {
       const modelUsesReasoning = isReasoningModel(currentModel); // Same for isReasoningModel
       // Note: Global thinking state setters (e.g., setHasInternalReasoning)
       // were previously here and have been removed.
+      
+      // Set reasoning model flag immediately for branch responses
+      setCurrentIsReasoningModel(modelUsesReasoning);
       
       // Get truncated text for display
       const truncatedText = sourceText.length > 60 ? sourceText.substring(0, 57) + '...' : sourceText;
@@ -813,11 +878,6 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
     }
   }
 
-  // Determine guest limit warning
-  const guestLimitWarning = !session && guestMessageCount >= GUEST_MESSAGE_LIMIT * 0.8 
-    ? `${guestMessageCount} / ${GUEST_MESSAGE_LIMIT} messages used`
-    : null;
-
   // Loading state while checking auth
   if (isAuthLoading) {
     return (
@@ -892,12 +952,6 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
                   {/* Bug Report Button */}
                   <BugReportButton buttonText="Report Bug" className="text-sm cursor-pointer" />
                   
-                  {/* Guest Limit Warning */}
-                  {guestLimitWarning && (
-                      <span className={`text-sm font-medium ${guestMessageCount >= GUEST_MESSAGE_LIMIT * 0.9 ? 'text-red-500' : 'text-yellow-500'} hidden md:inline`}>
-                          {guestLimitWarning}
-                      </span>
-                  )}
                   {/* Auth Controls / User Info */}
                   {session ? (
                       <div className="relative"> {/* Wrapper for button and dropdown */}
@@ -1083,7 +1137,7 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
               messages={displayedMessages}
               isLoading={isSending}
               streamingNodeId={streamingAiNodeId}
-              // Removed thinkingContent, isThinkingComplete, thinkingDuration, isReasoningModel, hasInternalReasoning
+              isReasoningModel={currentIsReasoningModel}
               onBranchCreated={handleBranchCreated}
               onMessageEdited={(messageId) => setEditedMessageId(messageId)}
             />
@@ -1091,13 +1145,19 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
         </AnimatePresence>
         {/* --- End Animated Main Content Area --- */}
 
-        {error && (
-          <div className={`p-2 text-center text-sm ${error.type === ErrorType.QUOTA_EXCEEDED ? 'text-orange-600 bg-orange-100 border-orange-200' : 'text-red-600 bg-red-100 border-red-200'} border-t`}>
+        {/* Replace the error bar with only non-quota errors */}
+        {error && error.type !== ErrorType.QUOTA_EXCEEDED && (
+          <div className="p-2 text-center text-sm text-red-600 bg-red-100 border-red-200 border-t">
             Error: {error.message}
           </div>
         )}
 
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pb-2 sm:pb-4" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+          {/* Usage Tracker for logged-in users */}
+          {session && (
+            <UsageTracker userId={session.user.id} className="mb-4" />
+          )}
+          
           {!session && (
               <p className="text-xs text-gray-500 text-center mb-1">
                   Chat history isn't saved for guest users. 
@@ -1116,6 +1176,15 @@ ${sourceText.length > 100 ? 'For this longer selection, explain its key points a
           isOpen={isProfileModalOpen} 
           onClose={closeProfileModal} 
           onProfileUpdate={handleProfileUpdate}
+        />
+
+        {/* --- Render Notification Popup --- */}
+        <NotificationPopup 
+          isOpen={notificationPopup.isOpen}
+          onClose={() => setNotificationPopup(prev => ({ ...prev, isOpen: false }))}
+          title={notificationPopup.title}
+          message={notificationPopup.message}
+          actionButton={notificationPopup.actionButton}
         />
         {/* ------------------------- */}
         

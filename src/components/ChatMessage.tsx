@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import React, { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import ThinkingBox from './ThinkingBox'; // Added import
 import rehypeKatex from 'rehype-katex';
@@ -564,8 +564,8 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
             ref={messageContentRef}
             className={`${isUser ? userBubbleClasses : aiTextClasses} ${isBranchPoint ? 'relative pr-6' : ''} ${isUser ? 'relative' : ''}`}
           >
-            {/* Render ThinkingBox for assistant messages */}
-            {message.role === 'assistant' && (
+            {/* Render ThinkingBox for assistant messages that used reasoning models */}
+            {message.role === 'assistant' && message.modelReasoningType && (
               <ThinkingBox
                 key={`thinking-${message.id}`}
                 thinkingContent={message.thinkingContent || ''}
