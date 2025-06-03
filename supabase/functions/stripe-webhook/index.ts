@@ -2,9 +2,8 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { 
   stripe, 
-  supabase,
-  createOrUpdateUserSubscription,
-  applyDiscountCode
+  supabase, 
+  createOrUpdateUserSubscription
 } from '../_shared/stripe.ts';
 
 // Manual webhook signature verification for Deno compatibility
@@ -115,7 +114,6 @@ serve(async (req) => {
 async function handleCheckoutSessionCompleted(session: any) {
   const userId = session.metadata?.user_id;
   const tierId = session.metadata?.tier_id;
-  const discountCodeId = session.metadata?.discount_code_id;
 
   if (!userId || !tierId) {
     console.error('Missing metadata in checkout session:', session.metadata);
@@ -138,19 +136,6 @@ async function handleCheckoutSessionCompleted(session: any) {
     subscription ? new Date(subscription.current_period_start * 1000) : new Date(),
     subscription ? new Date(subscription.current_period_end * 1000) : undefined
   );
-
-  // Apply discount code if used
-  if (discountCodeId) {
-    const { data: userSub } = await supabase
-      .from('user_subscriptions')
-      .select('id')
-      .eq('user_id', userId)
-      .single();
-
-    if (userSub) {
-      await applyDiscountCode(discountCodeId, userId, userSub.id);
-    }
-  }
 
   console.log(`Subscription created for user ${userId}`);
 }

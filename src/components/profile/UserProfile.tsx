@@ -53,6 +53,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
 
   // New state for subscription tier
   const [subscriptionTier, setSubscriptionTier] = useState<string>('free'); // Default to 'free'
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
   // New state for processing payment
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
@@ -73,11 +74,27 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
   useEffect(() => {
     if (user) {
       fetchUserProfile();
+      fetchUserSubscription();
     } else {
       setLoading(false);
+      setSubscriptionLoading(false);
     }
   }, [user]);
   
+  const fetchUserSubscription = async () => {
+    try {
+      setSubscriptionLoading(true);
+      const usageLimit = await PaymentService.checkUsageLimit(user?.id);
+      setSubscriptionTier(usageLimit.tierSlug);
+    } catch (err: any) {
+      console.error('Error fetching user subscription:', err);
+      // Default to free tier on error
+      setSubscriptionTier('free');
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
   const fetchUserProfile = async (isRetry = false) => {
     try {
       setLoading(true);
@@ -100,7 +117,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
         const loadedPrompt = userProfile.additional_system_prompt || '';
         setAdditionalSystemPrompt(loadedPrompt);
         setInitialAdditionalSystemPrompt(loadedPrompt); // Set initial value
-        setSubscriptionTier(user?.user_metadata?.subscription_tier || 'free');
       } else {
         // Create a new profile if one doesn't exist
         if (!isRetry) { // Prevent infinite loops
@@ -173,7 +189,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
         const loadedPrompt = userProfile.additional_system_prompt || '';
         setAdditionalSystemPrompt(loadedPrompt);
         setInitialAdditionalSystemPrompt(loadedPrompt); // Set initial value
-        setSubscriptionTier(user?.user_metadata?.subscription_tier || 'free');
       }
     } catch (err: any) {
       console.error('Error creating user profile:', err);
@@ -324,6 +339,144 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
     }
   };
 
+  // Handle subscription cancellation
+  const handleCancelSubscription = async () => {
+    if (!user) {
+      alert('Please log in to manage subscription');
+      return;
+    }
+
+    const confirmCancel = window.confirm(
+      'Are you sure you want to cancel your subscription? You will retain access until the end of your current billing period, and no refund will be issued.'
+    );
+
+    if (!confirmCancel) return;
+
+    try {
+      setError(null);
+      setSuccess(null);
+      
+      const result = await PaymentService.cancelSubscription(user.id);
+      setSuccess(`${result.message} Access until: ${new Date(result.accessUntil).toLocaleDateString()}`);
+      
+      // Refresh subscription data
+      await fetchUserSubscription();
+      
+    } catch (error) {
+      console.error('Failed to cancel subscription:', error);
+      setError('Failed to cancel subscription. Please try again or contact support.');
+    }
+  };
+
+  // Handle plan changes via Stripe Customer Portal
+  const handleManageSubscription = async (action: 'upgrade' | 'downgrade' | 'manage') => {
+    if (!user) {
+      alert('Please log in to manage subscription');
+      return;
+    }
+
+    let confirmMessage = '';
+    switch (action) {
+      case 'upgrade':
+        confirmMessage = 'You will be redirected to upgrade your subscription securely via Stripe.';
+        break;
+      case 'downgrade':
+        confirmMessage = 'You will be redirected to manage your subscription. You can change your plan and the changes will take effect at the end of your billing period.';
+        break;
+      case 'manage':
+        confirmMessage = 'You will be redirected to the secure Stripe portal to manage your subscription, billing, and payment methods.';
+        break;
+    }
+
+    const confirmAction = window.confirm(confirmMessage);
+    if (!confirmAction) return;
+
+    try {
+      setError(null);
+      setSuccess(null);
+      
+      // Redirect to Stripe Customer Portal
+      const portalSession = await PaymentService.createPortalSession(user.id);
+      window.location.href = portalSession.url;
+      
+    } catch (error) {
+      console.error('Failed to open subscription management:', error);
+      setError('Failed to open subscription management. Please try again or contact support.');
+    }
+  };
+
+  // Handle immediate upgrade with proration for existing subscribers
+  const handleUpgradeCheckout = async (planSlug: string) => {
+    if (!user) {
+      alert('Please log in to upgrade');
+      return;
+    }
+
+    try {
+      setProcessingPlan(planSlug);
+      setError(null);
+      setSuccess(null);
+      
+      // Check if user has an existing subscription
+      if (subscriptionTier && subscriptionTier !== 'free' && subscriptionTier !== 'no-login') {
+        // Existing subscriber - use proration
+        const confirmUpgrade = window.confirm(
+          'You will be charged the prorated difference for the remainder of your billing period. Continue with upgrade?'
+        );
+        
+        if (!confirmUpgrade) {
+          setProcessingPlan(null);
+          return;
+        }
+        
+        const result = await PaymentService.changeSubscriptionPlan(user.id, planSlug, true);
+        setSuccess(result.message);
+        await fetchUserSubscription();
+      } else {
+        // New subscriber - use checkout
+        const session = await PaymentService.createCheckoutSession(planSlug, user.id);
+        if (session.url) {
+          window.location.href = session.url;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to upgrade:', error);
+      setError('Failed to start upgrade process. Please try again.');
+    } finally {
+      setProcessingPlan(null);
+    }
+  };
+
+  // Handle downgrade to a different plan with proration
+  const handleDowngrade = async (newPlanSlug: string) => {
+    if (!user) {
+      alert('Please log in to manage subscription');
+      return;
+    }
+
+    const planName = newPlanSlug === 'pro' ? 'Pro' : 'Free';
+    const confirmDowngrade = window.confirm(
+      `Are you sure you want to downgrade to the ${planName} plan? This change will take effect at the end of your current billing period. No refund will be issued.`
+    );
+
+    if (!confirmDowngrade) return;
+
+    try {
+      setError(null);
+      setSuccess(null);
+      
+      const result = await PaymentService.changeSubscriptionPlan(user.id, newPlanSlug, false);
+      setSuccess(result.message);
+      
+      // Refresh subscription data
+      await fetchUserSubscription();
+      
+    } catch (error) {
+      console.error('Failed to downgrade subscription:', error);
+      setError('Failed to downgrade subscription. Please try again or contact support.');
+    }
+  };
+
   // --- MOCK DATA ---
   const userDisplayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
   // --- END MOCK DATA ---
@@ -460,9 +613,24 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                   <span className="text-md font-medium text-gray-900 dark:text-white">Status</span>
                 </div>
                 {/* Adjusted styles to match target screenshot */}
-                <span className={`px-3 py-0.5 text-sm font-medium rounded-full ${subscriptionTier === 'free' ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300' : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'}`}>
-                  {subscriptionTier === 'free' ? 'Free' : 'Premium+'} 
-                </span>
+                {subscriptionLoading ? (
+                  <span className="px-3 py-0.5 text-sm font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                    Loading...
+                  </span>
+                ) : (
+                  <span className={`px-3 py-0.5 text-sm font-medium rounded-full ${
+                    subscriptionTier === 'free' || subscriptionTier === 'no-login' 
+                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300' 
+                      : subscriptionTier === 'pro'
+                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+                      : 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+                  }`}>
+                    {subscriptionTier === 'no-login' ? 'Guest' : 
+                     subscriptionTier === 'free' ? 'Free' : 
+                     subscriptionTier === 'pro' ? 'Pro' : 
+                     subscriptionTier === 'unlimited' ? 'Unlimited' : 'Unknown'} 
+                  </span>
+                )}
               </div>
 
               {/* Language Section */} 
@@ -654,7 +822,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Model Selection</h3>
             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <LLMSettings />
+              <LLMSettings subscriptionTier={subscriptionTier} />
             </div>
           </motion.div>
         )}
@@ -673,7 +841,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
         {activeSetting === 'billing' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-               {subscriptionTier === 'free' ? 'Upgrade Your Account' : 'Billing'}
+               {subscriptionTier === 'free' ? 'Upgrade Your Account' : 'Manage Subscription'}
              </h3>
             {subscriptionTier === 'free' ? (
               // Free Tier View - New Modern Design with Two Cards
@@ -684,7 +852,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
                   whileHover={{ y: -5, transition: { duration: 0.2 } }}
-                  className="relative w-72 bg-gradient-to-b from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden"
+                  className="relative w-72 bg-gradient-to-b from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden flex flex-col h-[500px]"
                 >
                   {/* Header */}
                   <div className="p-6 pb-4">
@@ -699,7 +867,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                   </div>
 
                   {/* Features */}
-                  <div className="px-6 pb-6">
+                  <div className="px-6 pb-6 flex-grow">
                     <ul className="space-y-3">
                       <li className="flex items-start">
                         <svg className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -711,7 +879,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                         <svg className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Access to Claude, GPT-4, Grok & Gemini</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Access to Claude, GPT-4.1, Grok & Gemini</span>
                       </li>
                       <li className="flex items-start">
                         <svg className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -729,7 +897,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                   </div>
 
                   {/* CTA Button */}
-                  <div className="p-6 pt-0">
+                  <div className="p-6 pt-0 mt-auto">
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
@@ -748,7 +916,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
                   whileHover={{ y: -5, transition: { duration: 0.2 } }}
-                  className="relative w-72 bg-gradient-to-b from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/30 rounded-2xl border-2 border-purple-400 dark:border-purple-600 shadow-xl overflow-hidden"
+                  className="relative w-72 bg-gradient-to-b from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/30 rounded-2xl border-2 border-purple-400 dark:border-purple-600 shadow-xl overflow-hidden flex flex-col h-[500px]"
                 >
                   {/* Popular Badge */}
                   <div className="absolute top-4 right-4">
@@ -770,7 +938,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                   </div>
 
                   {/* Features */}
-                  <div className="px-6 pb-6">
+                  <div className="px-6 pb-6 flex-grow">
                     <ul className="space-y-3">
                       <li className="flex items-start">
                         <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -782,25 +950,25 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                         <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Claude Reasoning (o1)</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Claude 3.7 Sonnet (Thinking)</span>
                       </li>
                       <li className="flex items-start">
                         <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">GPT-4o Reasoning</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">OpenAI o4-mini & Grok 3 Reasoning</span>
                       </li>
                       <li className="flex items-start">
                         <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Priority support</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">DeepSeek-R1 & Gemini 2.5 Pro</span>
                       </li>
                     </ul>
                   </div>
 
                   {/* CTA Button */}
-                  <div className="p-6 pt-0">
+                  <div className="p-6 pt-0 mt-auto">
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
@@ -813,21 +981,245 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                   </div>
                 </motion.div>
               </div>
-            ) : (
-              // Paid Tier View
-              <div className="space-y-4 max-w-md"> {/* Constrain width */} 
-                 <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"> {/* Added border */} 
-                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Current Plan</p>
-                   <p className="text-md font-medium text-gray-900 dark:text-white capitalize">{subscriptionTier}</p>
-                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Renews on: January 1, 2025</p>
-                 </div>
-                <div className="pt-2">
-                  <button 
-                    onClick={() => console.log('Navigate to billing management portal (e.g., Stripe)')} 
-                    // Adjusted styles to match target screenshot
-                    className="px-4 py-1.5 text-sm font-medium rounded-full border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:focus:ring-gray-500 cursor-pointer"
+            ) : subscriptionTier === 'pro' ? (
+              // Pro Tier View - Show upgrade to Unlimited + current plan info
+              <div className="space-y-6">
+                {/* Current Plan & Upgrade Cards */}
+                <div className="flex gap-6 justify-center">
+                  {/* Current Pro Plan Card */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05, type: "spring", stiffness: 200 }}
+                    className="relative w-72 bg-gradient-to-b from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/30 rounded-2xl border-2 border-blue-400 dark:border-blue-600 shadow-lg overflow-hidden"
                   >
-                    Manage Subscription
+                    {/* Current Plan Badge */}
+                    <div className="absolute top-4 right-4">
+                      <span className="px-3 py-1 text-xs font-bold text-blue-800 dark:text-blue-200 bg-blue-200 dark:bg-blue-800/50 rounded-full">
+                        CURRENT PLAN
+                      </span>
+                    </div>
+
+                    {/* Header */}
+                    <div className="p-6 pb-4">
+                      <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Pro Plan</h4>
+                      <div className="flex items-baseline">
+                        <span className="text-4xl font-extrabold text-gray-900 dark:text-white">$15</span>
+                        <span className="ml-1 text-lg text-gray-500 dark:text-gray-400">/month</span>
+                      </div>
+                      <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                        Renews on January 1, 2025
+                      </p>
+                      <div className="flex items-center mt-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                        <span className="text-sm text-green-600 dark:text-green-400 font-medium">Active</span>
+                      </div>
+                    </div>
+
+                    {/* Features */}
+                    <div className="px-6 pb-6">
+                      <ul className="space-y-3">
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Unlimited messages</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Access to Claude, GPT-4.1, Grok & Gemini</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Model selection</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Conversation history</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </motion.div>
+
+                  {/* Upgrade to Unlimited Card */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                    whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                    className="relative w-72 bg-gradient-to-b from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/30 rounded-2xl border-2 border-purple-400 dark:border-purple-600 shadow-xl overflow-hidden"
+                  >
+                    {/* Upgrade Badge */}
+                    <div className="absolute top-4 right-4">
+                      <span className="px-3 py-1 text-xs font-bold text-purple-800 dark:text-purple-200 bg-purple-200 dark:bg-purple-800/50 rounded-full">
+                        UPGRADE
+                      </span>
+                    </div>
+
+                    {/* Header */}
+                    <div className="p-6 pb-4">
+                      <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Unlimited Plan</h4>
+                      <div className="flex items-baseline">
+                        <span className="text-4xl font-extrabold text-gray-900 dark:text-white">$30</span>
+                        <span className="ml-1 text-lg text-gray-500 dark:text-gray-400">/month</span>
+                      </div>
+                      <p className="mt-3 text-sm text-purple-600 dark:text-purple-400 font-medium">
+                        Upgrade for advanced reasoning models
+                      </p>
+                    </div>
+
+                    {/* Features */}
+                    <div className="px-6 pb-6">
+                      <ul className="space-y-3">
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Everything in Pro, plus:</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Claude 3.7 Sonnet (Thinking)</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">OpenAI o4-mini & Grok 3 Reasoning</span>
+                        </li>
+                                              <li className="flex items-start">
+                        <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">DeepSeek-R1 & Gemini 2.5 Pro</span>
+                      </li>
+                      </ul>
+                    </div>
+
+                    {/* CTA Button */}
+                    <div className="p-6 pt-0">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleUpgradeCheckout('unlimited')}
+                        disabled={processingPlan === 'unlimited'}
+                        className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {processingPlan === 'unlimited' ? 'Processing...' : 'Upgrade to Unlimited'}
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                </div>
+
+                {/* Management Actions */}
+                <div className="flex justify-center gap-4">
+                  <button 
+                    onClick={() => PaymentService.openCustomerPortal(user?.id!)}
+                    className="px-6 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                  >
+                    Manage Billing
+                  </button>
+                  <button 
+                    onClick={() => handleCancelSubscription()}
+                    className="px-6 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                  >
+                    Cancel Subscription
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // Unlimited Tier View - Show current plan info + downgrade/cancel options
+              <div className="space-y-6">
+                {/* Current Plan Info */}
+                <div className="flex justify-center">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05, type: "spring", stiffness: 200 }}
+                    className="relative w-80 bg-gradient-to-b from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/30 rounded-2xl border-2 border-purple-400 dark:border-purple-600 shadow-lg overflow-hidden"
+                  >
+                    {/* Current Plan Badge */}
+                    <div className="absolute top-4 right-4">
+                      <span className="px-3 py-1 text-xs font-bold text-purple-800 dark:text-purple-200 bg-purple-200 dark:bg-purple-800/50 rounded-full">
+                        CURRENT PLAN
+                      </span>
+                 </div>
+
+                    {/* Header */}
+                    <div className="p-6 pb-4">
+                      <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Unlimited Plan</h4>
+                      <div className="flex items-baseline">
+                        <span className="text-4xl font-extrabold text-gray-900 dark:text-white">$30</span>
+                        <span className="ml-1 text-lg text-gray-500 dark:text-gray-400">/month</span>
+                      </div>
+                      <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                        Renews on January 1, 2025
+                      </p>
+                      <div className="flex items-center mt-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                        <span className="text-sm text-green-600 dark:text-green-400 font-medium">Active</span>
+                      </div>
+                    </div>
+
+                    {/* Features */}
+                    <div className="px-6 pb-6">
+                      <ul className="space-y-3">
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Everything in Pro, plus:</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Claude 3.7 Sonnet (Thinking)</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">OpenAI o4-mini & Grok 3 Reasoning</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">DeepSeek-R1 & Gemini 2.5 Pro</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </motion.div>
+                </div>
+
+                {/* Management Actions */}
+                <div className="flex justify-center gap-3">
+                  <button 
+                    onClick={() => PaymentService.openCustomerPortal(user?.id!)}
+                    className="px-5 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                  >
+                    Manage Billing
+                  </button>
+                  <button 
+                    onClick={() => handleDowngrade('pro')}
+                    className="px-5 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                  >
+                    Downgrade to Pro
+                  </button>
+                  <button 
+                    onClick={() => handleCancelSubscription()}
+                    className="px-5 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                  >
+                    Cancel
                   </button>
                 </div>
               </div>

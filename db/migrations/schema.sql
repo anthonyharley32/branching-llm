@@ -603,7 +603,7 @@ INSERT INTO subscription_tiers (name, slug, description, price_cents, stripe_pri
   ('No Login', 'no-login', 'Limited access without account registration', 0, NULL, 5, '{"storage": false, "models": ["default"], "features": ["basic_chat"]}'),
   ('Free', 'free', 'Free tier with message storage and history', 0, NULL, 20, '{"storage": true, "models": ["default"], "features": ["basic_chat", "conversation_history", "message_storage"]}'),
   ('Pro', 'pro', 'Pro tier with model selection and unlimited messages', 1500, 'price_1RFNLuLF1NTZsL3ciJANzk9f', NULL, '{"storage": true, "models": ["claude", "gpt-4.1", "grok", "gemini"], "features": ["basic_chat", "conversation_history", "message_storage", "model_selection", "unlimited_messages"]}'),
-  ('Unlimited', 'unlimited', 'Unlimited tier with reasoning models', 3000, 'price_1RFNPALF1NTZsL3cJCAy0Fo6', NULL, '{"storage": true, "models": ["claude", "gpt-4.1", "grok", "gemini", "claude-reasoning", "gpt-4o-reasoning"], "features": ["basic_chat", "conversation_history", "message_storage", "model_selection", "unlimited_messages", "reasoning_models"]}')
+  ('Unlimited', 'unlimited', 'Unlimited tier with reasoning models', 3000, 'price_1RFNPALF1NTZsL3cJCAy0Fo6', NULL, '{"storage": true, "models": ["claude", "gpt-4.1", "grok", "gemini", "claude-3.7-sonnet-thinking", "openai-o4-mini-high", "grok-3-reasoning", "deepseek-r1", "gemini-2.5-pro-reasoning"], "features": ["basic_chat", "conversation_history", "message_storage", "model_selection", "unlimited_messages", "reasoning_models"]}')
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
   description = EXCLUDED.description,

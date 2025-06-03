@@ -5,9 +5,7 @@ import {
   supabase, 
   getOrCreateStripeCustomer, 
   getSubscriptionTier,
-  validateDiscountCode,
-  createOrUpdateUserSubscription,
-  applyDiscountCode
+  createOrUpdateUserSubscription
 } from '../_shared/stripe.ts';
 
 serve(async (req) => {
@@ -30,7 +28,7 @@ serve(async (req) => {
       throw new Error('Invalid token');
     }
 
-    const { tierSlug, discountCode } = await req.json();
+    const { tierSlug } = await req.json();
 
     // Get the subscription tier
     const tier = await getSubscriptionTier(tierSlug);
@@ -62,19 +60,10 @@ serve(async (req) => {
       );
     }
 
-    // Validate discount code if provided
-    let discount = null;
-    if (discountCode) {
-      discount = await validateDiscountCode(discountCode);
-      if (!discount) {
-        throw new Error('Invalid or expired discount code');
-      }
-    }
-
     // Get or create Stripe customer
     const customerId = await getOrCreateStripeCustomer(user.id, user.email!);
 
-    // Create Stripe checkout session
+    // Create Stripe checkout session with promotional codes enabled
     const sessionData: any = {
       customer: customerId,
       payment_method_types: ['card'],
@@ -86,12 +75,12 @@ serve(async (req) => {
       ],
       mode: 'subscription',
       success_url: `${Deno.env.get('FRONTEND_URL')}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${Deno.env.get('FRONTEND_URL')}/pricing`,
+      cancel_url: `${Deno.env.get('FRONTEND_URL')}/dashboard`,
+      allow_promotion_codes: true, // Enable discount codes on Stripe checkout page
       metadata: {
         user_id: user.id,
         tier_id: tier.id,
         tier_slug: tierSlug,
-        discount_code_id: discount?.id || '',
       },
       subscription_data: {
         metadata: {
@@ -101,15 +90,6 @@ serve(async (req) => {
         },
       },
     };
-
-    // Apply discount if available
-    if (discount) {
-      sessionData.discounts = [
-        {
-          coupon: await getOrCreateStripeCoupon(discount),
-        },
-      ];
-    }
 
     const session = await stripe.checkout.sessions.create(sessionData);
 
@@ -131,36 +111,4 @@ serve(async (req) => {
       }
     );
   }
-});
-
-async function getOrCreateStripeCoupon(discount: any) {
-  try {
-    // Try to find existing coupon
-    const coupons = await stripe.coupons.list({
-      limit: 100,
-    });
-    
-    const existingCoupon = coupons.data.find(
-      coupon => coupon.metadata?.discount_code_id === discount.id
-    );
-    
-    if (existingCoupon) {
-      return existingCoupon.id;
-    }
-
-    // Create new coupon
-    const coupon = await stripe.coupons.create({
-      percent_off: discount.discount_percent,
-      duration: 'forever',
-      metadata: {
-        discount_code_id: discount.id,
-        discount_code: discount.code,
-      },
-    });
-
-    return coupon.id;
-  } catch (error) {
-    console.error('Error creating coupon:', error);
-    throw error;
-  }
-} 
+}); 

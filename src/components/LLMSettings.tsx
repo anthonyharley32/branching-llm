@@ -31,7 +31,11 @@ const REASONING_MODEL_IDS = new Set([
   'google/gemini-2.5-pro-preview-03-25'
 ]);
 
-const LLMSettings: React.FC = () => {
+interface LLMSettingsProps {
+  subscriptionTier?: string;
+}
+
+const LLMSettings: React.FC<LLMSettingsProps> = ({ subscriptionTier = 'free' }) => {
   const { user } = useAuth(); // Get current user
   const [allModels, setAllModels] = useState<ModelInfo[]>([]);
   const [filteredModels, setFilteredModels] = useState<ModelInfo[]>([]);
@@ -40,6 +44,27 @@ const LLMSettings: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedModelDesc, setSelectedModelDesc] = useState<string | null>(null);
+
+  // Check if a model is available for the current subscription tier
+  const isModelAvailable = (modelId: string): boolean => {
+    // Free users can only access GPT-4.1
+    if (subscriptionTier === 'free' || subscriptionTier === 'no-login') {
+      return modelId === 'openai/gpt-4.1';
+    }
+    
+    // Pro users can access all non-reasoning models
+    if (subscriptionTier === 'pro') {
+      return !REASONING_MODEL_IDS.has(modelId);
+    }
+    
+    // Unlimited users can access all models
+    if (subscriptionTier === 'unlimited') {
+      return true;
+    }
+    
+    // Default to free tier restrictions
+    return modelId === 'openai/gpt-4.1';
+  };
 
   // Load all models and set current model on initial load
   useEffect(() => {
@@ -107,6 +132,13 @@ const LLMSettings: React.FC = () => {
   // Handle model change
   const handleModelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const modelId = e.target.value;
+    
+    // Check if model is available for current subscription
+    if (!isModelAvailable(modelId)) {
+      setErrorMessage('This model is not available with your current subscription. Please upgrade to access this model.');
+      return;
+    }
+    
     setCurrentModelId(modelId);
     setIsUpdating(true);
     setErrorMessage(null);
@@ -268,9 +300,16 @@ const LLMSettings: React.FC = () => {
           </div>
         )}
         
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-          Select Model
-        </label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+            Select Model
+          </label>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {subscriptionTier === 'free' || subscriptionTier === 'no-login' ? 'Free: GPT-4.1 only' : 
+             subscriptionTier === 'pro' ? 'Pro: All non-reasoning models' : 
+             subscriptionTier === 'unlimited' ? 'Unlimited: All models' : ''}
+          </div>
+        </div>
         <div className="relative">
           <select
             value={currentModelId}
@@ -293,20 +332,26 @@ const LLMSettings: React.FC = () => {
               No models found matching your search
             </div>
           ) : (
-            filteredModels.map((model) => (
-              <div 
-                key={model.fullId}
-                onClick={() => {
-                  if (!isUpdating) {
-                    setCurrentModelId(model.fullId);
-                    handleModelChange({ target: { value: model.fullId } } as React.ChangeEvent<HTMLSelectElement>);
-                  }
-                }}
-                className={`flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
-                  currentModelId === model.fullId ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-white dark:bg-gray-800'
-                }`}
-                title={MODEL_DESCRIPTIONS[model.fullId] || ""}
-              >
+            filteredModels.map((model) => {
+              const isAvailable = isModelAvailable(model.fullId);
+              return (
+                <div 
+                  key={model.fullId}
+                  onClick={() => {
+                    if (!isUpdating && isAvailable) {
+                      setCurrentModelId(model.fullId);
+                      handleModelChange({ target: { value: model.fullId } } as React.ChangeEvent<HTMLSelectElement>);
+                    }
+                  }}
+                  className={`flex items-center gap-2 p-2 ${
+                    isAvailable 
+                      ? `hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
+                          currentModelId === model.fullId ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-white dark:bg-gray-800'
+                        }`
+                      : 'bg-gray-50 dark:bg-gray-900/50 cursor-not-allowed opacity-50'
+                  }`}
+                  title={isAvailable ? (MODEL_DESCRIPTIONS[model.fullId] || "") : "Upgrade your subscription to access this model"}
+                >
                 <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
                   {getProviderLogo(model.providerName) && (
                     <img 
@@ -318,11 +363,16 @@ const LLMSettings: React.FC = () => {
                 </div>
                 <div className="flex-1">
                   <div className="font-medium text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
-                    <span>{model.name}</span>
+                    <span className={isAvailable ? '' : 'line-through'}>{model.name}</span>
                     {REASONING_MODEL_IDS.has(model.fullId) && (
                       <span className="flex items-center text-xs text-purple-600 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 px-1.5 py-0.5 rounded-full">
                         <HiOutlineSparkles className="mr-1" /> 
                         Reasoning
+                      </span>
+                    )}
+                    {!isAvailable && (
+                      <span className="flex items-center text-xs text-orange-600 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full">
+                        Upgrade Required
                       </span>
                     )}
                   </div>
@@ -336,7 +386,8 @@ const LLMSettings: React.FC = () => {
                   </div>
                 )}
               </div>
-            ))
+            );
+            })
           )}
         </div>
         

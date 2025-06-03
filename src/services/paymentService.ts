@@ -146,41 +146,12 @@ export class PaymentService {
     }
   }
 
-  // Validate discount code
-  static async validateDiscountCode(code: string): Promise<DiscountCode | null> {
-    const { data, error } = await supabase
-      .from('discount_codes')
-      .select('*')
-      .eq('code', code.toUpperCase())
-      .eq('is_active', true)
-      .single();
 
-    if (error && error.code !== 'PGRST116') {
-      throw new Error(`Failed to validate discount code: ${error.message}`);
-    }
-
-    if (!data) {
-      return null;
-    }
-
-    // Check if expired
-    if (data.expires_at && new Date(data.expires_at) < new Date()) {
-      return null;
-    }
-
-    // Check if max uses reached
-    if (data.max_uses && data.current_uses >= data.max_uses) {
-      return null;
-    }
-
-    return data;
-  }
 
   // Create Stripe checkout session
   static async createCheckoutSession(
     tierSlug: string, 
-    userId: string,
-    discountCode?: string
+    userId: string
   ): Promise<StripeCheckoutSession> {
     const response = await fetch(`${this.baseUrl}/stripe-checkout`, {
       method: 'POST',
@@ -190,8 +161,7 @@ export class PaymentService {
       },
       body: JSON.stringify({
         tierSlug,
-        userId,
-        discountCode
+        userId
       })
     });
 
@@ -222,14 +192,11 @@ export class PaymentService {
     return response.json();
   }
 
-  // Get pricing plans with discounts applied
-  static async getPricingPlans(discountCode?: string): Promise<PricingPlan[]> {
-    const [tiers, discount] = await Promise.all([
-      this.getSubscriptionTiers(),
-      discountCode ? this.validateDiscountCode(discountCode) : Promise.resolve(null)
-    ]);
+  // Get pricing plans without discounts (discounts now handled by Stripe)
+  static async getPricingPlans(): Promise<PricingPlan[]> {
+    const tiers = await this.getSubscriptionTiers();
 
-    return tiers.map(tier => {
+    return tiers.map((tier: SubscriptionTier) => {
       const price = tier.price_cents / 100;
       const plan: PricingPlan = {
         tier,
@@ -237,19 +204,81 @@ export class PaymentService {
         popular: tier.slug === 'pro' // Mark Pro as popular
       };
 
-      if (discount && tier.price_cents > 0) {
-        plan.originalPrice = price;
-        plan.price = price * (1 - discount.discount_percent / 100);
-        plan.discount = discount;
-      }
-
       return plan;
     });
   }
 
-  // Cancel subscription (redirect to customer portal)
-  static async cancelSubscription(userId: string): Promise<void> {
-    // For cancellation, redirect to the customer portal where users can manage their subscription
+  // Cancel subscription at period end
+  static async cancelSubscription(userId: string): Promise<{ message: string; accessUntil: Date }> {
+    const response = await fetch(`${this.baseUrl}/stripe-subscription-change`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+      },
+      body: JSON.stringify({
+        action: 'cancel',
+        userId,
+        cancelImmediately: false
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to cancel subscription: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  // Cancel subscription immediately with refund
+  static async cancelSubscriptionImmediately(userId: string): Promise<{ message: string; accessUntil: Date }> {
+    const response = await fetch(`${this.baseUrl}/stripe-subscription-change`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+      },
+      body: JSON.stringify({
+        action: 'cancel',
+        userId,
+        cancelImmediately: true
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to cancel subscription immediately: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  // Change subscription plan with proration
+  static async changeSubscriptionPlan(userId: string, newTierSlug: string, isUpgrade: boolean): Promise<{ message: string; subscription: any }> {
+    const response = await fetch(`${this.baseUrl}/stripe-subscription-change`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+      },
+      body: JSON.stringify({
+        action: isUpgrade ? 'upgrade' : 'downgrade',
+        newTierSlug,
+        userId
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to change subscription: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  // Legacy method - redirect to customer portal for general management
+  static async openCustomerPortal(userId: string): Promise<void> {
     const { url } = await this.createPortalSession(userId);
     window.location.href = url;
   }
