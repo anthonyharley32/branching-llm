@@ -138,7 +138,7 @@ async function handleUpgrade(currentSubscription: any, newTierSlug: string, user
 
   const subscription = await stripe.subscriptions.retrieve(currentSubscription.stripe_subscription_id);
   
-  // Update the subscription with proration
+  // Update the subscription with immediate billing for proration
   const updatedSubscription = await stripe.subscriptions.update(
     currentSubscription.stripe_subscription_id,
     {
@@ -146,7 +146,7 @@ async function handleUpgrade(currentSubscription: any, newTierSlug: string, user
         id: subscription.items.data[0].id,
         price: newTier.stripe_price_id,
       }],
-      proration_behavior: 'create_prorations', // This creates a proration invoice
+      proration_behavior: 'always_invoice', // This creates prorations AND immediately invoices them
       metadata: {
         user_id: userId,
         tier_id: newTier.id,
