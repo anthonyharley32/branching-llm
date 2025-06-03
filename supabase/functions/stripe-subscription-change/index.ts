@@ -41,20 +41,14 @@ serve(async (req) => {
       throw new Error('No active subscription found');
     }
 
-    // Get the new tier
-    const newTier = await getSubscriptionTier(newTierSlug);
-    if (!newTier) {
-      throw new Error('Invalid subscription tier');
-    }
-
     let result;
 
     switch (action) {
       case 'upgrade':
-        result = await handleUpgrade(currentSubscription, newTier, user.id);
+        result = await handleUpgrade(currentSubscription, newTierSlug, user.id);
         break;
       case 'downgrade':
-        result = await handleDowngrade(currentSubscription, newTier, user.id);
+        result = await handleDowngrade(currentSubscription, newTierSlug, user.id);
         break;
       case 'cancel':
         result = await handleCancellation(currentSubscription, user.id, cancelImmediately);
@@ -73,17 +67,75 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Subscription change error:', error);
+    
+    // Determine if this is a client error (4xx) or server error (5xx)
+    const { statusCode, errorMessage } = categorizeError(error);
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: statusCode,
       }
     );
   }
 });
 
-async function handleUpgrade(currentSubscription: any, newTier: any, userId: string) {
+function categorizeError(error: any): { statusCode: number; errorMessage: string } {
+  const errorMessage = error.message || 'An unexpected error occurred';
+  
+  // Client errors (400-499) - Issues with the request or user input
+  const clientErrorPatterns = [
+    'No authorization header',
+    'Invalid token',
+    'Invalid action',
+    'Invalid subscription tier',
+    'No active subscription found',
+    'Missing required field',
+    'Invalid request body',
+    'Authentication failed',
+    'Unauthorized',
+    'Bad request',
+    'Not found'
+  ];
+  
+  // Check if it's a client error based on message content
+  const isClientError = clientErrorPatterns.some(pattern => 
+    errorMessage.toLowerCase().includes(pattern.toLowerCase())
+  );
+  
+  if (isClientError) {
+    return { statusCode: 400, errorMessage };
+  }
+  
+  // Check for specific Stripe errors
+  if (error.type && error.type.startsWith('Stripe')) {
+    // Stripe API errors are typically server/upstream issues
+    return { statusCode: 502, errorMessage: 'Payment service temporarily unavailable' };
+  }
+  
+  // Check for database errors (Supabase errors)
+  if (error.code || (error.message && error.message.includes('supabase'))) {
+    return { statusCode: 503, errorMessage: 'Database service temporarily unavailable' };
+  }
+  
+  // Check for network/timeout errors
+  if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || 
+      errorMessage.includes('timeout') || errorMessage.includes('network')) {
+    return { statusCode: 503, errorMessage: 'Service temporarily unavailable' };
+  }
+  
+  // Default to server error for any unhandled cases
+  return { statusCode: 500, errorMessage: 'Internal server error' };
+}
+
+async function handleUpgrade(currentSubscription: any, newTierSlug: string, userId: string) {
+  // Get the new tier
+  const newTier = await getSubscriptionTier(newTierSlug);
+  if (!newTier) {
+    throw new Error('Invalid subscription tier');
+  }
+
   const subscription = await stripe.subscriptions.retrieve(currentSubscription.stripe_subscription_id);
   
   // Update the subscription with proration
@@ -122,7 +174,13 @@ async function handleUpgrade(currentSubscription: any, newTier: any, userId: str
   };
 }
 
-async function handleDowngrade(currentSubscription: any, newTier: any, userId: string) {
+async function handleDowngrade(currentSubscription: any, newTierSlug: string, userId: string) {
+  // Get the new tier
+  const newTier = await getSubscriptionTier(newTierSlug);
+  if (!newTier) {
+    throw new Error('Invalid subscription tier');
+  }
+
   // For downgrades, we schedule the change for the end of the billing period
   // This prevents immediate charges and maintains access
   const subscription = await stripe.subscriptions.retrieve(currentSubscription.stripe_subscription_id);

@@ -16,6 +16,15 @@ async function verifyStripeWebhook(payload: string, signature: string, secret: s
     throw new Error('Invalid signature format');
   }
 
+  // Replay protection: reject requests older than 5 minutes (300 seconds)
+  const timestampSeconds = parseInt(timestamp, 10);
+  const currentTimeSeconds = Math.floor(Date.now() / 1000);
+  const timeDifference = currentTimeSeconds - timestampSeconds;
+  
+  if (timeDifference > 300) {
+    throw new Error('Request timestamp too old (replay protection)');
+  }
+
   const signedPayload = `${timestamp}.${payload}`;
   const encoder = new TextEncoder();
   const data = encoder.encode(signedPayload);
@@ -32,10 +41,15 @@ async function verifyStripeWebhook(payload: string, signature: string, secret: s
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 
-  const isValid = sigs.some(sig => {
+  // Use timing-safe comparison to prevent timing attacks
+  let isValid = false;
+  for (const sig of sigs) {
     const sigHash = sig.substring(3);
-    return signature_hex === sigHash;
-  });
+    if (timingSafeEqual(signature_hex, sigHash)) {
+      isValid = true;
+      break;
+    }
+  }
 
   if (!isValid) {
     throw new Error('Invalid signature');
@@ -43,6 +57,20 @@ async function verifyStripeWebhook(payload: string, signature: string, secret: s
 
   // Parse the event JSON
   return JSON.parse(payload);
+}
+
+// Timing-safe string comparison to prevent timing attacks
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  
+  return result === 0;
 }
 
 serve(async (req) => {
@@ -121,7 +149,7 @@ async function handleCheckoutSessionCompleted(session: any) {
   }
 
   // Get subscription details
-  let subscription = null;
+  let subscription: any = null;
   if (session.subscription) {
     subscription = await stripe.subscriptions.retrieve(session.subscription);
   }

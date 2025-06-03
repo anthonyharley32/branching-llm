@@ -12,6 +12,7 @@ DROP TABLE IF EXISTS daily_usage;
 DROP TABLE IF EXISTS discount_code_usage;
 DROP TABLE IF EXISTS discount_codes;
 DROP TABLE IF EXISTS user_subscriptions;
+DROP TABLE IF EXISTS models;
 DROP TABLE IF EXISTS subscription_tiers;
 DROP TABLE IF EXISTS bugs;
 DROP TABLE IF EXISTS conversation_messages;
@@ -23,6 +24,9 @@ DROP TABLE IF EXISTS users;
 -- Drop existing functions
 DROP FUNCTION IF EXISTS trigger_set_updated_at CASCADE;
 DROP FUNCTION IF EXISTS handle_new_user CASCADE;
+DROP FUNCTION IF EXISTS get_user_subscription_tier CASCADE;
+DROP FUNCTION IF EXISTS check_daily_usage_limit CASCADE;
+DROP FUNCTION IF EXISTS increment_daily_usage CASCADE;
 
 -- =====================================
 -- EXTENSIONS
@@ -51,11 +55,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function to get user's current subscription tier
+-- Function to get user's current subscription tier with available models
 CREATE OR REPLACE FUNCTION get_user_subscription_tier(user_uuid UUID)
 RETURNS TABLE (
   tier_name TEXT,
   tier_slug TEXT,
+  tier_level INTEGER,
   daily_message_limit INTEGER,
   features JSONB,
   status TEXT
@@ -65,6 +70,7 @@ BEGIN
   SELECT 
     st.name,
     st.slug,
+    st.tier_level,
     st.daily_message_limit,
     st.features,
     COALESCE(us.status, 'none') as status
@@ -79,6 +85,7 @@ BEGIN
     SELECT 
       st.name,
       st.slug,
+      st.tier_level,
       st.daily_message_limit,
       st.features,
       'none'::TEXT as status
@@ -86,6 +93,48 @@ BEGIN
     WHERE st.slug = 'free'
     LIMIT 1;
   END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to get available models for a user
+CREATE OR REPLACE FUNCTION get_user_available_models(user_uuid UUID)
+RETURNS TABLE (
+  model_id UUID,
+  model_name TEXT,
+  company TEXT,
+  api_model_id TEXT,
+  is_reasoning BOOLEAN,
+  description TEXT
+) AS $$
+DECLARE
+  user_tier_level INTEGER;
+BEGIN
+  -- Get user's tier level
+  SELECT COALESCE(st.tier_level, 0) INTO user_tier_level
+  FROM users u
+  LEFT JOIN user_subscriptions us ON u.id = us.user_id AND us.status = 'active'
+  LEFT JOIN subscription_tiers st ON us.tier_id = st.id
+  WHERE u.id = user_uuid;
+  
+  -- If no tier found, default to free tier level (0)
+  IF user_tier_level IS NULL THEN
+    user_tier_level := 0;
+  END IF;
+  
+  -- Return models available for this tier level
+  RETURN QUERY
+  SELECT 
+    m.id,
+    m.name,
+    m.company,
+    m.api_model_id,
+    m.is_reasoning,
+    m.description
+  FROM models m
+  JOIN subscription_tiers st ON m.minimum_tier_id = st.id
+  WHERE st.tier_level <= user_tier_level 
+    AND m.is_active = true
+  ORDER BY m.company, m.is_reasoning, m.name;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -196,10 +245,25 @@ CREATE TABLE IF NOT EXISTS subscription_tiers (
   name TEXT NOT NULL UNIQUE,
   slug TEXT NOT NULL UNIQUE,
   description TEXT,
+  tier_level INTEGER NOT NULL UNIQUE, -- 0=no-login, 1=free, 2=pro, 3=unlimited
   price_cents INTEGER NOT NULL DEFAULT 0,
   stripe_price_id TEXT,
   daily_message_limit INTEGER,
   features JSONB DEFAULT '{}'::JSONB,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+-- Models table - centralized model management
+CREATE TABLE IF NOT EXISTS models (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  company TEXT NOT NULL, -- openai, anthropic, google, xai, meta, etc.
+  api_model_id TEXT NOT NULL UNIQUE, -- actual API identifier like "openai/gpt-4.1"
+  minimum_tier_id UUID REFERENCES subscription_tiers(id) ON DELETE RESTRICT NOT NULL,
+  is_reasoning BOOLEAN DEFAULT false,
+  description TEXT,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
@@ -221,31 +285,6 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   UNIQUE(user_id)
-);
-
--- Discount Codes
-CREATE TABLE IF NOT EXISTS discount_codes (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  code TEXT NOT NULL UNIQUE,
-  description TEXT,
-  discount_percent INTEGER NOT NULL CHECK (discount_percent >= 0 AND discount_percent <= 100),
-  max_uses INTEGER,
-  current_uses INTEGER DEFAULT 0,
-  expires_at TIMESTAMP WITH TIME ZONE,
-  is_active BOOLEAN DEFAULT true,
-  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
-);
-
--- Discount Code Usage
-CREATE TABLE IF NOT EXISTS discount_code_usage (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  discount_code_id UUID REFERENCES discount_codes(id) ON DELETE CASCADE NOT NULL,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-  subscription_id UUID REFERENCES user_subscriptions(id) ON DELETE CASCADE NOT NULL,
-  used_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-  UNIQUE(discount_code_id, user_id)
 );
 
 -- Daily Usage Tracking
@@ -292,17 +331,18 @@ CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation_id ON conversa
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_branch_id ON conversation_messages(branch_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_parent_message_id ON conversation_messages(parent_message_id);
 CREATE INDEX IF NOT EXISTS idx_subscription_tiers_slug ON subscription_tiers(slug);
+CREATE INDEX IF NOT EXISTS idx_subscription_tiers_tier_level ON subscription_tiers(tier_level);
 CREATE INDEX IF NOT EXISTS idx_subscription_tiers_is_active ON subscription_tiers(is_active);
+CREATE INDEX IF NOT EXISTS idx_models_company ON models(company);
+CREATE INDEX IF NOT EXISTS idx_models_api_model_id ON models(api_model_id);
+CREATE INDEX IF NOT EXISTS idx_models_minimum_tier_id ON models(minimum_tier_id);
+CREATE INDEX IF NOT EXISTS idx_models_is_active ON models(is_active);
+CREATE INDEX IF NOT EXISTS idx_models_is_reasoning ON models(is_reasoning);
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_id ON user_subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_tier_id ON user_subscriptions(tier_id);
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_stripe_customer_id ON user_subscriptions(stripe_customer_id);
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_stripe_subscription_id ON user_subscriptions(stripe_subscription_id);
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status ON user_subscriptions(status);
-CREATE INDEX IF NOT EXISTS idx_discount_codes_code ON discount_codes(code);
-CREATE INDEX IF NOT EXISTS idx_discount_codes_is_active ON discount_codes(is_active);
-CREATE INDEX IF NOT EXISTS idx_discount_codes_expires_at ON discount_codes(expires_at);
-CREATE INDEX IF NOT EXISTS idx_discount_code_usage_discount_code_id ON discount_code_usage(discount_code_id);
-CREATE INDEX IF NOT EXISTS idx_discount_code_usage_user_id ON discount_code_usage(user_id);
 CREATE INDEX IF NOT EXISTS idx_daily_usage_user_id ON daily_usage(user_id);
 CREATE INDEX IF NOT EXISTS idx_daily_usage_date ON daily_usage(date);
 CREATE INDEX IF NOT EXISTS idx_daily_usage_user_date ON daily_usage(user_id, date);
@@ -344,13 +384,13 @@ BEFORE UPDATE ON subscription_tiers
 FOR EACH ROW
 EXECUTE FUNCTION trigger_set_updated_at();
 
-CREATE TRIGGER set_user_subscriptions_updated_at
-BEFORE UPDATE ON user_subscriptions
+CREATE TRIGGER set_models_updated_at
+BEFORE UPDATE ON models
 FOR EACH ROW
 EXECUTE FUNCTION trigger_set_updated_at();
 
-CREATE TRIGGER set_discount_codes_updated_at
-BEFORE UPDATE ON discount_codes
+CREATE TRIGGER set_user_subscriptions_updated_at
+BEFORE UPDATE ON user_subscriptions
 FOR EACH ROW
 EXECUTE FUNCTION trigger_set_updated_at();
 
@@ -381,9 +421,8 @@ ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversation_branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversation_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscription_tiers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE models ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE discount_codes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE discount_code_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bugs ENABLE ROW LEVEL SECURITY;
 
@@ -501,6 +540,10 @@ CREATE POLICY messages_delete_own ON conversation_messages
 CREATE POLICY subscription_tiers_select_all ON subscription_tiers
   FOR SELECT USING (is_active = true);
 
+-- Models policies (publicly readable for active models)
+CREATE POLICY models_select_active ON models
+  FOR SELECT USING (is_active = true);
+
 -- User subscriptions policies
 CREATE POLICY user_subscriptions_select_own ON user_subscriptions
   FOR SELECT USING (auth.uid() = user_id);
@@ -510,17 +553,6 @@ CREATE POLICY user_subscriptions_insert_own ON user_subscriptions
   
 CREATE POLICY user_subscriptions_update_own ON user_subscriptions
   FOR UPDATE USING (auth.uid() = user_id);
-
--- Discount codes policies (publicly readable for validation)
-CREATE POLICY discount_codes_select_active ON discount_codes
-  FOR SELECT USING (is_active = true AND (expires_at IS NULL OR expires_at > NOW()));
-
--- Discount code usage policies
-CREATE POLICY discount_code_usage_select_own ON discount_code_usage
-  FOR SELECT USING (auth.uid() = user_id);
-  
-CREATE POLICY discount_code_usage_insert_own ON discount_code_usage
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Daily usage policies
 CREATE POLICY daily_usage_select_own ON daily_usage
@@ -598,29 +630,52 @@ USING (
 -- SEED DATA
 -- =====================================
 
--- Insert default subscription tiers
-INSERT INTO subscription_tiers (name, slug, description, price_cents, stripe_price_id, daily_message_limit, features) VALUES
-  ('No Login', 'no-login', 'Limited access without account registration', 0, NULL, 5, '{"storage": false, "models": ["default"], "features": ["basic_chat"]}'),
-  ('Free', 'free', 'Free tier with message storage and history', 0, NULL, 20, '{"storage": true, "models": ["default"], "features": ["basic_chat", "conversation_history", "message_storage"]}'),
-  ('Pro', 'pro', 'Pro tier with model selection and unlimited messages', 1500, 'price_1RFNLuLF1NTZsL3ciJANzk9f', NULL, '{"storage": true, "models": ["claude", "gpt-4.1", "grok", "gemini"], "features": ["basic_chat", "conversation_history", "message_storage", "model_selection", "unlimited_messages"]}'),
-  ('Unlimited', 'unlimited', 'Unlimited tier with reasoning models', 3000, 'price_1RFNPALF1NTZsL3cJCAy0Fo6', NULL, '{"storage": true, "models": ["claude", "gpt-4.1", "grok", "gemini", "claude-3.7-sonnet-thinking", "openai-o4-mini-high", "grok-3-reasoning", "deepseek-r1", "gemini-2.5-pro-reasoning"], "features": ["basic_chat", "conversation_history", "message_storage", "model_selection", "unlimited_messages", "reasoning_models"]}')
+-- Insert subscription tiers with tier levels
+INSERT INTO subscription_tiers (name, slug, description, tier_level, price_cents, stripe_price_id, daily_message_limit, features) VALUES
+  ('No Login', 'no-login', 'Limited access without account registration', 0, 0, NULL, 5, '{"storage": false, "features": ["basic_chat"]}'),
+  ('Free', 'free', 'Free tier with message storage and history', 1, 0, NULL, 20, '{"storage": true, "features": ["basic_chat", "conversation_history", "message_storage"]}'),
+  ('Pro', 'pro', 'Pro tier with model selection and unlimited messages', 2, 1500, 'price_1RFNLuLF1NTZsL3ciJANzk9f', NULL, '{"storage": true, "features": ["basic_chat", "conversation_history", "message_storage", "model_selection", "unlimited_messages"]}'),
+  ('Unlimited', 'unlimited', 'Unlimited tier with reasoning models', 3, 3000, 'price_1RFNPALF1NTZsL3cJCAy0Fo6', NULL, '{"storage": true, "features": ["basic_chat", "conversation_history", "message_storage", "model_selection", "unlimited_messages", "reasoning_models"]}')
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
   description = EXCLUDED.description,
+  tier_level = EXCLUDED.tier_level,
   price_cents = EXCLUDED.price_cents,
   stripe_price_id = EXCLUDED.stripe_price_id,
   daily_message_limit = EXCLUDED.daily_message_limit,
   features = EXCLUDED.features,
   updated_at = NOW();
 
--- Insert some sample discount codes for beta testing
-INSERT INTO discount_codes (code, description, discount_percent, max_uses, is_active) VALUES
-  ('BETA50', 'Beta tester 50% discount', 50, 100, true),
-  ('FRIENDS20', 'Friends and family 20% discount', 20, 50, true),
-  ('LAUNCH30', 'Launch week 30% discount', 30, 200, true)
-ON CONFLICT (code) DO UPDATE SET
+-- Insert models with proper tier associations
+-- Get tier IDs for reference
+WITH tier_ids AS (
+  SELECT 
+    (SELECT id FROM subscription_tiers WHERE slug = 'no-login') as no_login_id,
+    (SELECT id FROM subscription_tiers WHERE slug = 'free') as free_id,
+    (SELECT id FROM subscription_tiers WHERE slug = 'pro') as pro_id,
+    (SELECT id FROM subscription_tiers WHERE slug = 'unlimited') as unlimited_id
+)
+INSERT INTO models (name, company, api_model_id, minimum_tier_id, is_reasoning, description) 
+SELECT * FROM (
+  VALUES
+    -- Free tier models
+    ('GPT-4.1', 'openai', 'openai/gpt-4.1', (SELECT free_id FROM tier_ids), false, 'OpenAI''s most capable model for complex tasks requiring deep understanding.'),
+    
+    -- Pro tier models (non-reasoning)
+    ('Claude 3.7 Sonnet', 'anthropic', 'anthropic/claude-3.7-sonnet', (SELECT pro_id FROM tier_ids), false, 'Anthropic''s balanced model with strong instruction following capabilities.'),
+    ('Grok 3 Beta', 'xai', 'x-ai/grok-3-beta', (SELECT pro_id FROM tier_ids), false, 'Full-sized model with wide knowledge. Shows its thinking process in responses.'),
+    ('Gemini 2.5 Flash Preview', 'google', 'google/gemini-2.5-flash-preview', (SELECT pro_id FROM tier_ids), false, 'Google''s fastest Gemini model for responsive applications.'),
+    
+    -- Unlimited tier models (reasoning)
+    ('Claude 3.7 Sonnet Thinking', 'anthropic', 'anthropic/claude-3.7-sonnet:thinking', (SELECT unlimited_id FROM tier_ids), true, 'Claude 3.7 Sonnet with step-by-step reasoning visible in the response. Optimized for complex thought processes.'),
+    ('o4 Mini High', 'openai', 'openai/o4-mini-high', (SELECT unlimited_id FROM tier_ids), true, 'Smaller, faster version of GPT-4.1 optimized for responsive interactions and efficient reasoning.'),
+    ('Grok 3 Mini Beta', 'xai', 'x-ai/grok-3-mini-beta', (SELECT unlimited_id FROM tier_ids), true, 'A lightweight, thinking model ideal for reasoning-heavy tasks that need less domain knowledge. Excels at math and solving puzzles.'),
+    ('Gemini 2.5 Pro Preview', 'google', 'google/gemini-2.5-pro-preview-03-25', (SELECT unlimited_id FROM tier_ids), true, 'Google''s most capable Gemini model for complex reasoning tasks.')
+) AS v(name, company, api_model_id, minimum_tier_id, is_reasoning, description)
+ON CONFLICT (api_model_id) DO UPDATE SET
+  name = EXCLUDED.name,
+  company = EXCLUDED.company,
+  minimum_tier_id = EXCLUDED.minimum_tier_id,
+  is_reasoning = EXCLUDED.is_reasoning,
   description = EXCLUDED.description,
-  discount_percent = EXCLUDED.discount_percent,
-  max_uses = EXCLUDED.max_uses,
-  is_active = EXCLUDED.is_active,
   updated_at = NOW();
