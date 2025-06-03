@@ -27,7 +27,7 @@ const preprocessMarkdown = (content: string): string => {
 };
 
 // The main component function
-const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNodeId, onBranchCreated, onMessageEdited }) => {
+const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCreated, onMessageEdited }) => {
   // Determine if this is a user message
   const isUser = message.role === 'user';
   
@@ -506,7 +506,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, streamingNod
       });
   };
 
-  const isStreaming = !isUser && streamingNodeId === message.id;
+  // const isStreaming = !isUser && streamingNodeId === message.id;
 
   return (
     <div className={`flex w-full mb-3 ${isUser ? 'justify-end' : 'justify-start'}`}>

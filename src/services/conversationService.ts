@@ -119,7 +119,7 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
     }
 
     // Log how many messages have thinking content
-    const messagesWithThinking = Object.values(conversation.messages).filter(node => node.thinkingContent).length;
+    // const messagesWithThinking = Object.values(conversation.messages).filter(node => node.thinkingContent).length;
     
     // 2. Prepare messages for upsert
     const messagesForDb: Partial<DbMessage>[] = Object.values(conversation.messages).map(node => {
@@ -149,9 +149,9 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
 
     if (messagesForDb.length > 0) {
         // First, log the messages we're about to save
-        const assistantMessagesWithThinking = messagesForDb.filter(
-            msg => msg.role === 'assistant' && msg.thinking_content
-        );
+        // const assistantMessagesWithThinking = messagesForDb.filter(
+        //     msg => msg.role === 'assistant' && msg.thinking_content
+        // );
         
         // Perform the database upsert without returning
         const { error: messagesUpsertError } = await supabase
@@ -172,7 +172,7 @@ export const saveConversationToSupabase = async (conversation: FrontendConversat
               .eq('role', 'assistant');
               
           if (!verifyError && verifyData) {
-              const messagesWithThinkingInDb = verifyData.filter(msg => msg.thinking_content !== null);
+              // const messagesWithThinkingInDb = verifyData.filter(msg => msg.thinking_content !== null);
           }
         } catch (verifyError) {
           console.error('Error verifying thinking content in DB:', verifyError);

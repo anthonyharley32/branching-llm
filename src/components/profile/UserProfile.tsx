@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { UserProfile as UserProfileType } from '../../types/database';
+import { PaymentService } from '../../services/paymentService'; // Add PaymentService import
 import { 
   FiUser, FiX, FiCamera,
   FiSliders, FiDatabase, FiBox,  
@@ -47,6 +48,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
   // State to track the initial value for comparison
   const [initialAdditionalSystemPrompt, setInitialAdditionalSystemPrompt] = useState<string>('');
 
+  // New state for system prompt
+  const [systemPrompt, setSystemPrompt] = useState<string>('');
+
+  // New state for subscription tier
+  const [subscriptionTier, setSubscriptionTier] = useState<string>('free'); // Default to 'free'
+
+  // New state for processing payment
+  const [processingPlan, setProcessingPlan] = useState<string | null>(null);
+
   // Helper function to calculate background color based on theme and highlight color
   const getBackgroundColor = (highlightColor: string, theme: string): string => {
     if (theme === 'dark') {
@@ -90,6 +100,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
         const loadedPrompt = userProfile.additional_system_prompt || '';
         setAdditionalSystemPrompt(loadedPrompt);
         setInitialAdditionalSystemPrompt(loadedPrompt); // Set initial value
+        setSubscriptionTier(user?.user_metadata?.subscription_tier || 'free');
       } else {
         // Create a new profile if one doesn't exist
         if (!isRetry) { // Prevent infinite loops
@@ -162,6 +173,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
         const loadedPrompt = userProfile.additional_system_prompt || '';
         setAdditionalSystemPrompt(loadedPrompt);
         setInitialAdditionalSystemPrompt(loadedPrompt); // Set initial value
+        setSubscriptionTier(user?.user_metadata?.subscription_tier || 'free');
       }
     } catch (err: any) {
       console.error('Error creating user profile:', err);
@@ -179,7 +191,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
       // Upload avatar if there's a new file
       let newAvatarUrl = avatarUrl;
       if (avatarFile) {
-        newAvatarUrl = await uploadAvatar();
+        newAvatarUrl = await uploadAvatar(avatarFile);
       }
       
       const updatedProfile = {
@@ -244,10 +256,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
     }
   };
   
-  const uploadAvatar = async (): Promise<string | null> => {
-    if (!avatarFile || !user) return null;
+  const uploadAvatar = async (file: File): Promise<string | null> => {
+    if (!file || !user) return null;
     
-    const fileExt = avatarFile.name.split('.').pop();
+    const fileExt = file.name.split('.').pop();
     const fileName = `${user.id}-${Date.now()}.${fileExt}`;
     const filePath = `avatars/${fileName}`;
     console.log('Attempting to upload avatar with path:', filePath); // Log the path
@@ -259,7 +271,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
       // Upload the file
       const { error: uploadError } = await supabase.storage
         .from('user-assets')
-        .upload(filePath, avatarFile);
+        .upload(filePath, file);
       
       if (uploadError) {
         console.error('Supabase upload error object:', uploadError); // Log the specific upload error
@@ -285,9 +297,34 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
       setUploading(false);
     }
   };
-  
+
+  // Handle checkout for subscription plans
+  const handleCheckout = async (planSlug: string) => {
+    if (!user) {
+      alert('Please log in to subscribe');
+      return;
+    }
+
+    try {
+      setProcessingPlan(planSlug);
+      
+      const session = await PaymentService.createCheckoutSession(
+        planSlug,
+        user.id
+      );
+      
+      if (session.url) {
+        window.location.href = session.url;
+      }
+    } catch (error) {
+      console.error('Failed to create checkout session:', error);
+      alert('Failed to start checkout process. Please try again.');
+    } finally {
+      setProcessingPlan(null);
+    }
+  };
+
   // --- MOCK DATA ---
-  const subscriptionTier = user?.user_metadata?.subscription_tier || 'free';
   const userDisplayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
   // --- END MOCK DATA ---
 
@@ -639,21 +676,142 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
                {subscriptionTier === 'free' ? 'Upgrade Your Account' : 'Billing'}
              </h3>
             {subscriptionTier === 'free' ? (
-              // Free Tier View
-              <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg text-center shadow-sm border border-gray-200 dark:border-gray-700 max-w-md mx-auto"> {/* Constrain width */} 
-                <div className="flex justify-center mb-4">
-                  <HiOutlineSparkles className="h-10 w-10 text-blue-500 dark:text-blue-400" />
-                </div>
-                <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">You are on the Free Plan</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
-                  Upgrade to unlock premium features and support the development of LearningLLM.
-                </p>
-                <button 
-                  onClick={() => console.log('Navigate to upgrade/checkout page')} 
-                  className="px-5 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-full shadow-md hover:shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300 ease-in-out transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 cursor-pointer"
+              // Free Tier View - New Modern Design with Two Cards
+              <div className="flex gap-6 justify-center">
+                {/* Pro Plan Card */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                  whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                  className="relative w-72 bg-gradient-to-b from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden"
                 >
-                  Upgrade to Premium+
-                </button>
+                  {/* Header */}
+                  <div className="p-6 pb-4">
+                    <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Pro</h4>
+                    <div className="flex items-baseline">
+                      <span className="text-4xl font-extrabold text-gray-900 dark:text-white">$15</span>
+                      <span className="ml-1 text-lg text-gray-500 dark:text-gray-400">/month</span>
+                    </div>
+                    <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                      Everything you need for advanced AI conversations
+                    </p>
+                  </div>
+
+                  {/* Features */}
+                  <div className="px-6 pb-6">
+                    <ul className="space-y-3">
+                      <li className="flex items-start">
+                        <svg className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Unlimited messages</span>
+                      </li>
+                      <li className="flex items-start">
+                        <svg className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Access to Claude, GPT-4, Grok & Gemini</span>
+                      </li>
+                      <li className="flex items-start">
+                        <svg className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Model selection</span>
+                      </li>
+                      <li className="flex items-start">
+                        <svg className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Conversation history</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* CTA Button */}
+                  <div className="p-6 pt-0">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleCheckout('pro')}
+                      disabled={processingPlan === 'pro'}
+                      className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {processingPlan === 'pro' ? 'Processing...' : 'Choose Pro'}
+                    </motion.button>
+                  </div>
+                </motion.div>
+
+                {/* Unlimited Plan Card */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                  whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                  className="relative w-72 bg-gradient-to-b from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/30 rounded-2xl border-2 border-purple-400 dark:border-purple-600 shadow-xl overflow-hidden"
+                >
+                  {/* Popular Badge */}
+                  <div className="absolute top-4 right-4">
+                    <span className="px-3 py-1 text-xs font-bold text-purple-800 dark:text-purple-200 bg-purple-200 dark:bg-purple-800/50 rounded-full">
+                      MOST POPULAR
+                    </span>
+                  </div>
+
+                  {/* Header */}
+                  <div className="p-6 pb-4">
+                    <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Unlimited</h4>
+                    <div className="flex items-baseline">
+                      <span className="text-4xl font-extrabold text-gray-900 dark:text-white">$30</span>
+                      <span className="ml-1 text-lg text-gray-500 dark:text-gray-400">/month</span>
+                    </div>
+                    <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                      Premium features with advanced reasoning
+                    </p>
+                  </div>
+
+                  {/* Features */}
+                  <div className="px-6 pb-6">
+                    <ul className="space-y-3">
+                      <li className="flex items-start">
+                        <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Everything in Pro, plus:</span>
+                      </li>
+                      <li className="flex items-start">
+                        <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Claude Reasoning (o1)</span>
+                      </li>
+                      <li className="flex items-start">
+                        <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">GPT-4o Reasoning</span>
+                      </li>
+                      <li className="flex items-start">
+                        <svg className="h-5 w-5 text-purple-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Priority support</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* CTA Button */}
+                  <div className="p-6 pt-0">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleCheckout('unlimited')}
+                      disabled={processingPlan === 'unlimited'}
+                      className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {processingPlan === 'unlimited' ? 'Processing...' : 'Choose Unlimited'}
+                    </motion.button>
+                  </div>
+                </motion.div>
               </div>
             ) : (
               // Paid Tier View

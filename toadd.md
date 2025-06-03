@@ -3,13 +3,10 @@
 [-] conversation branches table?
 [-] 2 user tables?
 [-] Sidebar closes automatically on new chat/switch chat
-[ ] new chat small button opens sidebar.
-[ ] language
 [ ] when i come out of branch, scroll/load at branch point
 [ ] branching context is still off. (langsmith)
 [ ] click chat input while prev chat loading
 [ ] netlify app redirect to main domain
-[...] Remove supabase project name from google sign in
 [ ] Add claude 4 models
 [ ] Pricing/Payments
     - No login: 5 messages per day, no storage
@@ -20,6 +17,12 @@
 
 
 [ ] fix bug with multiple indicators on one line
+
+==UPDATES==
+[ ] new chat small button opens sidebar.
+[ ] url with /#
+[ ] language
+[ ] Updated reasoning UI
 
 
 
@@ -35,6 +38,7 @@
 [X] Thinking bug across chats persists
 [X] pointer on login modal
 [X] Voice Input (Whisper)
+[X] Remove supabase project name from google sign in
 
 
 

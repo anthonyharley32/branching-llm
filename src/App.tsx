@@ -17,7 +17,7 @@ import {
   getCurrentModel
 } from './services/llm'
 import { MessageNode } from './types/conversation'
-import { FiArrowLeft, FiUser, FiMenu, FiEdit } from 'react-icons/fi' // Removed unused FiLogOut and FiPlusSquare
+import { FiArrowLeft, FiMenu, FiEdit } from 'react-icons/fi' // Removed unused imports
 // import { supabase } from './lib/supabase' // Already removed
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Conversation } from './types/conversation'
