@@ -4,9 +4,7 @@ import {
   getActiveProvider, 
   setProvider, 
   getCurrentModel, 
-  setModel, 
-  getAllModels,
-  ModelInfo
+  setModel
 } from '../services/llm';
 import { supabase } from '../lib/supabase'; // Import supabase client
 import { useAuth } from '../context/AuthContext'; // Import auth context
@@ -197,7 +195,6 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ subscriptionTier = 'free' }) 
   // Load current model from LLM service  
   useEffect(() => {
     const loadCurrentModel = () => {
-      const provider = getActiveProvider();
       const currentModelString = getCurrentModel();
       
       // Try to find matching model in all models

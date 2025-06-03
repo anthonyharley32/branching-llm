@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
+import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import ThinkingBox from './ThinkingBox'; // Added import
 import rehypeKatex from 'rehype-katex';
@@ -8,6 +8,7 @@ import rehypeRaw from 'rehype-raw';
 import { FiEdit, FiCopy } from 'react-icons/fi';
 import { MessageNode } from '../types/conversation';
 import { useConversation, AddMessageResult } from '../context/ConversationContext';
+import { motion } from 'framer-motion';
 
 interface ChatMessageProps {
   message: MessageNode;
@@ -43,6 +44,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
   const [isHovering, setIsHovering] = useState(false);
+  const [initialEditHeight, setInitialEditHeight] = useState<number>(60);
   const editInputRef = useRef<HTMLTextAreaElement>(null);
 
   const [selectedText, setSelectedText] = useState<string>('');
@@ -104,8 +106,54 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
     return null;
   };
 
+  // Enhanced helper to find a DOM node containing the text at a specific position
+  // Uses selection positions if available to locate the correct instance
+  const findNodeWithTextAtPosition = (
+    container: HTMLElement, 
+    searchText: string, 
+    selectionStart?: number, 
+    selectionEnd?: number
+  ): {node: Text, offset: number} | null => {
+    if (!searchText) return null;
+    
+    // If we have selection positions, use them to find the correct instance
+    if (selectionStart !== undefined && selectionEnd !== undefined) {
+      const allTextNodes = getAllTextNodes(container);
+      let currentOffset = 0;
+      
+      // Walk through all text nodes and accumulate character positions
+      for (const node of allTextNodes) {
+        if (node.textContent) {
+          const nodeLength = node.textContent.length;
+          const nodeStart = currentOffset;
+          const nodeEnd = currentOffset + nodeLength;
+          
+          // Check if our selection falls within this text node
+          if (selectionStart >= nodeStart && selectionStart < nodeEnd) {
+            const localOffset = selectionStart - nodeStart;
+            const endOffset = Math.min(selectionEnd - nodeStart, nodeLength);
+            const extractedText = node.textContent.substring(localOffset, endOffset);
+            
+            // Verify this matches our search text (or at least starts with it)
+            if (extractedText === searchText || extractedText.startsWith(searchText.substring(0, Math.min(20, searchText.length)))) {
+              return {
+                node,
+                offset: localOffset
+              };
+            }
+          }
+          
+          currentOffset += nodeLength;
+        }
+      }
+    }
+    
+    // Fallback to the original logic if position-based search fails
+    return findNodeWithText(container, searchText);
+  };
+
   // Specific classes for user messages (Grok style)
-  const userBubbleClasses = 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl rounded-br-md max-w-xs md:max-w-md lg:max-w-lg break-words self-end border border-gray-200 dark:border-gray-600 shadow-sm transition-colors text-[15px]';
+  const userBubbleClasses = 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-4 py-3 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl rounded-br-md max-w-xs md:max-w-md lg:max-w-lg break-words self-end border border-gray-200 dark:border-gray-600 shadow-sm transition-colors text-[15px]';
 
   // Minimal classes for AI messages (plain text with adjusted leading)
   // Keep relative positioning to allow absolutely positioned wave background
@@ -159,8 +207,8 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
       const timer = setTimeout(() => {
         // **Revised Sorting**: Sort sources based on their visual horizontal position
         const sortedSources = [...branchSources].sort((a, b) => {
-          const resultA = findNodeWithText(messageContentRef.current!, a.text);
-          const resultB = findNodeWithText(messageContentRef.current!, b.text);
+          const resultA = findNodeWithTextAtPosition(messageContentRef.current!, a.text, a.metadata?.selectionStart, a.metadata?.selectionEnd);
+          const resultB = findNodeWithTextAtPosition(messageContentRef.current!, b.text, b.metadata?.selectionStart, b.metadata?.selectionEnd);
 
           if (!resultA || !resultB) return 0; // Keep original relative order if text not found
 
@@ -193,7 +241,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
           }
 
           // Find the text node containing the selected text
-          const result = findNodeWithText(messageContentRef.current!, source.text);
+          const result = findNodeWithTextAtPosition(messageContentRef.current!, source.text, source.metadata?.selectionStart, source.metadata?.selectionEnd);
 
           if (result) {
             try {
@@ -216,7 +264,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
               const sameLineIndicatorsCount = sortedSources
                 .slice(0, sortedIndex) // Use sortedIndex to check elements before this one in the sorted list
                 .filter(prevSource => {
-                  const prevResult = findNodeWithText(messageContentRef.current!, prevSource.text);
+                  const prevResult = findNodeWithTextAtPosition(messageContentRef.current!, prevSource.text, prevSource.metadata?.selectionStart, prevSource.metadata?.selectionEnd);
                   if (!prevResult) return false;
                   try {
                     const prevRange = document.createRange();
@@ -265,7 +313,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
         
         // Now add highlights for each branch source
         branchSources.forEach((source, index) => {
-          const result = findNodeWithText(messageContentRef.current!, source.text);
+          const result = findNodeWithTextAtPosition(messageContentRef.current!, source.text, source.metadata?.selectionStart, source.metadata?.selectionEnd);
           
           if (result) {
             try {
@@ -326,9 +374,85 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
           // Add a small offset for spacing between text and button
           const buttonOffset = 8; // pixels
           
+          // Calculate DOM-relative character positions for the selection
+          const allTextNodes = getAllTextNodes(messageContentRef.current);
+          let currentOffset = 0;
+          let selectionStart = 0;
+          let selectionEnd = 0;
+          
+          // Find the start and end positions of the selection within the DOM text
+          for (const node of allTextNodes) {
+            if (node.textContent) {
+              const nodeLength = node.textContent.length;
+              
+              // Check if the selection starts in this node
+              if (range.startContainer === node) {
+                selectionStart = currentOffset + range.startOffset;
+              } else if (range.startContainer.parentNode && node.parentNode && 
+                         range.startContainer.parentNode.contains && 
+                         range.startContainer.parentNode.contains(node)) {
+                // Handle cases where selection starts in a parent element
+                if (currentOffset <= selectionStart) {
+                  // We haven't found the start yet, keep looking
+                  const nodeText = node.textContent;
+                  const searchText = text.substring(0, Math.min(20, text.length));
+                  if (nodeText.includes(searchText)) {
+                    const localOffset = nodeText.indexOf(searchText);
+                    if (localOffset >= 0) {
+                      selectionStart = currentOffset + localOffset;
+                    }
+                  }
+                }
+              }
+              
+              // Check if the selection ends in this node
+              if (range.endContainer === node) {
+                selectionEnd = currentOffset + range.endOffset;
+              } else if (range.endContainer.parentNode && node.parentNode && 
+                         range.endContainer.parentNode.contains && 
+                         range.endContainer.parentNode.contains(node)) {
+                // Handle cases where selection ends in a parent element
+                if (selectionEnd === 0) {
+                  const nodeText = node.textContent;
+                  const searchText = text.substring(Math.max(0, text.length - 20));
+                  if (nodeText.includes(searchText)) {
+                    const localOffset = nodeText.indexOf(searchText);
+                    if (localOffset >= 0) {
+                      selectionEnd = currentOffset + localOffset + searchText.length;
+                    }
+                  }
+                }
+              }
+              
+              currentOffset += nodeLength;
+            }
+          }
+          
+          // If we couldn't determine exact positions, use a simpler approach
+          if (selectionStart === selectionEnd) {
+            // Find all instances of the selected text and use position of range
+            let tempOffset = 0;
+            for (const node of allTextNodes) {
+              if (node.textContent) {
+                if (range.intersectsNode(node)) {
+                  const nodeText = node.textContent;
+                  const textIndex = nodeText.indexOf(text);
+                  if (textIndex >= 0) {
+                    selectionStart = tempOffset + textIndex;
+                    selectionEnd = selectionStart + text.length;
+                    break;
+                  }
+                }
+                tempOffset += node.textContent.length;
+              }
+            }
+          }
+          
           setSelectionPosition({
             top: rect.top + (rect.height / 2) - messageRect.top + window.scrollY, // Center for all selections
             right: rightPositionRelative + buttonOffset, // Position just after the selected text
+            selectionStart: selectionStart,
+            selectionEnd: selectionEnd
           });
           return; // Found valid selection, exit
         } else if (!text && selectedText) {
@@ -446,20 +570,25 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
 
   // Handle entering edit mode
   const handleEditClick = () => {
+    // Pre-calculate the current content height to prevent visual glitch
+    let calculatedHeight = 60; // Default minimum height
+    if (messageContentRef.current) {
+      // Get the current height of the message content
+      calculatedHeight = Math.max(60, messageContentRef.current.offsetHeight);
+    }
+    
+    // Set the height state first, then switch to edit mode
+    setInitialEditHeight(calculatedHeight);
     setIsEditing(true);
     setEditedContent(message.content);
-    // Store current message width
-    if (messageContentRef.current) {
-      const width = messageContentRef.current.offsetWidth;
-      // Set a small timeout to allow the textarea to render before resizing
-      setTimeout(() => {
-        if (editInputRef.current) {
-          editInputRef.current.style.width = `${width}px`;
-          editInputRef.current.style.height = 'auto';
-          editInputRef.current.style.height = `${editInputRef.current.scrollHeight}px`;
-        }
-      }, 0);
-    }
+    
+    // Auto-resize to exact content height after render
+    setTimeout(() => {
+      if (editInputRef.current) {
+        editInputRef.current.style.height = 'auto';
+        editInputRef.current.style.height = `${editInputRef.current.scrollHeight}px`;
+      }
+    }, 0);
   };
 
   // Handle saving edited message
@@ -512,7 +641,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
     <div className={`flex w-full mb-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
       {/* Wrap message content and button in a div for better structure if needed, especially for positioning */}
       <div 
-        className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} ${isUser && isEditing ? 'w-full max-w-3xl' : ''}`}
+        className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} ${isUser && isEditing ? 'w-full max-w-xs md:max-w-md lg:max-w-lg' : ''}`}
         onMouseEnter={() => isUser && setIsHovering(true)}
         onMouseLeave={() => isUser && setIsHovering(false)}
       >
@@ -524,12 +653,14 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
               value={editedContent}
               onChange={(e) => setEditedContent(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="px-4 py-3 w-full border-none outline-none resize-none text-gray-900 dark:text-gray-100 text-[15px] bg-transparent"
+              className="px-4 py-3 w-full border-none outline-none resize-none text-gray-900 dark:text-gray-100 text-[15px] bg-transparent box-border"
               style={{ 
+                height: `${initialEditHeight}px`,
                 minHeight: '60px',
                 overflow: 'hidden',
                 whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word'
+                wordBreak: 'break-word',
+                width: '100%'
               }}
               autoFocus
               onFocus={(e) => {
@@ -543,20 +674,47 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
                 target.style.height = `${target.scrollHeight}px`;
               }}
             />
-            <div className="flex justify-end space-x-2 px-4 py-2 bg-white dark:bg-gray-700">
-              <button
+            <motion.div 
+              className="flex justify-end space-x-2 px-4 py-2 bg-white dark:bg-gray-700"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ 
+                duration: 0.3, 
+                ease: "easeOut",
+                delay: 0.1
+              }}
+            >
+              <motion.button
                 onClick={handleCancelEdit}
                 className="px-4 py-2 rounded-full bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ 
+                  duration: 0.2, 
+                  ease: "easeOut",
+                  delay: 0.2
+                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
                 Cancel
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={handleSaveEdit}
                 className="px-4 py-2 rounded-full bg-black dark:bg-gray-900 text-white hover:bg-gray-800 dark:hover:bg-gray-800 transition-colors"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ 
+                  duration: 0.2, 
+                  ease: "easeOut",
+                  delay: 0.25
+                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
                 Send
-              </button>
-            </div>
+              </motion.button>
+            </motion.div>
           </div>
         ) : (
           // Regular message display
@@ -670,11 +828,17 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
                   onBranchCreated(result, source.text, false);
                 }}
                 onMouseEnter={() => {
-                  // Apply darker color on hover
+                  // Apply appropriate color change on hover based on theme
                   if (messageContentRef.current) {
                     const highlight = messageContentRef.current.querySelector(`.branch-source-highlight[data-branch-index="${index}"]`);
                     if (highlight) {
-                      (highlight as HTMLElement).style.filter = 'brightness(0.8)'; // Make significantly darker on hover
+                      // Check if we're in dark mode
+                      const isDarkMode = document.documentElement.classList.contains('dark');
+                      if (isDarkMode) {
+                        (highlight as HTMLElement).style.filter = 'brightness(1.3)'; // Make lighter on hover in dark mode
+                      } else {
+                        (highlight as HTMLElement).style.filter = 'brightness(0.8)'; // Make darker on hover in light mode
+                      }
                     }
                   }
                 }}

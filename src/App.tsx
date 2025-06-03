@@ -665,9 +665,11 @@ function AppContent() {
       const branchContextMessage: MessageNode = {
         id: 'branch-context-system',
         role: 'system',
-        content: `BRANCH CONTEXT: This conversation is now focused on a specific topic that was highlighted from the previous discussion. The highlighted text was: "${selectedText}"
+        content: `IMPORTANT: The user has highlighted and selected this specific text from the previous discussion: "${selectedText}"
 
-Please keep this context in mind when responding. While you have access to the previous conversation for background understanding, your responses should be primarily focused on and relevant to this highlighted text: "${selectedText}"
+Your response should focus EXCLUSIVELY on this highlighted text: "${selectedText}"
+
+If the user asks you to define, explain, or discuss something, they are referring to the highlighted text "${selectedText}", NOT the broader conversation topic. 
 
 The user's questions and comments in this branch should be interpreted in relation to this specific highlighted text unless they explicitly indicate they want to discuss something else.`,
         parentId: null,

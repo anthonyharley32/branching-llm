@@ -2,7 +2,6 @@ import { supabase } from '../lib/supabase';
 import { 
   SubscriptionTier, 
   UserSubscription, 
-  DiscountCode, 
   UsageLimit, 
   StripeCheckoutSession,
   PricingPlan

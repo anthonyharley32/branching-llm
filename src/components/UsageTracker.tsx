@@ -11,7 +11,6 @@ interface UsageTrackerProps {
 
 export const UsageTracker: React.FC<UsageTrackerProps> = ({ userId, className }) => {
   const [usageLimit, setUsageLimit] = useState<UsageLimit | null>(null);
-  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -33,7 +32,7 @@ export const UsageTracker: React.FC<UsageTrackerProps> = ({ userId, className })
     return () => clearInterval(interval);
   }, [userId]);
 
-  if (!usageLimit || dismissed) return null;
+  if (!usageLimit) return null;
 
   const isAtLimit = !usageLimit.canSendMessage;
   const isUnlimited = usageLimit.dailyLimit === null;

@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { UserProfile as UserProfileType } from '../../types/database';
 import { PaymentService } from '../../services/paymentService'; // Add PaymentService import
 import { 
-  FiUser, FiX, FiCamera,
+  FiUser, FiCamera,
   FiSliders, FiDatabase, FiBox,  
   FiMousePointer, FiDollarSign, FiEdit3, FiCpu, FiMoon, FiSun // Added FiCpu, FiMoon, FiSun
 } from 'react-icons/fi';
@@ -21,7 +21,7 @@ interface UserProfileProps {
 // Update Tab type for sidebar navigation
 type ActiveSetting = 'account' | 'appearance' | 'behavior' | 'customize' | 'dataControls' | 'billing' | 'models'; // Added 'models'
 
-const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) => {
+const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
   
@@ -48,8 +48,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
   // State to track the initial value for comparison
   const [initialAdditionalSystemPrompt, setInitialAdditionalSystemPrompt] = useState<string>('');
 
-  // New state for system prompt
-  const [systemPrompt, setSystemPrompt] = useState<string>('');
+
 
   // New state for subscription tier
   const [subscriptionTier, setSubscriptionTier] = useState<string>('free'); // Default to 'free'
@@ -341,42 +340,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onClose, onProfileUpdate }) =
 
 
 
-  // Handle plan changes via Stripe Customer Portal
-  const handleManageSubscription = async (action: 'upgrade' | 'downgrade' | 'manage') => {
-    if (!user) {
-      alert('Please log in to manage subscription');
-      return;
-    }
 
-    let confirmMessage = '';
-    switch (action) {
-      case 'upgrade':
-        confirmMessage = 'You will be redirected to upgrade your subscription securely via Stripe.';
-        break;
-      case 'downgrade':
-        confirmMessage = 'You will be redirected to manage your subscription. You can change your plan and the changes will take effect at the end of your billing period.';
-        break;
-      case 'manage':
-        confirmMessage = 'You will be redirected to the secure Stripe portal to manage your subscription, billing, and payment methods.';
-        break;
-    }
-
-    const confirmAction = window.confirm(confirmMessage);
-    if (!confirmAction) return;
-
-    try {
-      setError(null);
-      setSuccess(null);
-      
-      // Redirect to Stripe Customer Portal
-      const portalSession = await PaymentService.createPortalSession(user.id);
-      window.location.href = portalSession.url;
-      
-    } catch (error) {
-      console.error('Failed to open subscription management:', error);
-      setError('Failed to open subscription management. Please try again or contact support.');
-    }
-  };
 
   // Handle immediate upgrade with proration for existing subscribers
   const handleUpgradeCheckout = async (planSlug: string) => {
