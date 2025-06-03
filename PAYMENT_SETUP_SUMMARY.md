@@ -99,12 +99,6 @@ import { SubscriptionManager } from './components/SubscriptionManager';
 // /dashboard - Include UsageTracker and SubscriptionManager
 ```
 
-## 🎯 Beta Testing Ready
-
-Your discount codes are already set up:
-- **BETA50**: 50% off for beta testers
-- **FRIENDS20**: 20% off for friends/family
-- **LAUNCH30**: 30% off for launch week
 
 ## 📋 Testing Checklist
 

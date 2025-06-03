@@ -634,8 +634,8 @@ USING (
 INSERT INTO subscription_tiers (name, slug, description, tier_level, price_cents, stripe_price_id, daily_message_limit, features) VALUES
   ('No Login', 'no-login', 'Limited access without account registration', 0, 0, NULL, 5, '{"storage": false, "features": ["basic_chat"]}'),
   ('Free', 'free', 'Free tier with message storage and history', 1, 0, NULL, 20, '{"storage": true, "features": ["basic_chat", "conversation_history", "message_storage"]}'),
-  ('Pro', 'pro', 'Pro tier with model selection and unlimited messages', 2, 1500, 'price_1RFNLuLF1NTZsL3ciJANzk9f', NULL, '{"storage": true, "features": ["basic_chat", "conversation_history", "message_storage", "model_selection", "unlimited_messages"]}'),
-  ('Unlimited', 'unlimited', 'Unlimited tier with reasoning models', 3, 3000, 'price_1RFNPALF1NTZsL3cJCAy0Fo6', NULL, '{"storage": true, "features": ["basic_chat", "conversation_history", "message_storage", "model_selection", "unlimited_messages", "reasoning_models"]}')
+  ('Pro', 'pro', 'Pro tier with model selection and unlimited messages', 2, 1500, 'price_1RVzNPLF1NTZsL3ck4RQuAlO', NULL, '{"storage": true, "features": ["basic_chat", "conversation_history", "message_storage", "model_selection", "unlimited_messages"]}'),
+  ('Unlimited', 'unlimited', 'Unlimited tier with reasoning models', 3, 3000, 'price_1RVzNfLF1NTZsL3cGHQNq1IA', NULL, '{"storage": true, "features": ["basic_chat", "conversation_history", "message_storage", "model_selection", "unlimited_messages", "reasoning_models"]}')
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
   description = EXCLUDED.description,

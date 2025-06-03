@@ -6,11 +6,9 @@
 [ ] when i come out of branch, scroll/load at branch point
 [ ] click chat input while prev chat loading
 [ ] netlify app redirect to main domain
-[ ] fix bug with multiple indicators on one line
 [ ] test to prod mode.
 [ ] Memories
 [ ] LaTeX not working. 
-[ ] edit message from 2 lines to 1 line
 
 ==UPDATES==
 [ ] new chat small button opens sidebar.
@@ -43,6 +41,8 @@
     - Pro: ($15) model selection (non-reasoning: claude, gpt-4.1, grok, gemini) and unlimited messages
     - Unlimited: ($30) reasoning models
 [X] Add claude 4 models
+[X] edit message from 2 lines to 1 line
+[ ] fix bug with multiple indicators on one line
 
 
 
