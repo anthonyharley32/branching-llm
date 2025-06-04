@@ -418,11 +418,6 @@ const LLMSettings: React.FC<LLMSettingsProps> = ({ subscriptionTier = 'free' }) 
             {selectedModelDesc && (
               <div className="text-xs text-gray-600 dark:text-gray-300 pl-1 pt-1">
                 {selectedModelDesc}
-                {currentModelId.startsWith('x-ai/grok-') && (
-                  <span className="block mt-1 text-blue-600 dark:text-blue-400">
-                    <strong>Note:</strong> Shows thinking process and requires special handling (configured automatically).
-                  </span>
-                )}
               </div>
             )}
           </div>

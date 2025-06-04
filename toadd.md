@@ -1,14 +1,16 @@
 ==BUGS==
-
-[-] conversation branches table?
-[-] 2 user tables?
-[-] Sidebar closes automatically on new chat/switch chat
-[ ] when i come out of branch, scroll/load at branch point
 [ ] click chat input while prev chat loading
 [ ] netlify app redirect to main domain
 [ ] test to prod mode.
 [ ] Memories
 [ ] LaTeX not working. 
+
+[ ] click search bar during generation
+[ ] Logo goes away in branch
+[ ] Delete branch
+[ ] During generation highlight causing the indicator issue
+[ ] Hover the highlight instead of the indicator. Use tooltip?
+[ ] fix bug with multiple indicators on one line
 
 ==UPDATES==
 [ ] new chat small button opens sidebar.
@@ -42,10 +44,19 @@
     - Unlimited: ($30) reasoning models
 [X] Add claude 4 models
 [X] edit message from 2 lines to 1 line
-[ ] fix bug with multiple indicators on one line
+[X] Sort by usable model. 
+[X] Current model at top.
+[X] Preview margin
+[X] Auto dark mode??
 
 
 
+==LATER==
+[-] conversation branches table?
+[-] 2 user tables?
+[-] Sidebar closes automatically on new chat/switch chat
+[ ] when i come out of branch, scroll/load at branch point
+[ ] Dark mode chat scroll is white???? Far right?
 
 
 
@@ -76,6 +87,8 @@ DONE
 [X] cursor animation over all buttons
 [X] new chat opens when switching windows/tabs
 [X] unclick chat options
+[X] Get rid of notes on grok models.
+[X] Hover on current chat
 
 
 

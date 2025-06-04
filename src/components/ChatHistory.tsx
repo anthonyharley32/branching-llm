@@ -752,7 +752,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                           <div
                             className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
                               item.id === activeConversationId 
-                                ? 'bg-gray-900 text-white hover:bg-gray-800' 
+                                ? 'bg-gray-900 text-white hover:bg-stone-950 dark:hover:bg-stone-950' 
                                 : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                             } ${loadingConversation === item.id ? 'opacity-70' : ''}`}
                           >
@@ -810,7 +810,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                             onClick={() => handleConversationClick(item)}
                             className={`w-full text-left px-2 py-2 rounded transition-colors duration-150 ease-in-out group ${ 
                               item.id === activeConversationId 
-                                ? 'bg-gray-900 text-white hover:bg-gray-800' 
+                                ? 'bg-gray-900 text-white hover:bg-stone-950 dark:hover:bg-stone-950' 
                                 : 'hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
                             } ${loadingConversation === item.id ? 'opacity-70' : ''} cursor-pointer`}
                           >
