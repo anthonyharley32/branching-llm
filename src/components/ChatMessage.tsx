@@ -29,7 +29,32 @@ const preprocessMarkdown = (content: string): string => {
     .replace(/\\\)/g, '$')
     // Ensure display math is on its own lines (single line break)
     .replace(/([^\n])(\$\$)/g, '$1\n$$')
-    .replace(/(\$\$)([^\n])/g, '$$\n$2');
+    .replace(/(\$\$)([^\n])/g, '$$\n$2')
+    // Sanitize potentially problematic HTML-like tags that might be invalid React components
+    // This is more comprehensive - escape any single-word tags that aren't standard HTML
+    .replace(/<(\/?)(\w+)(?:\s[^>]*)?>/g, (match, slash, tagName) => {
+      // List of valid HTML tags that should be preserved
+      const validHtmlTags = new Set([
+        'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio', 'b', 'base', 'bdi', 'bdo', 'blockquote', 'body', 'br', 'button',
+        'canvas', 'caption', 'cite', 'code', 'col', 'colgroup', 'data', 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'div',
+        'dl', 'dt', 'em', 'embed', 'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'head', 'header', 'hgroup', 'hr', 'html', 'i', 'iframe', 'img', 'input', 'ins', 'kbd', 'label', 'legend', 'li', 'link',
+        'main', 'map', 'mark', 'meta', 'meter', 'nav', 'noscript', 'object', 'ol', 'optgroup', 'option', 'output', 'p', 'param',
+        'picture', 'pre', 'progress', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'script', 'section', 'select', 'small', 'source',
+        'span', 'strong', 'style', 'sub', 'summary', 'sup', 'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th',
+        'thead', 'time', 'title', 'tr', 'track', 'u', 'ul', 'var', 'video', 'wbr'
+      ]);
+      
+      const lowerTagName = tagName.toLowerCase();
+      
+      // If it's a valid HTML tag, preserve it
+      if (validHtmlTags.has(lowerTagName)) {
+        return match;
+      }
+      
+      // Otherwise, escape it
+      return `&lt;${slash}${tagName}&gt;`;
+    });
 };
 
 // The main component function

@@ -138,6 +138,12 @@ function AppContent() {
     sourceText: string | null;
   }[]>([]);
   
+  // State for pending title generation
+  const [pendingTitleGeneration, setPendingTitleGeneration] = useState<{
+    conversationId: string;
+    userMessage: string;
+  } | null>(null);
+  
   // Computed properties based on the branch stack
   const branchParentId = branchStack.length > 0 ? branchStack[branchStack.length - 1].parentId : null;
   const branchId = branchStack.length > 0 ? branchStack[branchStack.length - 1].branchId : null;
@@ -528,6 +534,48 @@ function AppContent() {
     setEditedMessageId(null);
   }, [editedMessageId, conversation, setIsSending, setError, setStreamingAiNodeId]);
 
+  // --- Effect to handle title generation when conversation is ready ---
+  useEffect(() => {
+    if (!pendingTitleGeneration || !conversation) return;
+    
+    // Check if the conversation ID matches
+    if (conversation.id !== pendingTitleGeneration.conversationId) return;
+    
+    // Check if this is still the first user message
+    const userMessages = Object.values(conversation.messages).filter(msg => msg.role === 'user');
+    const isStillFirstUserMessage = userMessages.length === 1;
+    
+    if (!isStillFirstUserMessage) {
+      // Clear pending title generation if it's no longer the first message
+      setPendingTitleGeneration(null);
+      return;
+    }
+    
+    console.log('🏷️ Title generation conditions met, generating title for conversation:', conversation.id);
+    console.log('🏷️ User message for title:', pendingTitleGeneration.userMessage.slice(0, 100) + 
+      (pendingTitleGeneration.userMessage.length > 100 ? '...' : ''));
+    
+    // Store the message text and clear pending state immediately to prevent re-runs
+    const messageForTitle = pendingTitleGeneration.userMessage;
+    const conversationId = conversation.id;
+    setPendingTitleGeneration(null);
+    
+    // Generate title in the background
+    generateTitle(messageForTitle).then(generatedTitle => {
+      console.log('🏷️ Title generation completed with result:', generatedTitle);
+      
+      if (generatedTitle && generatedTitle !== "New Chat" && generatedTitle.trim().length > 0) {
+        console.log('🏷️ Updating conversation title to:', generatedTitle);
+        updateConversationTitle(conversationId, generatedTitle);
+      } else {
+        console.log('🏷️ Title generation returned default or empty title, not updating');
+      }
+    }).catch((error) => {
+      console.warn('🏷️ Title generation failed with error:', error);
+      // If title generation fails completely, leave as "New Chat"
+    });
+  }, [pendingTitleGeneration, conversation, updateConversationTitle]);
+
   const handleSendMessage = async (text: string, images?: string[]) => {
     // Cancel any ongoing stream before starting a new one
     if (currentAbortController) {
@@ -638,22 +686,19 @@ function AppContent() {
       return;
     }
 
-    // --- Generate Title for New Conversations --- 
+    // Store info for title generation
     const isFirstUserMessage = addResult.messagePath && 
-      addResult.messagePath.filter(msg => msg.role === 'user').length === 1; 
-
-    // We also need the conversation ID, so check conversation exists too
-    if (addResult && conversation && isFirstUserMessage) {
-      // Don't await this - let it run in the background
-      generateTitle(text).then(generatedTitle => {
-        if (generatedTitle && generatedTitle !== "New Chat") {
-          updateConversationTitle(conversation.id, generatedTitle);
-        }
-      }).catch(() => {
-        // Silently handle errors in background title generation
+      addResult.messagePath.filter(msg => msg.role === 'user').length === 1;
+    
+    // Store the user message text and first message flag for title generation
+    if (isFirstUserMessage && conversation?.id) {
+      // Set pending title generation
+      setPendingTitleGeneration({
+        conversationId: conversation.id,
+        userMessage: text
       });
+      console.log('🏷️ First user message detected, title generation pending for conversation:', conversation.id);
     }
-    // --- End Title Generation ---
 
     // --- Set state to trigger LLM call via useEffect ---
     // When in a branch, ensure we only include messages relevant to this branch

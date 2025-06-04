@@ -347,17 +347,41 @@ export async function generateCompletionStream(
     
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    let buffer = ''; // Buffer to accumulate partial chunks
     
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        // Process any remaining data in buffer
+        if (buffer.trim() && buffer.startsWith('data: ')) {
+          try {
+            const jsonStr = buffer.substring(6);
+            if (jsonStr.trim() && jsonStr !== '[DONE]') {
+              const data = JSON.parse(jsonStr);
+              // Process this final chunk (same logic as below)
+              if (data.choices && data.choices[0]?.delta?.content) {
+                callbacks.onChunk(data.choices[0].delta.content);
+              }
+            }
+          } catch (e) {
+            console.warn('Error parsing final buffer chunk:', e);
+            console.warn('Final buffer content:', buffer);
+          }
+        }
+        break;
+      }
       
       const chunk = decoder.decode(value);
-      const lines = chunk
-        .split('\n')
-        .filter(line => line.trim() !== '' && line.trim() !== 'data: [DONE]');
+      buffer += chunk;
+      
+      // Process complete lines from buffer
+      const lines = buffer.split('\n');
+      // Keep the last potentially incomplete line in the buffer
+      buffer = lines.pop() || '';
       
       for (const line of lines) {
+        if (line.trim() === '' || line.trim() === 'data: [DONE]') continue;
+        
         if (line.startsWith('data: ')) {
           try {
             const jsonStr = line.substring(6);
@@ -508,6 +532,8 @@ export async function generateCompletionStream(
           } catch (e) {
             console.warn('Error parsing SSE chunk:', e);
             console.warn('Problematic line:', line);
+            console.warn('Line length:', line.length);
+            console.warn('Buffer state:', { bufferLength: buffer.length, bufferStart: buffer.substring(0, 100) });
             
             // If the chunk contains error data, handle it properly
             if (line.includes('"error"')) {
@@ -651,53 +677,122 @@ export async function generateTitle(
   maxRetries: number = 3,
   defaultTitle: string = "New Chat"
 ): Promise<string> {
+  console.log('🏷️ Starting title generation for message:', userMessage.slice(0, 100) + (userMessage.length > 100 ? '...' : ''));
+  console.log('🏷️ Message length:', userMessage.length, 'characters');
+  
+  // Truncate very long messages to avoid token limits (keep first 2000 characters)
+  const truncatedMessage = userMessage.length > 2000 ? userMessage.slice(0, 2000) + '...' : userMessage;
+  if (userMessage.length > 2000) {
+    console.log('🏷️ Message truncated from', userMessage.length, 'to', truncatedMessage.length, 'characters');
+  }
+  
   const maxTitleLength = 30; // Maximum allowed title length
   
-  const systemPrompt = `Summarize the following user message into a concise conversation title, maximum ${maxTitleLength} characters. Be brief and capture the main topic. Title:`;
+  let previousAttempt: string | null = null;
+  let systemPrompt = `Create a concise conversation title (maximum ${maxTitleLength} characters) for the following user message. 
+
+IMPORTANT RULES:
+- Return ONLY the title text, no formatting, no explanations, no "Title:" prefix
+- Maximum ${maxTitleLength} characters
+- Be brief and capture the main topic
+- Examples of good titles: "React Auth Setup", "Python Data Analysis", "CSS Grid Layout"
+
+User message to summarize:`;
 
   // Use a powerful model for title generation - prefer OpenAI or Claude
   const titleModel = 'openai/gpt-4.1';
+  console.log('🏷️ Using model for title generation:', titleModel);
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`🏷️ Title generation attempt ${attempt}/${maxRetries}`);
+    
+    // Switch to o4-mini-high for retry attempts (better at following constraints)
+    const currentModel = attempt === 1 ? titleModel : 'openai/o4-mini-high';
+    if (attempt > 1) {
+      console.log('🏷️ Switching to model for retry:', currentModel);
+    }
+    
+    // Update system prompt with feedback from previous attempt if title was too long
+    if (previousAttempt) {
+      systemPrompt = `Your previous response "${previousAttempt}" was ${previousAttempt.length} characters long, which exceeds the ${maxTitleLength} character limit.
+
+Create a much shorter conversation title (maximum ${maxTitleLength} characters) for the following user message.
+
+IMPORTANT RULES:
+- Return ONLY the title text, no formatting, no explanations, no "Title:" prefix
+- Maximum ${maxTitleLength} characters
+- Be brief and capture the main topic
+- Examples of good titles: "React Auth Setup", "Python Data Analysis", "CSS Grid Layout"
+
+User message to summarize:`;
+      console.log('🏷️ Using feedback from previous attempt:', previousAttempt);
+    }
+    
     try {
+      console.log('🏷️ Sending request to Supabase Edge Function...');
+      
       // Call our Supabase Edge Function instead of OpenRouter directly
       const { data, error } = await supabase.functions.invoke('llm-api', {
         body: {
           endpoint: 'chat/completions',
           payload: {
-            model: titleModel,
+            model: currentModel,
             messages: [
               { role: 'system', content: systemPrompt },
-              { role: 'user', content: userMessage }
+              { role: 'user', content: truncatedMessage }
             ],
-            temperature: 0.5,
-            max_tokens: 15,
+            temperature: 0.3, // Lower temperature for more consistent formatting
+            max_tokens: 15, // Reduced to force shorter responses
           }
         }
       });
       
+      console.log('🏷️ Supabase response:', { data, error });
+      
       if (error) {
+        console.error('🏷️ Supabase Edge Function error:', error);
         throw handleApiError(500, { error: error.message });
       }
       
       const generatedTitle = data.choices[0]?.message?.content?.trim();
+      console.log('🏷️ Raw generated title:', generatedTitle);
       
-      if (generatedTitle && generatedTitle.length > 0 && generatedTitle.length <= maxTitleLength) {
-        return generatedTitle.replace(/^["']|["']$/g, '');
+      // Fix validation logic: check if title exists AND is within length limit
+      if (generatedTitle && generatedTitle.length > 0) {
+        // More aggressive cleaning to handle AI formatting issues
+        let cleanTitle = generatedTitle
+          .replace(/^["']|["']$/g, '') // Remove quotes
+          .replace(/^\*\*Title:\*\*\s*/i, '') // Remove **Title:** prefix
+          .replace(/^Title:\s*/i, '') // Remove Title: prefix
+          .replace(/\*\*.*$/, '') // Remove everything after ** (reasoning sections)
+          .replace(/\n.*$/, '') // Remove everything after newline
+          .trim();
+          
+        console.log('🏷️ Cleaned title:', cleanTitle, `(${cleanTitle.length} chars)`);
+        
+        if (cleanTitle.length <= maxTitleLength && cleanTitle.length > 0) {
+          console.log('🏷️ ✅ Title generation successful:', cleanTitle);
+          return cleanTitle;
+        } else if (cleanTitle.length > maxTitleLength) {
+          console.warn(`🏷️ ❌ Title generation attempt ${attempt}: Title too long (${cleanTitle.length}/${maxTitleLength} chars): '${cleanTitle}'. Retrying with feedback...`);
+          previousAttempt = cleanTitle; // Store the failed attempt for feedback
+        } else {
+          console.warn(`🏷️ ❌ Title generation attempt ${attempt}: Empty title after cleaning. Raw: '${generatedTitle}'. Retrying...`);
+        }
       } else {
-        console.warn(`Title generation attempt ${attempt}: Title too long or empty ('${generatedTitle}'). Retrying...`);
+        console.warn(`🏷️ ❌ Title generation attempt ${attempt}: Empty title received. Retrying...`);
       }
-    } catch (error: unknown) {
-      console.error(`Error generating title on attempt ${attempt}:`, error);
+    } catch (error) {
+      console.error(`🏷️ ❌ Error generating title on attempt ${attempt}:`, error);
       const llmError = parseError(error);
       if (llmError.type === ErrorType.AUTHENTICATION || llmError.type === ErrorType.QUOTA_EXCEEDED) {
-        console.error(`Unrecoverable error encountered (${llmError.type}), stopping title generation.`);
+        console.error(`🏷️ ❌ Unrecoverable error encountered (${llmError.type}), stopping title generation.`);
         break;
       }
     }
   }
   
-  console.warn(`Failed to generate a valid title after ${maxRetries} attempts.`);
+  console.warn(`🏷️ ❌ Failed to generate a valid title after ${maxRetries} attempts. Using default: "${defaultTitle}"`);
   return defaultTitle;
 }
 

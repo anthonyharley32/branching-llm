@@ -88,17 +88,42 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
         setPrevConversationId(conversation.id);
       }
       
-      // Check if current conversation is unused
+      // IMPROVED: More conservative criteria for determining unused conversations
       const messagesArray = Object.values(conversation.messages);
-      // Consider a chat unused if it has only one message (system) or it has no user messages
-      const isUnused = messagesArray.length === 1 || 
-                      !messagesArray.some(msg => msg.role === 'user');
+      
+      // Only consider a chat truly unused if ALL of these conditions are met:
+      // 1. Has only 1 message (system message only) OR has no user messages
+      // 2. AND conversation title is still "New Chat" 
+      // 3. AND conversation hasn't been updated recently (avoid deleting while streaming)
+      // 4. AND no messages are currently streaming
+      const hasOnlySystemMessage = messagesArray.length === 1 && messagesArray[0]?.role === 'system';
+      const hasNoUserMessages = !messagesArray.some(msg => msg.role === 'user');
+      const hasDefaultTitle = !conversation.title || conversation.title === "New Chat";
+      const isRecentlyUpdated = conversation.updatedAt && (Date.now() - conversation.updatedAt) < 10000; // Less than 10 seconds ago
+      const hasStreamingMessage = messagesArray.some(msg => msg.isStreaming === true);
+      
+      // CONSERVATIVE: Only mark as unused if it's clearly an empty new chat
+      const isUnused = (hasOnlySystemMessage || hasNoUserMessages) && 
+                      hasDefaultTitle && 
+                      !isRecentlyUpdated && 
+                      !hasStreamingMessage;
       
       if (isUnused) {
         // This is an unused new chat
+        console.log(`Marking conversation as unused: ${conversation.id}`, {
+          hasOnlySystemMessage,
+          hasNoUserMessages, 
+          hasDefaultTitle,
+          isRecentlyUpdated,
+          hasStreamingMessage,
+          messageCount: messagesArray.length
+        });
         setUnusedChatId(conversation.id);
       } else {
         // This is not an unused new chat
+        if (unusedChatId === conversation.id) {
+          console.log(`Conversation no longer unused: ${conversation.id}`);
+        }
         setUnusedChatId(null);
       }
     }
@@ -123,6 +148,12 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
 
   // Helper function to remove an unused chat
   const removeUnusedChat = (chatId: string) => {
+    console.log(`Removing unused chat: ${chatId}`, {
+      reason: 'User switched away from unused chat',
+      currentConversationId: conversation?.id,
+      activeConversationId
+    });
+    
     setRemovingId(chatId);
     
     // After animation completes, actually remove from history and database
@@ -137,6 +168,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
             .from('conversations')
             .delete()
             .eq('id', chatId);
+          console.log(`Successfully deleted unused chat from database: ${chatId}`);
         } catch (error) {
           console.error('Error deleting unused chat:', error);
         }
@@ -415,14 +447,26 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
     // Clear any previous errors when starting a new conversation
     setError(null);
     
-    // Find any unused chats in the list to clean up
-    const unusedChats = history.filter(item => item.title === "New Chat");
+    // IMPROVED: More conservative cleanup of unused chats
+    // Only clean up chats that are truly unused, not just titled "New Chat"
+    const potentiallyUnusedChats = history.filter(item => item.title === "New Chat");
     
-    if (unusedChats.length > 0) {
-      // Clean up all unused chats
-      for (const chat of unusedChats) {
+    if (potentiallyUnusedChats.length > 0) {
+      // Clean up only chats that are genuinely unused
+      for (const chat of potentiallyUnusedChats) {
         // Skip the current chat for now - it will be replaced automatically
         if (chat.id === conversation?.id) continue;
+        
+        // ADDITIONAL SAFETY CHECK: Verify the chat is actually empty before deleting
+        // Check if the conversation was updated recently (might indicate active use)
+        const chatUpdatedAt = new Date(chat.updatedAt).getTime();
+        const isRecentlyUpdated = Date.now() - chatUpdatedAt < 30000; // Less than 30 seconds ago
+        
+        // Skip deletion if chat was recently updated (might be in active use)
+        if (isRecentlyUpdated) {
+          console.log(`Skipping deletion of recently updated chat: ${chat.id}`);
+          continue;
+        }
         
         // Remove any other unused chats with animation
         setRemovingId(chat.id);
@@ -438,6 +482,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
                 .from('conversations')
                 .delete()
                 .eq('id', chat.id);
+              console.log(`Deleted unused chat from database: ${chat.id}`);
             } catch (error) {
               console.error('Error deleting unused chat:', error);
             }
@@ -531,32 +576,41 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onClose, onLoadConversation, 
         .select('*')
         .eq('conversation_id', item.id);
       
-      // Special handling for conversations with no messages or just a system message
-      if (!msgsError && (msgs.length === 0 || (msgs.length === 1 && msgs[0].role === 'system'))) {
-        // This is an unused chat that wasn't caught by our main detector
-        // Start a new conversation instead
-        startNewConversation();
+      // IMPROVED: More conservative handling of conversations with few messages
+      if (!msgsError && msgs) {
+        const isEmptyConversation = msgs.length === 0;
+        const isOnlySystemMessage = msgs.length === 1 && msgs[0].role === 'system';
+        const hasDefaultTitle = item.title === "New Chat";
+        const isRecentlyUpdated = Date.now() - new Date(item.updatedAt).getTime() < 30000; // Less than 30 seconds
         
-        // And remove this one
-        setRemovingId(item.id);
-        setTimeout(async () => {
-          setHistory(prevHistory => prevHistory.filter(hist => hist.id !== item.id));
+        // Only delete if conversation is genuinely empty AND has default title AND not recently updated
+        if ((isEmptyConversation || isOnlySystemMessage) && hasDefaultTitle && !isRecentlyUpdated) {
+          // This is an unused chat that wasn't caught by our main detector
+          // Start a new conversation instead
+          startNewConversation();
           
-          // Clean up from database
-          try {
-            await supabase
-              .from('conversations')
-              .delete()
-              .eq('id', item.id);
-          } catch (error) {
-            console.error('Error deleting unused chat:', error);
-          }
+          // And remove this one
+          setRemovingId(item.id);
+          setTimeout(async () => {
+            setHistory(prevHistory => prevHistory.filter(hist => hist.id !== item.id));
+            
+            // Clean up from database
+            try {
+              await supabase
+                .from('conversations')
+                .delete()
+                .eq('id', item.id);
+              console.log(`Deleted empty conversation: ${item.id}`);
+            } catch (error) {
+              console.error('Error deleting unused chat:', error);
+            }
+            
+            setRemovingId(null);
+            setLoadingConversation(null);
+          }, 500);
           
-          setRemovingId(null);
-          setLoadingConversation(null);
-        }, 500);
-        
-        return;
+          return;
+        }
       }
       
       // Otherwise, proceed with normal loading

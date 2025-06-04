@@ -4,6 +4,9 @@
 [ ] Prompt injection
 [ ] Supabase Email Confirmation
 [ ] message copy has additional newlines after
+[ ] daily usage working? 
+[ ] not all conversations showing
+[ ] Headers no highlight
 
 ==UPDATES==
 [ ] new chat small button opens sidebar.
