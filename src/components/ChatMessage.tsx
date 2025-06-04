@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import React, { useState, useRef, useEffect, useMemo, KeyboardEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import ThinkingBox from './ThinkingBox'; // Added import
 import rehypeKatex from 'rehype-katex';
@@ -562,6 +562,30 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
     }
   }, [isUser, message.content, message.id]);
 
+  // Memoize custom markdown component renderers so their identity stays stable across re-renders.
+  const markdownComponents = useMemo(() => ({
+    // Custom heading renderers with more specific styling
+    h1: (props: any) => (
+      <h1 className="text-4xl font-bold my-6 border-b border-gray-300 pb-2" {...props}>
+        {props.children}
+      </h1>
+    ),
+    h2: (props: any) => (
+      <h2 className="text-2xl font-bold my-4" {...props}>
+        {props.children}
+      </h2>
+    ),
+    h3: (props: any) => (
+      <h3 className="text-xl font-bold my-3" {...props}>
+        {props.children}
+      </h3>
+    ),
+    // Style horizontal rules to be gray
+    hr: () => <hr className="border-gray-300 my-4" />,
+    // Style line breaks to be visible as gray lines
+    br: () => <span className="inline-block w-full h-px bg-gray-200 my-1"></span>,
+  }), []);
+
   // Branch creation handler
   const handleBranchClick = () => {
     if (!selectedText || isUser || !message.id) return;
@@ -766,8 +790,6 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
               />
             )}
 
-
-
             {/* Render message content using react-markdown */}
             <ReactMarkdown
               remarkPlugins={[
@@ -786,16 +808,7 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
                   maxExpand: 1000
                 }]
               ]}
-              components={{
-                // Custom heading renderers with more specific styling
-                h1: ({children}) => <h1 className="text-4xl font-bold my-6 border-b border-gray-300 pb-2">{children}</h1>,
-                h2: ({children}) => <h2 className="text-2xl font-bold my-4">{children}</h2>,
-                h3: ({children}) => <h3 className="text-xl font-bold my-3">{children}</h3>,
-                // Style horizontal rules to be gray
-                hr: () => <hr className="border-gray-300 my-4" />,
-                // Style line breaks to be visible as gray lines
-                br: () => <span className="inline-block w-full h-px bg-gray-200 my-1"></span>
-              }}
+              components={markdownComponents}
             >
               {preprocessMarkdown(message.content)}
             </ReactMarkdown>

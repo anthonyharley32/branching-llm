@@ -3,10 +3,8 @@
 [ ] LaTeX not working. 
 [ ] Prompt injection
 [ ] Supabase Email Confirmation
-[ ] message copy has additional newlines after
-[ ] daily usage working? 
+[ ] daily usage working?
 [ ] not all conversations showing
-[ ] Headers no highlight
 
 ==UPDATES==
 [ ] new chat small button opens sidebar.
@@ -16,6 +14,7 @@
 [ ] Slow queries
 [ ] Register UI
 [ ] Default AI response style/tone (formal, casual, creative, balanced) IN CUSTOMIZE
+[ ] make break lines darker in dark mode
 
 
 ==FEATURES==
@@ -56,6 +55,7 @@
 [X] click chat input while prev chat loading
 [X] Supabase warnings
 [X] Email Login
+[X] Headers no highlight
 
 
 
@@ -96,6 +96,7 @@ DONE
 [X] Get rid of notes on grok models.
 [X] Hover on current chat
 [X] "Code expired"
+[X] message copy has additional newlines after
 
 
 
