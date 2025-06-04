@@ -53,8 +53,16 @@ const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
   // New state for subscription tier
   const [subscriptionTier, setSubscriptionTier] = useState<string>('free'); // Default to 'free'
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
-  const [subscriptionData, setSubscriptionData] = useState<any>(null); // Store full subscription data
+interface SubscriptionData {
+  id: string;
+  status: 'trialing' | 'active' | 'past_due' | 'incomplete' | 'unpaid' | 'canceled' | 'incomplete_expired';
+  current_period_end: string | null;       // ISO 8601 from Stripe
+  cancel_at_period_end: boolean;
+}
 
+const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(
+  null,
+);
   // New state for processing payment
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
 
@@ -460,7 +468,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onProfileUpdate }) => {
     
     if (subscriptionData.status === 'active' && currentPeriodEnd) {
       const now = new Date();
-      const periodEnd = new Date(subscriptionData.current_period_end);
+      const periodEnd = new Date(subscriptionData.current_period_end!);
       const daysUntilExpiry = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       
       if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {

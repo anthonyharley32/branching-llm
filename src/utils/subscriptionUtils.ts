@@ -10,14 +10,15 @@ export const isSubscriptionExpiring = (subscription?: UserSubscription | null): 
   // Consider expiring if:
   // 1. Subscription is set to cancel at period end
   // 2. Subscription is past_due (payment failed)
-  // 3. Active subscription with less than 7 days until renewal (upcoming)
+  // 3. Active subscription with less than 7 days until renewal (including same day)
   // 4. Subscription status indicates payment issues
+  // 5. Active subscription past expiry date (status not yet updated)
   return (
     subscription.cancel_at_period_end ||
     subscription.status === 'past_due' ||
     subscription.status === 'incomplete' ||
     subscription.status === 'unpaid' ||
-    (subscription.status === 'active' && daysUntilExpiry <= 7 && daysUntilExpiry > 0)
+    (subscription.status === 'active' && daysUntilExpiry <= 7)
   );
 };
 
@@ -96,8 +97,15 @@ export const getExpirationMessage = (subscription: UserSubscription): string | n
     return `Payment required to continue service. Expires on ${formatDate(subscription.current_period_end)}`;
   }
   
-  if (subscription.status === 'active' && daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+  if (subscription.status === 'active' && daysUntilExpiry <= 7 && daysUntilExpiry >= 0) {
+    if (daysUntilExpiry === 0) {
+      return `Subscription renews today on ${formatDate(subscription.current_period_end)}`;
+    }
     return `Subscription renews in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} on ${formatDate(subscription.current_period_end)}`;
+  }
+  
+  if (subscription.status === 'active' && daysUntilExpiry < 0) {
+    return `Subscription expired ${Math.abs(daysUntilExpiry)} day${Math.abs(daysUntilExpiry) !== 1 ? 's' : ''} ago on ${formatDate(subscription.current_period_end)}`;
   }
   
   return null;

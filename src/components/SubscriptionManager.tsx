@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PaymentService } from '../services/paymentService';
 import { UserSubscription, SubscriptionTier } from '../types/subscription';
 import { useAuth } from '../context/AuthContext';
+import { getExpirationMessage, isSubscriptionExpiring, getSubscriptionStatusColor, getSubscriptionStatusText } from '../utils/subscriptionUtils';
 
 interface SubscriptionManagerProps {
   onUpgrade?: () => void;
@@ -83,100 +84,9 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onUpgr
     }).format(priceCents / 100);
   };
 
-  const getStatusColor = (status: string, subscription?: UserSubscription) => {
-    // Check for expiring conditions first
-    if (isSubscriptionExpiring(subscription)) {
-      return 'text-yellow-600 bg-yellow-100';
-    }
-    
-    switch (status) {
-      case 'active':
-        return 'text-green-600 bg-green-100';
-      case 'canceled':
-        return 'text-red-600 bg-red-100';
-      case 'past_due':
-        return 'text-yellow-600 bg-yellow-100';
-      case 'trialing':
-        return 'text-blue-600 bg-blue-100';
-      default:
-        return 'text-gray-600 bg-gray-100';
-    }
-  };
 
-  const getStatusText = (status: string, subscription?: UserSubscription) => {
-    // Check for expiring conditions first
-    if (isSubscriptionExpiring(subscription)) {
-      return 'Expiring';
-    }
-    
-    switch (status) {
-      case 'active':
-        return 'Active';
-      case 'canceled':
-        return 'Canceled';
-      case 'past_due':
-        return 'Past Due';
-      case 'trialing':
-        return 'Trial';
-      case 'incomplete':
-        return 'Incomplete';
-      case 'incomplete_expired':
-        return 'Expired';
-      case 'unpaid':
-        return 'Unpaid';
-      default:
-        return status;
-    }
-  };
 
-  // Helper function to determine if subscription is expiring
-  const isSubscriptionExpiring = (subscription?: UserSubscription): boolean => {
-    if (!subscription || !subscription.current_period_end) return false;
-    
-    const now = new Date();
-    const periodEnd = new Date(subscription.current_period_end);
-    const daysUntilExpiry = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
-    // Consider expiring if:
-    // 1. Subscription is set to cancel at period end
-    // 2. Subscription is past_due (payment failed)
-    // 3. Active subscription with less than 7 days until renewal (upcoming)
-    // 4. Subscription status indicates payment issues
-    return (
-      subscription.cancel_at_period_end ||
-      subscription.status === 'past_due' ||
-      subscription.status === 'incomplete' ||
-      subscription.status === 'unpaid' ||
-      (subscription.status === 'active' && daysUntilExpiry <= 7 && daysUntilExpiry > 0)
-    );
-  };
 
-  // Helper function to get expiration message
-  const getExpirationMessage = (subscription: UserSubscription): string | null => {
-    if (!subscription.current_period_end) return null;
-    
-    const now = new Date();
-    const periodEnd = new Date(subscription.current_period_end);
-    const daysUntilExpiry = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (subscription.cancel_at_period_end) {
-      return `Subscription will end on ${formatDate(subscription.current_period_end)}`;
-    }
-    
-    if (subscription.status === 'past_due') {
-      return `Payment failed. Subscription expires on ${formatDate(subscription.current_period_end)} without payment`;
-    }
-    
-    if (subscription.status === 'incomplete' || subscription.status === 'unpaid') {
-      return `Payment required to continue service. Expires on ${formatDate(subscription.current_period_end)}`;
-    }
-    
-    if (subscription.status === 'active' && daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
-      return `Subscription renews in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} on ${formatDate(subscription.current_period_end)}`;
-    }
-    
-    return null;
-  };
 
   if (loading) {
     return (
@@ -222,8 +132,8 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onUpgr
         <h3 className="text-lg font-medium text-gray-900">
           Subscription
         </h3>
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(subscription.status, subscription)}`}>
-          {getStatusText(subscription.status, subscription)}
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSubscriptionStatusColor(subscription)}`}>
+          {getSubscriptionStatusText(subscription)}
         </span>
       </div>
 

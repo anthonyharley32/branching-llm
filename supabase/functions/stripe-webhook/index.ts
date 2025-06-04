@@ -281,7 +281,11 @@ async function handleInvoiceUpcoming(invoice: any) {
   // We can use this to update metadata or trigger notifications
   // The frontend will automatically show "Expiring" based on date calculation
   
-  console.log(`Upcoming invoice for subscription ${subscriptionId}. Due: ${new Date(invoice.created * 1000 + (invoice.days_until_due || 0) * 24 * 60 * 60 * 1000)}`);
+  // Use Stripe's official due_date field, fallback to period_end if not available
+  const dueDateTimestamp = invoice.due_date || invoice.period_end;
+  const dueDate = dueDateTimestamp ? new Date(dueDateTimestamp * 1000) : null;
+  
+  console.log(`Upcoming invoice for subscription ${subscriptionId}. Due: ${dueDate ? dueDate.toISOString() : 'Unknown'}`);
 }
 
 async function handleInvoiceFinalized(invoice: any) {
