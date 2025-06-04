@@ -6,7 +6,6 @@
 [ ] LaTeX not working. 
 
 [ ] click search bar during generation
-[ ] Logo goes away in branch
 [ ] Delete branch
 [ ] During generation highlight causing the indicator issue
 [ ] Hover the highlight instead of the indicator. Use tooltip?
@@ -48,6 +47,7 @@
 [X] Current model at top.
 [X] Preview margin
 [X] Auto dark mode??
+[X] Logo goes away in branch
 
 
 

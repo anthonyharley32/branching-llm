@@ -430,6 +430,7 @@ const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null
     if (!subscriptionData || !subscriptionData.current_period_end || subscriptionTier === 'free') return false;
     
     const now = new Date();
+    // Safe date creation - we've already checked current_period_end is not null above
     const periodEnd = new Date(subscriptionData.current_period_end);
     const daysUntilExpiry = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     
@@ -468,7 +469,10 @@ const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null
     
     if (subscriptionData.status === 'active' && currentPeriodEnd) {
       const now = new Date();
-      const periodEnd = new Date(subscriptionData.current_period_end!);
+      // Safe null check - if current_period_end is null, we can't calculate days until expiry
+      if (!subscriptionData.current_period_end) return null;
+      
+      const periodEnd = new Date(subscriptionData.current_period_end);
       const daysUntilExpiry = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       
       if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {

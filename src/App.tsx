@@ -993,91 +993,86 @@ You should focus your explanation specifically on this highlighted text. While t
       <div className="flex flex-col flex-1 overflow-hidden">
         <header className="h-16 border-b border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 flex items-center justify-between px-4 sm:px-6 shrink-0 relative">
           {/* Left Side: Show logo title */}
-          {branchStack.length === 0 && (
-            <div className="flex items-center gap-2">
-              <img src="/Navi Logos/PNG_Navi-removebg-preview.png" alt="Navi" className="h-10 w-auto" />
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <img src="/Navi Logos/PNG_Navi-removebg-preview.png" alt="Navi" className="h-10 w-auto" />
+          </div>
 
           {/* Center Content: Empty */}
 
-          {/* Right Side: Auth Controls (always show unless back button logic changes this) */}
-          {/* Currently shows when not in branch view - this seems correct */}
-          {branchStack.length === 0 && (
-              <div className="flex items-center gap-4 relative"> {/* Added relative positioning for dropdown */}
-                  {/* Bug Report Button */}
-                  <BugReportButton buttonText="Report Bug" className="text-sm cursor-pointer" />
-                  
-                  {/* Auth Controls / User Info */}
-                  {session ? (
-                      <div className="relative"> {/* Wrapper for button and dropdown */}
-                          <button
-                              ref={profileButtonRef} // Attach ref
-                              onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} // Toggle dropdown
-                              className="flex items-center justify-center h-8 w-8 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-blue-500 cursor-pointer overflow-hidden" // Adjusted focus rings
-                              aria-label="Profile menu"
-                              title="Profile menu"
-                              aria-haspopup="true"
-                              aria-expanded={isProfileDropdownOpen}
-                          >
-                              <ProfilePicture 
-                                  src={user?.user_metadata?.avatar_url} 
-                                  fallbackSrc={userProfile?.avatar_fallback_url}
-                                  alt={userProfile?.display_name || user?.user_metadata?.full_name || "User profile"}
-                                  className="h-full w-full object-cover"
-                              />
-                          </button>
-                          
-                          {/* Profile Dropdown Menu */} 
-                          <AnimatePresence>
-                              {isProfileDropdownOpen && (
-                                  <motion.div
-                                      ref={dropdownRef} // Attach ref
-                                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                      transition={{ duration: 0.15, ease: "easeOut" }}
-                                      className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none z-50"
-                                      role="menu"
-                                      aria-orientation="vertical"
-                                      aria-labelledby="profile-menu-button"
-                                  >
-                                      <div className="p-1" role="none">
-                                          <button
-                                              onClick={() => {
-                                                  openProfileModal();
-                                                  setIsProfileDropdownOpen(false); // Close dropdown after click
-                                              }}
-                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md cursor-pointer"
-                                              role="menuitem"
-                                          >
-                                              Settings
-                                          </button>
-                                          <button
-                                              onClick={() => {
-                                                  signOut();
-                                                  setIsProfileDropdownOpen(false); // Close dropdown after click
-                                              }}
-                                              className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md cursor-pointer"
-                                              role="menuitem"
-                                          >
-                                              Sign Out
-                                          </button>
-                                      </div>
-                                  </motion.div>
-                              )}
-                          </AnimatePresence>
-                      </div>
-                  ) : (
-                      <button 
-                          onClick={openAuthModal}
-                          className="flex items-center gap-1 py-2 px-3 bg-black text-white rounded-md hover:bg-gray-800 text-sm font-semibold transition-colors cursor-pointer"
+          {/* Right Side: Auth Controls */}
+          <div className="flex items-center gap-4 relative"> {/* Added relative positioning for dropdown */}
+              {/* Bug Report Button */}
+              <BugReportButton buttonText="Report Bug" className="text-sm cursor-pointer" />
+              
+              {/* Auth Controls / User Info */}
+              {session ? (
+                  <div className="relative"> {/* Wrapper for button and dropdown */}
+                      <button
+                          ref={profileButtonRef} // Attach ref
+                          onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} // Toggle dropdown
+                          className="flex items-center justify-center h-8 w-8 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-blue-500 cursor-pointer overflow-hidden" // Adjusted focus rings
+                          aria-label="Profile menu"
+                          title="Profile menu"
+                          aria-haspopup="true"
+                          aria-expanded={isProfileDropdownOpen}
                       >
-                          Login / Register
+                          <ProfilePicture 
+                              src={user?.user_metadata?.avatar_url} 
+                              fallbackSrc={userProfile?.avatar_fallback_url}
+                              alt={userProfile?.display_name || user?.user_metadata?.full_name || "User profile"}
+                              className="h-full w-full object-cover"
+                          />
                       </button>
-                  )}
-              </div>
-          )}
+                      
+                      {/* Profile Dropdown Menu */} 
+                      <AnimatePresence>
+                          {isProfileDropdownOpen && (
+                              <motion.div
+                                  ref={dropdownRef} // Attach ref
+                                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                  transition={{ duration: 0.15, ease: "easeOut" }}
+                                  className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none z-50"
+                                  role="menu"
+                                  aria-orientation="vertical"
+                                  aria-labelledby="profile-menu-button"
+                              >
+                                  <div className="p-1" role="none">
+                                      <button
+                                          onClick={() => {
+                                              openProfileModal();
+                                              setIsProfileDropdownOpen(false); // Close dropdown after click
+                                          }}
+                                          className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md cursor-pointer"
+                                          role="menuitem"
+                                      >
+                                          Settings
+                                      </button>
+                                      <button
+                                          onClick={() => {
+                                              signOut();
+                                              setIsProfileDropdownOpen(false); // Close dropdown after click
+                                          }}
+                                          className="w-full text-left block px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md cursor-pointer"
+                                          role="menuitem"
+                                      >
+                                          Sign Out
+                                      </button>
+                                  </div>
+                              </motion.div>
+                          )}
+                      </AnimatePresence>
+                  </div>
+              ) : (
+                  <button 
+                      onClick={openAuthModal}
+                      className="flex items-center gap-1 py-2 px-3 bg-black text-white rounded-md hover:bg-gray-800 text-sm font-semibold transition-colors cursor-pointer"
+                  >
+                      Login / Register
+                  </button>
+              )}
+          </div>
         </header>
 
         {/* Left Sidebar Icons (only for logged-in users) */}
