@@ -102,9 +102,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const signInWithPassword = async (email: string, password: string): Promise<void> => {
-    setIsLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setIsLoading(false); // Set loading false after attempt
     if (error) {
       console.error('Error signing in:', error);
       throw error; // Re-throw the error to be caught in the UI component
@@ -113,7 +111,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
   
   const signUp = async (email: string, password: string): Promise<void> => {
-    setIsLoading(true);
     const { error } = await supabase.auth.signUp({ 
         email, 
         password, 
@@ -122,7 +119,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             emailRedirectTo: window.location.origin, // Redirect back to app after verification
         }
     });
-    setIsLoading(false);
     if (error) {
       console.error('Error signing up:', error);
       throw error;

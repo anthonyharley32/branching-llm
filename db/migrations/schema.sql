@@ -43,7 +43,7 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = '';
 
 -- Function to handle new user creation
 CREATE OR REPLACE FUNCTION handle_new_user() 
@@ -80,7 +80,7 @@ BEGIN
   
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 -- Function to get user's current subscription tier with available models
 CREATE OR REPLACE FUNCTION get_user_subscription_tier(user_uuid UUID)
@@ -101,9 +101,9 @@ BEGIN
     st.daily_message_limit,
     st.features,
     COALESCE(us.status, 'none') as status
-  FROM users u
-  LEFT JOIN user_subscriptions us ON u.id = us.user_id AND us.status = 'active'
-  LEFT JOIN subscription_tiers st ON us.tier_id = st.id
+  FROM public.users u
+  LEFT JOIN public.user_subscriptions us ON u.id = us.user_id AND us.status = 'active'
+  LEFT JOIN public.subscription_tiers st ON us.tier_id = st.id
   WHERE u.id = user_uuid;
   
   -- If no subscription found, return free tier
@@ -116,12 +116,12 @@ BEGIN
       st.daily_message_limit,
       st.features,
       'none'::TEXT as status
-    FROM subscription_tiers st
+    FROM public.subscription_tiers st
     WHERE st.slug = 'free'
     LIMIT 1;
   END IF;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 -- Function to get available models for a user
 CREATE OR REPLACE FUNCTION get_user_available_models(user_uuid UUID)
@@ -138,9 +138,9 @@ DECLARE
 BEGIN
   -- Get user's tier level
   SELECT COALESCE(st.tier_level, 0) INTO user_tier_level
-  FROM users u
-  LEFT JOIN user_subscriptions us ON u.id = us.user_id AND us.status = 'active'
-  LEFT JOIN subscription_tiers st ON us.tier_id = st.id
+  FROM public.users u
+  LEFT JOIN public.user_subscriptions us ON u.id = us.user_id AND us.status = 'active'
+  LEFT JOIN public.subscription_tiers st ON us.tier_id = st.id
   WHERE u.id = user_uuid;
   
   -- If no tier found, default to free tier level (0)
@@ -157,13 +157,13 @@ BEGIN
     m.api_model_id,
     m.is_reasoning,
     m.description
-  FROM models m
-  JOIN subscription_tiers st ON m.minimum_tier_id = st.id
+  FROM public.models m
+  JOIN public.subscription_tiers st ON m.minimum_tier_id = st.id
   WHERE st.tier_level <= user_tier_level 
     AND m.is_active = true
   ORDER BY m.company, m.is_reasoning, m.name;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 -- Function to check and update daily usage
 CREATE OR REPLACE FUNCTION check_daily_usage_limit(user_uuid UUID)
@@ -174,7 +174,7 @@ DECLARE
   user_tier RECORD;
 BEGIN
   -- Get user's current tier and daily limit
-  SELECT * INTO user_tier FROM get_user_subscription_tier(user_uuid) LIMIT 1;
+  SELECT * INTO user_tier FROM public.get_user_subscription_tier(user_uuid) LIMIT 1;
   
   -- If unlimited messages (NULL limit), allow
   IF user_tier.daily_message_limit IS NULL THEN
@@ -183,26 +183,26 @@ BEGIN
   
   -- Get current usage for today
   SELECT COALESCE(message_count, 0) INTO current_usage
-  FROM daily_usage
+  FROM public.daily_usage
   WHERE user_id = user_uuid AND date = CURRENT_DATE;
   
   -- Check if under limit
   RETURN current_usage < user_tier.daily_message_limit;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 -- Function to increment daily usage
 CREATE OR REPLACE FUNCTION increment_daily_usage(user_uuid UUID)
 RETURNS VOID AS $$
 BEGIN
-  INSERT INTO daily_usage (user_id, date, message_count)
+  INSERT INTO public.daily_usage (user_id, date, message_count)
   VALUES (user_uuid, CURRENT_DATE, 1)
   ON CONFLICT (user_id, date)
   DO UPDATE SET 
-    message_count = daily_usage.message_count + 1,
+    message_count = public.daily_usage.message_count + 1,
     updated_at = NOW();
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 -- =====================================
 -- TABLES
@@ -454,112 +454,131 @@ ALTER TABLE daily_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bugs ENABLE ROW LEVEL SECURITY;
 
 -- Users table policies
+DROP POLICY IF EXISTS users_select_own ON users;
 CREATE POLICY users_select_own ON users 
-  FOR SELECT USING (auth.uid() = id);
-  
-CREATE POLICY users_update_own ON users 
-  FOR UPDATE USING (auth.uid() = id);
+  FOR SELECT USING ((select auth.uid()) = id);
 
+DROP POLICY IF EXISTS users_update_own ON users;  
+CREATE POLICY users_update_own ON users 
+  FOR UPDATE USING ((select auth.uid()) = id);
+
+DROP POLICY IF EXISTS users_insert_own ON users;
 CREATE POLICY users_insert_own ON users 
-  FOR INSERT WITH CHECK (auth.uid() = id);
+  FOR INSERT WITH CHECK ((select auth.uid()) = id);
 
 -- User profiles policies
+DROP POLICY IF EXISTS profiles_select_own ON user_profiles;
 CREATE POLICY profiles_select_own ON user_profiles 
-  FOR SELECT USING (auth.uid() = user_id);
-  
+  FOR SELECT USING ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS profiles_insert_own ON user_profiles;  
 CREATE POLICY profiles_insert_own ON user_profiles 
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-  
+  FOR INSERT WITH CHECK ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS profiles_update_own ON user_profiles;  
 CREATE POLICY profiles_update_own ON user_profiles 
-  FOR UPDATE USING (auth.uid() = user_id);
-  
+  FOR UPDATE USING ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS profiles_delete_own ON user_profiles;  
 CREATE POLICY profiles_delete_own ON user_profiles 
-  FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING ((select auth.uid()) = user_id);
 
 -- Conversations policies
+DROP POLICY IF EXISTS conversations_select_own ON conversations;
 CREATE POLICY conversations_select_own ON conversations 
-  FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
-  
+  FOR SELECT USING ((select auth.uid()) = user_id OR user_id IS NULL);
+
+DROP POLICY IF EXISTS conversations_insert_own ON conversations;  
 CREATE POLICY conversations_insert_own ON conversations 
-  FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
-  
+  FOR INSERT WITH CHECK ((select auth.uid()) = user_id OR user_id IS NULL);
+
+DROP POLICY IF EXISTS conversations_update_own ON conversations;  
 CREATE POLICY conversations_update_own ON conversations 
-  FOR UPDATE USING (auth.uid() = user_id);
-  
+  FOR UPDATE USING ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS conversations_delete_own ON conversations;  
 CREATE POLICY conversations_delete_own ON conversations 
-  FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING ((select auth.uid()) = user_id);
 
 -- Conversation branches policies
+DROP POLICY IF EXISTS branches_select_own ON conversation_branches;
 CREATE POLICY branches_select_own ON conversation_branches 
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM conversations 
       WHERE conversations.id = conversation_branches.conversation_id 
-      AND (conversations.user_id = auth.uid() OR conversations.user_id IS NULL)
+      AND (conversations.user_id = (select auth.uid()) OR conversations.user_id IS NULL)
     )
   );
-  
+
+DROP POLICY IF EXISTS branches_insert_own ON conversation_branches;  
 CREATE POLICY branches_insert_own ON conversation_branches 
   FOR INSERT WITH CHECK (
     EXISTS (
       SELECT 1 FROM conversations 
       WHERE conversations.id = conversation_branches.conversation_id 
-      AND (conversations.user_id = auth.uid() OR conversations.user_id IS NULL)
+      AND (conversations.user_id = (select auth.uid()) OR conversations.user_id IS NULL)
     )
   );
-  
+
+DROP POLICY IF EXISTS branches_update_own ON conversation_branches;  
 CREATE POLICY branches_update_own ON conversation_branches 
   FOR UPDATE USING (
     EXISTS (
       SELECT 1 FROM conversations 
       WHERE conversations.id = conversation_branches.conversation_id 
-      AND conversations.user_id = auth.uid()
+      AND conversations.user_id = (select auth.uid())
     )
   );
-  
+
+DROP POLICY IF EXISTS branches_delete_own ON conversation_branches;  
 CREATE POLICY branches_delete_own ON conversation_branches 
   FOR DELETE USING (
     EXISTS (
       SELECT 1 FROM conversations 
       WHERE conversations.id = conversation_branches.conversation_id 
-      AND conversations.user_id = auth.uid()
+      AND conversations.user_id = (select auth.uid())
     )
   );
 
 -- Conversation messages policies
+DROP POLICY IF EXISTS messages_select_own ON conversation_messages;
 CREATE POLICY messages_select_own ON conversation_messages 
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM conversations 
       WHERE conversations.id = conversation_messages.conversation_id 
-      AND (conversations.user_id = auth.uid() OR conversations.user_id IS NULL)
+      AND (conversations.user_id = (select auth.uid()) OR conversations.user_id IS NULL)
     )
   );
-  
+
+DROP POLICY IF EXISTS messages_insert_own ON conversation_messages;  
 CREATE POLICY messages_insert_own ON conversation_messages 
   FOR INSERT WITH CHECK (
     EXISTS (
       SELECT 1 FROM conversations 
       WHERE conversations.id = conversation_messages.conversation_id 
-      AND (conversations.user_id = auth.uid() OR conversations.user_id IS NULL)
+      AND (conversations.user_id = (select auth.uid()) OR conversations.user_id IS NULL)
     )
   );
-  
+
+DROP POLICY IF EXISTS messages_update_own ON conversation_messages;  
 CREATE POLICY messages_update_own ON conversation_messages 
   FOR UPDATE USING (
     EXISTS (
       SELECT 1 FROM conversations 
       WHERE conversations.id = conversation_messages.conversation_id 
-      AND conversations.user_id = auth.uid()
+      AND conversations.user_id = (select auth.uid())
     )
   );
-  
+
+DROP POLICY IF EXISTS messages_delete_own ON conversation_messages;  
 CREATE POLICY messages_delete_own ON conversation_messages 
   FOR DELETE USING (
     EXISTS (
       SELECT 1 FROM conversations 
       WHERE conversations.id = conversation_messages.conversation_id 
-      AND conversations.user_id = auth.uid()
+      AND conversations.user_id = (select auth.uid())
     )
   );
 
@@ -572,37 +591,47 @@ CREATE POLICY models_select_active ON models
   FOR SELECT USING (is_active = true);
 
 -- User subscriptions policies
+DROP POLICY IF EXISTS user_subscriptions_select_own ON user_subscriptions;
 CREATE POLICY user_subscriptions_select_own ON user_subscriptions
-  FOR SELECT USING (auth.uid() = user_id);
-  
+  FOR SELECT USING ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS user_subscriptions_insert_own ON user_subscriptions;  
 CREATE POLICY user_subscriptions_insert_own ON user_subscriptions
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-  
+  FOR INSERT WITH CHECK ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS user_subscriptions_update_own ON user_subscriptions;  
 CREATE POLICY user_subscriptions_update_own ON user_subscriptions
-  FOR UPDATE USING (auth.uid() = user_id);
+  FOR UPDATE USING ((select auth.uid()) = user_id);
 
 -- Daily usage policies
+DROP POLICY IF EXISTS daily_usage_select_own ON daily_usage;
 CREATE POLICY daily_usage_select_own ON daily_usage
-  FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
-  
+  FOR SELECT USING ((select auth.uid()) = user_id OR user_id IS NULL);
+
+DROP POLICY IF EXISTS daily_usage_insert_own ON daily_usage;  
 CREATE POLICY daily_usage_insert_own ON daily_usage
-  FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
-  
+  FOR INSERT WITH CHECK ((select auth.uid()) = user_id OR user_id IS NULL);
+
+DROP POLICY IF EXISTS daily_usage_update_own ON daily_usage;  
 CREATE POLICY daily_usage_update_own ON daily_usage
-  FOR UPDATE USING (auth.uid() = user_id OR user_id IS NULL);
+  FOR UPDATE USING ((select auth.uid()) = user_id OR user_id IS NULL);
 
 -- Bugs policies
+DROP POLICY IF EXISTS bugs_select_all ON bugs;
 CREATE POLICY bugs_select_all ON bugs
   FOR SELECT USING (true);
-  
+
+DROP POLICY IF EXISTS bugs_insert_authenticated ON bugs;  
 CREATE POLICY bugs_insert_authenticated ON bugs
-  FOR INSERT WITH CHECK (auth.uid() IS NULL OR auth.uid() IS NOT NULL);
-  
+  FOR INSERT WITH CHECK ((select auth.uid()) IS NULL OR (select auth.uid()) IS NOT NULL);
+
+DROP POLICY IF EXISTS bugs_update_all ON bugs;  
 CREATE POLICY bugs_update_all ON bugs
-  FOR UPDATE USING (auth.uid() IS NOT NULL);
-  
+  FOR UPDATE USING ((select auth.uid()) IS NOT NULL);
+
+DROP POLICY IF EXISTS bugs_delete_own ON bugs;  
 CREATE POLICY bugs_delete_own ON bugs
-  FOR DELETE USING (auth.uid() = reporter_id);
+  FOR DELETE USING ((select auth.uid()) = reporter_id);
 
 -- =====================================
 -- STORAGE POLICIES (user-assets bucket)
@@ -624,7 +653,7 @@ WITH CHECK (
   bucket_id = 'user-assets' AND
   name LIKE 'avatars/%' AND
   -- Extract the 36-character UUID from the path component after 'avatars/'
-  auth.uid() = uuid(substring(split_part(name, '/', 2) from '^(.{36})-'))
+  (select auth.uid()) = uuid(substring(split_part(name, '/', 2) from '^(.{36})-'))
 );
 
 -- 3. Allow authenticated users to update/delete their own avatar
@@ -639,7 +668,7 @@ USING (
   bucket_id = 'user-assets' AND
   name LIKE 'avatars/%' AND
   -- Correctly extract the full 36-character UUID from the filename
-  auth.uid() = uuid(substring(split_part(name, '/', 2) from '^(.{36})-'))
+  (select auth.uid()) = uuid(substring(split_part(name, '/', 2) from '^(.{36})-'))
 );
 
 -- Create separate policy for DELETE
@@ -650,7 +679,7 @@ USING (
   bucket_id = 'user-assets' AND
   name LIKE 'avatars/%' AND
   -- Correctly extract the full 36-character UUID from the filename
-  auth.uid() = uuid(substring(split_part(name, '/', 2) from '^(.{36})-'))
+  (select auth.uid()) = uuid(substring(split_part(name, '/', 2) from '^(.{36})-'))
 ); 
 
 -- =====================================

@@ -1,22 +1,16 @@
 ==BUGS==
-[ ] click chat input while prev chat loading
 [ ] netlify app redirect to main domain
-[ ] test to prod mode.
-[ ] Memories
 [ ] LaTeX not working. 
-
-[ ] click search bar during generation
-[ ] Delete branch
-[ ] During generation highlight causing the indicator issue
-[ ] Hover the highlight instead of the indicator. Use tooltip?
-[ ] fix bug with multiple indicators on one line
+[ ] Prompt injection
+[ ] Email Login
+[ ] Supabase Email Confirmation
 
 ==UPDATES==
 [ ] new chat small button opens sidebar.
 [ ] url with /#
 [ ] language
 [ ] Updated reasoning UI
-
+[ ] Slow queries
 
 
 ==FEATURES==
@@ -25,6 +19,7 @@
 [ ] Video Input
 [ ] Prove college email and get 20% percent off  (later)
 [ ] Deepseek
+[ ] Memories
 
 
 ==DONE==
@@ -48,6 +43,11 @@
 [X] Preview margin
 [X] Auto dark mode??
 [X] Logo goes away in branch
+[X] click search bar during generation
+[X] Dark mode chat scroll is white???? Far right?
+[X] test to prod mode.
+[X] click chat input while prev chat loading
+[X] Supabase warnings
 
 
 
@@ -56,10 +56,12 @@
 [-] 2 user tables?
 [-] Sidebar closes automatically on new chat/switch chat
 [ ] when i come out of branch, scroll/load at branch point
-[ ] Dark mode chat scroll is white???? Far right?
-
-
-
+[ ] Delete branch (Drew)
+[ ] Hover the highlight instead of the indicator. Use tooltip? (Drew)
+[ ] fix bug with multiple indicators on one line
+[ ] scroll bar on right? (Drew)
+[ ] Collapsible Chats (Benji)
+[ ] Sidebar branch UI (Benji)
 
 
 
@@ -89,6 +91,7 @@ DONE
 [X] unclick chat options
 [X] Get rid of notes on grok models.
 [X] Hover on current chat
+[X] "Code expired"
 
 
 
