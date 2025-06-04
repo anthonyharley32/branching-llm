@@ -363,6 +363,9 @@ export async function generateCompletionStream(
             const jsonStr = line.substring(6);
             if (jsonStr === '[DONE]') continue;
             
+            // Skip empty or whitespace-only JSON strings
+            if (!jsonStr.trim()) continue;
+            
             const data = JSON.parse(jsonStr);
             
             // Check for error response first with improved error detection
@@ -504,6 +507,8 @@ export async function generateCompletionStream(
             // as some SSE chunks are expected to be metadata only.
           } catch (e) {
             console.warn('Error parsing SSE chunk:', e);
+            console.warn('Problematic line:', line);
+            
             // If the chunk contains error data, handle it properly
             if (line.includes('"error"')) {
               try {

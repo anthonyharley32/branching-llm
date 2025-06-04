@@ -20,11 +20,16 @@ interface ChatMessageProps {
 
 // Custom function to pre-process KaTeX format to ensure proper rendering
 const preprocessMarkdown = (content: string): string => {
-  // Ensure display math is on its own lines
   return content
-    // Fix display math not properly isolated on its own lines
-    .replace(/([^\n])(\$\$)/g, '$1\n\n$$')
-    .replace(/(\$\$)([^\n])/g, '$$\n\n$2');
+    // Convert LaTeX bracket display math \[ ... \] to $$ ... $$
+    .replace(/\\\[/g, '$$')
+    .replace(/\\\]/g, '$$')
+    // Convert LaTeX parentheses inline math \( ... \) to $ ... $
+    .replace(/\\\(/g, '$')
+    .replace(/\\\)/g, '$')
+    // Ensure display math is on its own lines (single line break)
+    .replace(/([^\n])(\$\$)/g, '$1\n$$')
+    .replace(/(\$\$)([^\n])/g, '$$\n$2');
 };
 
 // The main component function
@@ -153,11 +158,11 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
   };
 
   // Specific classes for user messages (Grok style)
-  const userBubbleClasses = 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-4 py-3 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl rounded-br-md max-w-xs md:max-w-md lg:max-w-lg break-words self-end border border-gray-200 dark:border-gray-600 shadow-sm transition-colors text-[15px]';
+  const userBubbleClasses = 'chat-message-user bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-4 py-3 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl rounded-br-md max-w-xs md:max-w-md lg:max-w-lg break-words self-end border border-gray-200 dark:border-gray-600 shadow-sm transition-colors text-[15px]';
 
   // Minimal classes for AI messages (plain text with adjusted leading)
   // Keep relative positioning to allow absolutely positioned wave background
-  const aiTextClasses = 'text-gray-800 dark:text-gray-200 px-4 py-2 max-w-prose break-words self-start leading-relaxed relative';
+  const aiTextClasses = 'chat-message-ai text-gray-800 dark:text-gray-200 px-4 py-2 max-w-prose break-words self-start leading-relaxed relative';
 
   // --- Check if this message is a branch point --- 
   const isBranchPoint = !isUser && hasChildren(message.id);
@@ -738,16 +743,19 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
 
             {/* Render message content using react-markdown */}
             <ReactMarkdown
-              remarkPlugins={[remarkMath, remarkGfm]}
+              remarkPlugins={[
+                [remarkMath, { singleDollarTextMath: true }], 
+                remarkGfm
+              ]}
               rehypePlugins={[
                 rehypeRaw, 
                 [rehypeKatex, { 
                   throwOnError: false,
-                  output: 'mathml',
+                  output: 'html',
                   trust: true,  
                   strict: false,
                   displayMode: false,
-                  maxSize: 100,
+                  maxSize: 500,
                   maxExpand: 1000
                 }]
               ]}

@@ -2,8 +2,8 @@
 [ ] netlify app redirect to main domain
 [ ] LaTeX not working. 
 [ ] Prompt injection
-[ ] Email Login
 [ ] Supabase Email Confirmation
+[ ] message copy has additional newlines after
 
 ==UPDATES==
 [ ] new chat small button opens sidebar.
@@ -11,6 +11,8 @@
 [ ] language
 [ ] Updated reasoning UI
 [ ] Slow queries
+[ ] Register UI
+[ ] Default AI response style/tone (formal, casual, creative, balanced) IN CUSTOMIZE
 
 
 ==FEATURES==
@@ -20,6 +22,8 @@
 [ ] Prove college email and get 20% percent off  (later)
 [ ] Deepseek
 [ ] Memories
+[ ] search
+[ ] Links
 
 
 ==DONE==
@@ -48,6 +52,7 @@
 [X] test to prod mode.
 [X] click chat input while prev chat loading
 [X] Supabase warnings
+[X] Email Login
 
 
 
@@ -62,10 +67,6 @@
 [ ] scroll bar on right? (Drew)
 [ ] Collapsible Chats (Benji)
 [ ] Sidebar branch UI (Benji)
-
-
-
-
 
 
 
@@ -100,94 +101,35 @@ DONE
 ==PROFILE MODAL FEATURES TO BRAINSTORM==
 
 ==BEHAVIOR TAB FEATURES==
-[ ] Default AI response style/tone (formal, casual, creative, balanced)
-[ ] Response length preference (concise, detailed, balanced)
-[ ] Auto-send on Enter vs Ctrl+Enter toggle
-[ ] Message streaming animation speed control
-[ ] Auto-scroll behavior during generation (on/off)
-[ ] Sound notifications for message completion
-[ ] Typing indicators/animations (on/off)
-[ ] Auto-save drafts in chat input
-[ ] Smart suggestions/autocomplete in input
-[ ] Quick action shortcuts (copy, regenerate, edit)
-[ ] Default model selection persistence
-[ ] Temperature/creativity slider for AI responses
-[ ] Context window management (how much history to include)
-[ ] Auto-expand chat input as text grows
-[ ] Voice input auto-transcription behavior
-[ ] Image upload auto-processing settings
-[ ] Branch creation confirmation dialog (on/off)
+[O] Response length preference (concise, detailed, balanced)
+[O] Sound notifications for message completion
+[O] Auto-scroll behavior during generation (on/off)
+[O] Temperature/creativity slider for AI responses
 [ ] Auto-collapse thinking sections
-[ ] Message timestamp display preferences
 [ ] Chat list auto-refresh frequency
-[ ] New chat behavior (sidebar auto-open/close)
-[ ] Tab/window switching behavior
 [ ] Keyboard shortcuts customization
-[ ] Message grouping/threading preferences
-[ ] Auto-delete empty chats
-[ ] Draft persistence across sessions
-[ ] Response formatting preferences (markdown, plain text)
-[ ] Code syntax highlighting toggle
-[ ] Math rendering (LaTeX) toggle
 [ ] Link preview generation
-[ ] Message search behavior
 [ ] Export format preferences
-[ ] Auto-retry failed messages
-[ ] Connection timeout settings
-[ ] Offline mode behavior
-[ ] Multi-language input detection
-[ ] Smart quote/apostrophe conversion
 [ ] Auto-correct/spell-check toggle
-[ ] Grammar suggestions toggle
-[ ] Reading mode (hide UI elements)
-[ ] Focus mode (distraction-free writing)
 
 ==DATA CONTROLS TAB FEATURES==
-[ ] Export all conversations (JSON, PDF, TXT, MD)
-[ ] Export specific conversation
-[ ] Export date range of conversations
-[ ] Import conversations from file
-[ ] Conversation backup scheduling (daily, weekly, monthly)
-[ ] Cloud backup integration (Google Drive, Dropbox, iCloud)
-[ ] Local storage usage display
-[ ] Clear all conversation history
-[ ] Auto-delete conversations older than X days
-[ ] Selective conversation deletion
+[O] Export all conversations (JSON, PDF, TXT, MD)
+[O] Export specific conversation
+[O] Clear all conversation history
+[O] Auto-delete conversations older than X days
+[O] Conversation analytics/insights (word count, most used models, etc.)
+[O] Usage statistics (messages sent, tokens used, models used)[ ] Selective conversation deletion
 [ ] Message search and filter
-[ ] Conversation analytics/insights (word count, most used models, etc.)
-[ ] Usage statistics (messages sent, tokens used, models used)
-[ ] Data retention policy settings
-[ ] Anonymous usage analytics opt-in/out
-[ ] Crash reporting opt-in/out
-[ ] Performance telemetry opt-in/out
 [ ] Share conversation data for AI training opt-in/out
 [ ] Delete account and all data
 [ ] Download all personal data (GDPR compliance)
-[ ] Data portability (export in standard formats)
-[ ] Privacy dashboard (what data is collected)
 [ ] Third-party integrations data sharing settings
-[ ] API key storage and management
-[ ] Login session management (view/revoke sessions)
 [ ] Two-factor authentication setup
 [ ] Password change functionality
 [ ] Email preferences (notifications, updates)
 [ ] Data encryption status display
 [ ] Conversation archiving (hide but don't delete)
 [ ] Conversation starring/favoriting system
-[ ] Tag/label system for organization
-[ ] Folder/category organization
-[ ] Search history management
 [ ] Cache management (clear, size limits)
 [ ] Temporary conversation mode (auto-delete after session)
-[ ] Guest mode conversations handling
-[ ] Cross-device sync settings
-[ ] Conversation sharing permissions
-[ ] Public conversation gallery opt-in
-[ ] Data anonymization options
-[ ] Right to be forgotten implementation
-[ ] Data breach notification preferences
-[ ] Audit log of data access/changes
-[ ] Data minimization settings
-[ ] Cookie preferences management
-[ ] Location data usage settings
-[ ] Device fingerprinting preferences
+

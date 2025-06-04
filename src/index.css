@@ -32,95 +32,77 @@
 
 /* Custom KaTeX styling */
 .katex-display {
-  font-size: 1.21em !important;
-  margin: 1.5em 0 2em !important;
+  font-size: 1.2em !important;
+  margin: 1.5em 0 !important;
   overflow-x: auto;
   overflow-y: hidden;
   text-align: center;
-  padding: 0.5em 0 0.75em;
-  background-color: rgba(248, 249, 250, 0.5);
-  border-radius: 4px;
+  padding: 1em 0.5em;
+  background-color: rgba(248, 249, 250, 0.8);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  line-height: 1.4;
 }
 
 /* Dark mode KaTeX styling */
 .dark .katex-display {
-  background-color: rgba(31, 41, 55, 0.5);
+  background-color: rgba(31, 41, 55, 0.8);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Base KaTeX styling */
+/* Base KaTeX styling - improved readability */
 .katex {
-  font-size: 1.05em;
-  margin-bottom: 1.5em;
-  color: inherit !important; /* Ensure math color matches surrounding text */
+  font-size: 1.1em;
+  color: inherit !important;
+  margin: 0;
+  line-height: 1.5;
+  vertical-align: baseline;
 }
 
-/* Ensure spacing works for span katex elements */
-span.katex {
-  margin-top: 0.75em !important;
-  margin-bottom: 1em !important;
+/* Inline math - minimal spacing to maintain text flow */
+.katex.katex-inline {
+  margin: 0 0.1em;
+  padding: 0;
+  display: inline;
 }
 
-/* Exception for katex elements inside paragraphs (inline math) */
-p span.katex {
-  display: inline-block !important; /* Allows margins while staying inline */
-  margin-top: 0 !important;  /* Don't add top margin for inline math */
-  margin-bottom: 0.3em !important; /* Subtle bottom margin for inline math */
-  vertical-align: middle;
-}
+/* Let KaTeX handle its own rendering - don't override */
 
-/* Special case for specific structure in the screenshot */
-p + span.katex,
-ul + span.katex {
-  display: block !important; /* Only force display math onto its own line */
-  margin-top: 1em !important;
-  margin-bottom: 1.25em !important;
-}
-
-/* Display MathML and hide HTML content */
-.katex .katex-html {
-  position: absolute !important;
-  clip: rect(1px, 1px, 1px, 1px) !important;
-  padding: 0 !important;
-  border: 0 !important;
-  height: 1px !important;
-  width: 1px !important;
-  overflow: hidden !important;
-}
-
-.katex .katex-mathml {
-  /* Make MathML visible */
-  display: block !important;
-  position: static !important;
-  font-family: "KaTeX_Math", "Times New Roman", serif !important;
-  line-height: 1.4 !important;
-  margin-bottom: 0.5em !important;
-}
-
-/* Adjustments for MathML specific styling */
-.katex-mathml math {
-  display: inline-block;
-  margin: 0.25em 0 0.5em;
-  color: inherit !important; /* Ensure math color matches surrounding text */
-}
-
-.math-display .katex-mathml math {
+/* Math display blocks - unified styling with bullet-point-like spacing */
+.math.math-display,
+.katex-display {
+  padding: 1em 0.5em;
+  background-color: rgba(248, 249, 250, 0.8);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  margin: 1rem 0;  /* Match bullet point spacing */
+  line-height: 1.4;
+  white-space: nowrap;
   display: block;
-  margin: 0.5em auto 0.75em;
-  text-align: center;
 }
 
-/* Remove unnecessary CSS selectors */
-/* Add padding and background for math blocks */
-.math.math-display {
-  padding: 1em 0.5em 1.25em;
-  background-color: rgba(248, 249, 250, 0.5);
-  border-radius: 4px;
-  margin: 1em 0 1.75em;
+/* Paragraph-level math gets bullet-point spacing */
+p + .katex-display,
+.katex-display + p {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
 }
 
 /* Dark mode math display */
-.dark .math.math-display {
-  background-color: rgba(31, 41, 55, 0.5);
+.dark .math.math-display,
+.dark .katex-display {
+  background-color: rgba(31, 41, 55, 0.8);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Prevent line breaks in inline math */
+.katex-html {
+  white-space: nowrap;
+}
+
+/* Improve spacing around math elements */
+.katex + .katex {
+  margin-left: 0.5em;
 }
 
 /* Handle headings with Markdown numbering */
@@ -203,8 +185,38 @@ ol {
   list-style-type: decimal;
 }
 
+/* Default paragraph spacing - keep minimal for chat messages */
 p {
-  margin: 0.00rem 0;
+  margin: 0.25rem 0;
+}
+
+/* Content paragraphs (not in chat bubbles) get larger spacing */
+.prose p,
+.content p,
+.markdown-content p,
+[class*="content"] p:not(.chat-message-user):not(.chat-message-ai) {
+  margin: 1rem 0;
+}
+
+/* Explicitly keep chat message paragraphs compact */
+.chat-message-user p {
+  margin: 0rem 0 !important;
+}
+
+.chat-message-ai p {
+  margin: 1rem 0 !important;
+}
+
+/* Math in lists should have tighter spacing */
+li .katex-display {
+  margin: 0.5rem 0;
+}
+
+/* Math immediately after headings gets reduced top margin */
+h1 + .katex-display,
+h2 + .katex-display,
+h3 + .katex-display {
+  margin-top: 0.5rem;
 }
 
 pre {
@@ -262,36 +274,7 @@ blockquote {
   line-height: 1.4 !important;
 }
 
-/* Add space after inline math elements */
-.katex-inline {
-  margin-bottom: 0.35em !important;
-  display: inline-block;
-}
-
-/* Target math elements with display="block" attribute as shown in screenshot */
-math[display="block"] {
-  margin-top: 1.25em !important;
-  margin-bottom: 1.5em !important;
-  display: block !important;
-}
-
-/* Target parent spans of block math */
-span.katex:has(math[display="block"]) {
-  display: block !important;
-  margin-top: 1em !important;
-  margin-bottom: 1.5em !important;
-}
-
-/* Handle spacing after horizontal rules that often appear with math */
-hr + span.katex,
-hr + h2,
-hr + p {
-  margin-top: 1.25em !important;
-}
-
-span.katex + hr {
-  margin-top: 1.5em !important;
-}
+/* Clean up existing styling - removing duplicates */
 
 /* Add fade-in animation for the Branch button */
 @keyframes fadeIn {
