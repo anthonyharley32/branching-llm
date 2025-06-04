@@ -656,7 +656,9 @@ const ChatMessageInternal: React.FC<ChatMessageProps> = ({ message, onBranchCrea
 
   // Function to copy message content to clipboard
   const handleCopyClick = () => {
-    navigator.clipboard.writeText(message.content)
+    // Trim whitespace and normalize line endings to prevent extra spacing when pasting
+    const cleanContent = message.content.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    navigator.clipboard.writeText(cleanContent)
       .then(() => {
         // Optional: show a brief success notification
       })
