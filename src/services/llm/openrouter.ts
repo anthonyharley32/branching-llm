@@ -241,7 +241,8 @@ export async function generateCompletion(
 export async function generateCompletionStream(
   messages: Message[],
   callbacks: StreamCallbacks,
-  additionalSystemPrompt: string | null
+  additionalSystemPrompt: string | null,
+  abortController?: AbortController
 ): Promise<void> {
   try {
     const model = validateModel(config.openRouterModel);
@@ -320,7 +321,7 @@ export async function generateCompletionStream(
     // Check if we're using a reasoning model that can provide thinking traces
     const isReasoning = isReasoningModel(model);
 
-    // Return to using direct fetch but with proper CORS settings
+    // Return to using direct fetch but with proper CORS settings and abort support
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/llm-api`, {
       method: 'POST',
       headers: {
@@ -331,6 +332,7 @@ export async function generateCompletionStream(
         endpoint: 'chat/completions',
         payload: requestBody
       }),
+      signal: abortController?.signal, // Add abort signal support
       // Don't include credentials as this can cause CORS issues
     });
     
@@ -560,6 +562,12 @@ export async function generateCompletionStream(
   } catch (error: unknown) {
     console.error('Error generating completion stream from OpenRouter:', error);
     let llmError: LLMError;
+    
+    // Handle abort errors gracefully
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.log('Stream was cancelled by user');
+      return; // Don't call error callback for user-initiated cancellation
+    }
     
     // Special handling for provider errors with improved details
     if (error instanceof Error) {

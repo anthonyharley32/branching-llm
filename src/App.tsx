@@ -147,6 +147,9 @@ function AppContent() {
   
   // Track if current sending operation is using a reasoning model
   const [currentIsReasoningModel, setCurrentIsReasoningModel] = useState<boolean>(false);
+  
+  // AbortController for cancelling ongoing streams
+  const [currentAbortController, setCurrentAbortController] = useState<AbortController | null>(null);
 
   // State to trigger LLM call after user message is added
   const [pendingLlmCall, setPendingLlmCall] = useState<{
@@ -339,6 +342,10 @@ function AppContent() {
 
     const executeStream = async () => {
       try {
+        // Create a new AbortController for this stream
+        const abortController = new AbortController();
+        setCurrentAbortController(abortController);
+        
         const currentModel = pendingLlmCall.model || getCurrentModel();
         const modelIsExplicitlyReasoning = isReasoningModel(currentModel);
         const modelHasInternalReasoning = modelIsExplicitlyReasoning && 
@@ -430,6 +437,7 @@ function AppContent() {
             }
             setIsSending(false);
             setCurrentIsReasoningModel(false); // Reset reasoning model flag
+            setCurrentAbortController(null); // Clear abort controller
             if (tempAiNodeId && modelIsExplicitlyReasoning) {
               console.log('COMPLETION: Thinking content finalized', {
                 nodeId: tempAiNodeId,
@@ -449,6 +457,7 @@ function AppContent() {
             setError(llmError);
             setIsSending(false);
             setCurrentIsReasoningModel(false); // Reset reasoning model flag
+            setCurrentAbortController(null); // Clear abort controller
             setStreamingAiNodeId(null);
             if (tempAiNodeId) {
               const aiMessage = conversation?.messages[tempAiNodeId];
@@ -459,7 +468,7 @@ function AppContent() {
         };
 
         // Pass the full messagePath which includes id and createdAt
-        await generateCompletionStream(messagePath, callbacks, additionalSystemPrompt);
+        await generateCompletionStream(messagePath, callbacks, additionalSystemPrompt, abortController);
 
       } catch (err) { // Catch errors during stream *setup*
         const setupError: LLMError = {
@@ -470,6 +479,7 @@ function AppContent() {
         setError(setupError);
         setIsSending(false);
         setCurrentIsReasoningModel(false); // Reset reasoning model flag
+        setCurrentAbortController(null); // Clear abort controller
       } finally {
         setPendingLlmCall(null); // Clear the trigger regardless of success/failure
       }
@@ -519,6 +529,13 @@ function AppContent() {
   }, [editedMessageId, conversation, setIsSending, setError, setStreamingAiNodeId]);
 
   const handleSendMessage = async (text: string, images?: string[]) => {
+    // Cancel any ongoing stream before starting a new one
+    if (currentAbortController) {
+      console.log('Cancelling ongoing stream due to new message');
+      currentAbortController.abort();
+      setCurrentAbortController(null);
+    }
+    
     setIsSending(true);
     setError(null);
     setStreamingAiNodeId(null); // Reset streaming ID on new message

@@ -44,7 +44,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
     event?.preventDefault();
     const message = inputValue.trim();
     
-    if ((message || selectedImages.length > 0) && !isLoading) {
+    if (message || selectedImages.length > 0) {
       // Convert images to base64 strings
       const imageBase64Strings = selectedImages.map(img => img.url);
       
@@ -253,7 +253,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="How can Navi help?"
-          disabled={isLoading}
           className="flex-grow px-3 py-2 bg-transparent border-none focus:outline-none focus:ring-0 resize-none overflow-hidden text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           rows={1}
           style={{ minHeight: '2.5rem', maxHeight: '12rem' }}
@@ -261,7 +260,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
 
         <button
           type="submit"
-          disabled={isLoading || (!inputValue.trim() && selectedImages.length === 0)}
+          disabled={!inputValue.trim() && selectedImages.length === 0}
           className="p-2 ml-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 cursor-pointer"
         >
           <IoMdArrowUp size={20} />
